@@ -2,10 +2,8 @@
     "manifest_version": 3,
     "name": "My Extension",
     "version": "0.1.0",
+    "permissions": ["storage", "scripting", "tabs"],
     "description": "Example extension",
-    "action": {
-        "default_popup": "src/popup/index.html"
-    },
     "background": {
         "service_worker": "src/background.ts"
     },
@@ -15,6 +13,5 @@
             "js": ["src/content.ts"],
             "run_at": "document_idle"
         }
-    ],
-    "permissions": ["storage", "scripting", "tabs"]
+    ]
 }
