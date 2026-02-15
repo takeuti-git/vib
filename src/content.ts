@@ -6,33 +6,29 @@ console.log("Alt+v: Focus canvas");
 
 type VimMode = "normal" | "insert";
 
-type VimMotionState = {
-    col: number;
+type VimState = {
+    mode: VimMode,
     row: number;
+    col: number;
     lastMaxCol: number;
 };
 
-type VimState = {
-    mode: VimMode,
-    motion: VimMotionState,
+type VimBuffer = {
+    lines: Line[];
 };
 
-type VimBuffer = {
-    cmd: string,
-    lastCmd: RepeatableCmd | null,
+type Line = {
+    text: string;
 };
 
 const state: VimState = {
     mode: "normal",
-    motion: {
-        col: 0,
-        row: 0,
-        lastMaxCol: 0,
-    },
+    col: 0,
+    row: 0,
+    lastMaxCol: 0,
 };
 const buffer: VimBuffer = {
-    cmd: "",
-    lastCmd: null,
+    lines: [{ text: "hello ハロー world ワールド!" }],
 };
 
 const container = document.createElement("div");
@@ -51,9 +47,41 @@ function drawText(ctx: CanvasRenderingContext2D, text: string, x: number, y: num
     let cursorX = x;
 
     for (const ch of text) {
-        ctx.fillText(ch, cursorX, y + lineHeight / 2);
+        if (ch === " ") {
+            ctx.fillStyle = "#ccc";
+            ctx.beginPath();
+            const x = cursorX + (baseFontSize / 4);
+            ctx.arc(x, y + lineHeight / 2, baseFontSize / 8, 0, Math.PI * 2);
+            ctx.closePath();
+            ctx.fill();
+        } else {
+            ctx.fillStyle = "green";
+            ctx.fillText(ch, cursorX, y + lineHeight / 2);
+        }
         cursorX += isFullWidth(ch) ? baseFontSize : baseFontSize / 2;
     }
+}
+
+function drawCursor(
+    ctx: CanvasRenderingContext2D,
+    startRow: number,
+    startCol: number,
+    endRow: number = startRow,
+    endCol: number = startCol,
+) {
+    const line = buffer.lines[startRow] as Line;
+    const text = line.text;
+    // const ch = text[startCol] ?? " ";
+
+    let x;
+    let y;
+    let w;
+
+    x = calcWidth(text.slice(0, startCol));
+    y = startRow * lineHeight;
+    w = calcWidth(text.slice(startCol, endCol + 1));
+    const h = lineHeight;
+    ctx.strokeRect(x, y, w, h);
 }
 
 function calcWidth(text: string): number {
@@ -64,15 +92,18 @@ function calcWidth(text: string): number {
     return width;
 }
 
+function clearCanvas(ctx: CanvasRenderingContext2D) {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+}
+
 const canvas = document.createElement("canvas");
 const ctx = canvas.getContext("2d") as CanvasRenderingContext2D;
 canvas.width = 300;
-canvas.height = 200;
+canvas.height = 160;
 canvas.tabIndex = -1;
 canvas.style.outline = "none";
 const baseFontSize = 16;
-const baseFontSizeHalved = baseFontSize / 2;
-const lineHeight = baseFontSize + (baseFontSize / 4);
+const lineHeight = baseFontSize// + (baseFontSize / 4);
 const lineN = (line: number): number => line * lineHeight;
 // ctx.font = `${baseFontSize}px "JetBrains Mono", monospace`;
 ctx.font = `${baseFontSize}px Consolas`;
@@ -80,70 +111,79 @@ ctx.fillStyle = "green";
 ctx.strokeStyle = "blue";
 ctx.textBaseline = "middle";
 
-const text1 = "1122334455667";
-const text2 = "あいうえお";
-const text3 = "hello, world!";
-
 container.appendChild(canvas);
 document.body.appendChild(container);
 
 
-const IGNORE_KEYS = ["F5", "F12"];
+const isFunctionKey = (key: string) => /^F\d+/.test(key);
+const IGNORE_KEYS = [
+    "Escape", "Delete", "Insert",
+    "Enter", "Control", "Shift", "Alt", "Meta",
+    "Alphanumeric", "Tab", "Backspace", "Convert", "NonConvert",
+    "Hiragana", "Zenkaku",
+    "Home", "End", "PageUp", "PageDown", "Clear",
+    "NumLock", "ContextMenu",
+];
+
 document.addEventListener("keydown", (e) => {
     const key = e.key;
-
-    if (IGNORE_KEYS.includes(key)) {
-        // always ignore these keys
+    if (isFunctionKey(key)) {
         return;
     }
-
-    e.preventDefault();
-
     if (e.altKey && e.code === "KeyV") {
         canvas.focus();
+        return;
     }
 
     if (document.activeElement !== canvas) {
         console.log("canvas is not focused");
         return;
     }
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    drawText(ctx, text1, 0, lineN(0));
-    drawText(ctx, text2, 0, lineN(1));
-    drawText(ctx, text3, 0, lineN(2));
 
-    if (key === "h") {
-        state.motion.col = Math.max(0, state.motion.col - 1);
+    clearCanvas(ctx);
+
+    if (key === "ArrowLeft") {
+        state.col = Math.max(0, state.col - 1);
+        state.lastMaxCol = state.col;
     }
-    if (key === "l") state.motion.col++;
-    if (key === "k") {
-        state.motion.row = Math.max(0, state.motion.row - 1);
+    else if (key === "ArrowRight") {
+        state.col = Math.min(buffer.lines[state.row]!.text.length, state.col + 1);
+        state.lastMaxCol = state.col;
     }
-    if (key === "j") state.motion.row++;
-    const x = state.motion.col * baseFontSizeHalved;
-    const y = state.motion.row * lineHeight;
-    ctx.strokeRect(x, y, baseFontSizeHalved, lineHeight);
+    else if (key === "ArrowUp") {
+        state.row = Math.max(0, state.row - 1);
+        const prevLinelen = buffer.lines[state.row]!.text.length;
+        state.col = Math.min(prevLinelen, state.lastMaxCol);
+    }
+    else if (key === "ArrowDown") {
+        state.row = Math.min(buffer.lines.length - 1, state.row + 1);
+        const nextLineLen = buffer.lines[state.row]!.text.length;
+        state.col = Math.min(nextLineLen, state.lastMaxCol);
+    }
+    else if (key === "Enter") {
+        const line = buffer.lines[state.row] as Line;
+        const buf = line.text.slice(state.col);
+        line.text = line.text.slice(0, state.col);
+        state.row++;
+        state.col = 0;
+        buffer.lines.splice(state.row, 0, { text: buf });
+    }
+    else {
+        if (!IGNORE_KEYS.includes(key)) {
+            const line = buffer.lines[state.row] as Line;
+            if (state.col >= line.text.length) {
+                line.text += key;
+            } else {
+                line.text = line.text.slice(0, state.col) + key + line.text.slice(state.col);
+            }
+            state.col++;
+            state.lastMaxCol = state.col;
+        }
+    }
+    for (let i = 0; i < buffer.lines.length; i++) {
+        drawText(ctx, buffer.lines[i]!.text, 0, lineN(i));
+    }
+
+    // drawCursor(ctx, state.row, state.col, state.row, state.col + 1);
+    drawCursor(ctx, state.row, state.col);
 });
-
-const N_CMDS = [
-    ".",
-    "i",
-    "h", "j", "k", "l",
-] as const;
-
-type NormalCmd = (typeof N_CMDS)[number];
-
-function isValidCmd(cmd: string): cmd is NormalCmd {
-    return N_CMDS.some(c => c.startsWith(cmd));
-}
-
-const REPEATABLE_CMDS = [
-    "p", "P",
-    "dd", "x", "X",
-] as const;
-
-type RepeatableCmd = (typeof REPEATABLE_CMDS)[number];
-
-function isRepeatableCmd(cmd: string): cmd is RepeatableCmd {
-    return (REPEATABLE_CMDS as readonly string[]).includes(cmd);
-}
