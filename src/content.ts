@@ -126,6 +126,18 @@ const IGNORE_KEYS = [
 ];
 
 document.addEventListener("keydown", (e) => {
+    processKeypress(e);
+
+    clearCanvas(ctx);
+    for (let i = 0; i < buffer.lines.length; i++) {
+        drawText(ctx, buffer.lines[i]!.text, 0, lineN(i));
+    }
+
+    // drawCursor(ctx, state.row, state.col, state.row, state.col + 1);
+    drawCursor(ctx, state.row, state.col);
+});
+
+function processKeypress(e: KeyboardEvent) {
     const key = e.key;
     if (isFunctionKey(key)) {
         return;
@@ -139,8 +151,6 @@ document.addEventListener("keydown", (e) => {
         console.log("canvas is not focused");
         return;
     }
-
-    clearCanvas(ctx);
 
     if (key === "ArrowLeft") {
         state.col = Math.max(0, state.col - 1);
@@ -168,22 +178,36 @@ document.addEventListener("keydown", (e) => {
         state.col = 0;
         buffer.lines.splice(state.row, 0, { text: buf });
     }
-    else {
-        if (!IGNORE_KEYS.includes(key)) {
-            const line = buffer.lines[state.row] as Line;
-            if (state.col >= line.text.length) {
-                line.text += key;
-            } else {
-                line.text = line.text.slice(0, state.col) + key + line.text.slice(state.col);
-            }
-            state.col++;
+    else if (key === "Backspace") {
+        if (state.col === 0 && state.row === 0) return;
+
+        const line = buffer.lines[state.row] as Line;
+        const text = line.text;
+        if (state.col > 0) {
+            const buf = text.slice(0, state.col - 1) + text.slice(state.col);
+            line.text = buf;
+            state.col--;
             state.lastMaxCol = state.col;
+        } else {
+            // append two lines
+            const prevLine = buffer.lines[state.row - 1] as Line;
+            state.col = prevLine.text.length;
+            state.lastMaxCol = state.col;
+            prevLine.text += text;
+            buffer.lines.splice(state.row, 1);
+            state.row--;
         }
     }
-    for (let i = 0; i < buffer.lines.length; i++) {
-        drawText(ctx, buffer.lines[i]!.text, 0, lineN(i));
-    }
+    else {
+        if (IGNORE_KEYS.includes(key)) return;
 
-    // drawCursor(ctx, state.row, state.col, state.row, state.col + 1);
-    drawCursor(ctx, state.row, state.col);
-});
+        const line = buffer.lines[state.row] as Line;
+        if (state.col >= line.text.length) {
+            line.text += key;
+        } else {
+            line.text = line.text.slice(0, state.col) + key + line.text.slice(state.col);
+        }
+        state.col++;
+        state.lastMaxCol = state.col;
+    }
+}
