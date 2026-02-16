@@ -176,6 +176,7 @@ function processKeypress(e: KeyboardEvent) {
         line.text = line.text.slice(0, state.col);
         state.row++;
         state.col = 0;
+        state.lastMaxCol = state.col;
         buffer.lines.splice(state.row, 0, { text: buf });
     }
     else if (key === "Backspace") {
