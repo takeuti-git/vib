@@ -1,8 +1,4 @@
 console.log("Alt+v: Focus canvas");
-// const link = document.createElement("link");
-// link.rel = "stylesheet";
-// link.href = "https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap";
-// document.head.appendChild(link);
 
 type VimMode = "normal" | "insert";
 
@@ -17,10 +13,16 @@ type VimBuffer = {
     lines: Line[];
 };
 
-type Line = {
-    text: string;
-};
+class Line {
+    public text: string;
+    constructor(text: string) {
+        this.text = text;
+    }
 
+    public get size(): number {
+        return this.text.length;
+    }
+}
 const state: VimState = {
     mode: "normal",
     col: 0,
@@ -28,7 +30,7 @@ const state: VimState = {
     lastMaxCol: 0,
 };
 const buffer: VimBuffer = {
-    lines: [{ text: "hello ハロー world ワールド!" }],
+    lines: [new Line("hello ハロー world ワールド!" )],
 };
 
 const container = document.createElement("div");
@@ -137,6 +139,58 @@ document.addEventListener("keydown", (e) => {
     drawCursor(ctx, state.row, state.col);
 });
 
+const MOVE_KEYS = {
+    LEFT: "LEFT",
+    RIGHT: "RIGHT",
+    UP: "UP",
+    DOWN: "DOWN",
+} as const;
+
+type MoveKey = keyof typeof MOVE_KEYS;
+
+function moveCursor(key: MoveKey) {
+    const line = buffer.lines[state.row] as Line;
+    switch (key) {
+        case MOVE_KEYS.LEFT: {
+            if (state.col !== 0) {
+                state.col--;
+            } else if (state.row > 0) {
+                const prevLineLen = buffer.lines[state.row - 1]!.size;
+                state.row--;
+                state.col = prevLineLen;
+            }
+            state.lastMaxCol = state.col;
+            break;
+        }
+        case MOVE_KEYS.RIGHT: {
+            if (state.col < line.size) {
+                state.col++;
+            } else if (buffer.lines[state.row + 1] && state.col === line.size) {
+                state.row++;
+                state.col = 0;
+            }
+            state.lastMaxCol = state.col;
+            break;
+        }
+        case MOVE_KEYS.UP: {
+            if (state.row !== 0) {
+                const prevLineLen = buffer.lines[state.row - 1]!.size;
+                state.col = Math.min(prevLineLen, state.lastMaxCol);
+                state.row--;
+            }
+            break;
+        }
+        case MOVE_KEYS.DOWN: {
+            if (state.row < buffer.lines.length - 1) {
+                const nextLineLen = buffer.lines[state.row + 1]!.size;
+                state.col = Math.min(nextLineLen, state.lastMaxCol);
+                state.row++;
+            }
+            break;
+        }
+    }
+}
+
 function processKeypress(e: KeyboardEvent) {
     const key = e.key;
     if (isFunctionKey(key)) {
@@ -152,63 +206,70 @@ function processKeypress(e: KeyboardEvent) {
         return;
     }
 
-    if (key === "ArrowLeft") {
-        state.col = Math.max(0, state.col - 1);
-        state.lastMaxCol = state.col;
-    }
-    else if (key === "ArrowRight") {
-        state.col = Math.min(buffer.lines[state.row]!.text.length, state.col + 1);
-        state.lastMaxCol = state.col;
-    }
-    else if (key === "ArrowUp") {
-        state.row = Math.max(0, state.row - 1);
-        const prevLinelen = buffer.lines[state.row]!.text.length;
-        state.col = Math.min(prevLinelen, state.lastMaxCol);
-    }
-    else if (key === "ArrowDown") {
-        state.row = Math.min(buffer.lines.length - 1, state.row + 1);
-        const nextLineLen = buffer.lines[state.row]!.text.length;
-        state.col = Math.min(nextLineLen, state.lastMaxCol);
-    }
-    else if (key === "Enter") {
-        const line = buffer.lines[state.row] as Line;
-        const buf = line.text.slice(state.col);
-        line.text = line.text.slice(0, state.col);
-        state.row++;
-        state.col = 0;
-        state.lastMaxCol = state.col;
-        buffer.lines.splice(state.row, 0, { text: buf });
-    }
-    else if (key === "Backspace") {
-        if (state.col === 0 && state.row === 0) return;
+    switch (key) {
+        case "ArrowLeft":
+            moveCursor(MOVE_KEYS.LEFT);
+            break;
+        case "ArrowRight":
+            moveCursor(MOVE_KEYS.RIGHT);
+            break;
+        case "ArrowUp":
+            moveCursor(MOVE_KEYS.UP);
+            break;
+        case "ArrowDown":
+            moveCursor(MOVE_KEYS.DOWN);
+            break;
 
-        const line = buffer.lines[state.row] as Line;
-        const text = line.text;
-        if (state.col > 0) {
-            const buf = text.slice(0, state.col - 1) + text.slice(state.col);
-            line.text = buf;
-            state.col--;
-            state.lastMaxCol = state.col;
-        } else {
-            // append two lines
-            const prevLine = buffer.lines[state.row - 1] as Line;
-            state.col = prevLine.text.length;
-            state.lastMaxCol = state.col;
-            prevLine.text += text;
-            buffer.lines.splice(state.row, 1);
-            state.row--;
-        }
-    }
-    else {
-        if (IGNORE_KEYS.includes(key)) return;
+        case "Delete":
+        case "Backspace": {
+            if (key === "Delete") {
+                if (
+                    state.row === buffer.lines.length - 1 &&
+                    state.col === buffer.lines[state.row]!.size
+                ) return;
+                moveCursor(MOVE_KEYS.RIGHT);
+            }
+            if (state.col === 0 && state.row === 0) return;
 
-        const line = buffer.lines[state.row] as Line;
-        if (state.col >= line.text.length) {
-            line.text += key;
-        } else {
-            line.text = line.text.slice(0, state.col) + key + line.text.slice(state.col);
+            const line = buffer.lines[state.row] as Line;
+            const text = line.text;
+            if (state.col > 0) {
+                const buf = text.slice(0, state.col - 1) + text.slice(state.col);
+                line.text = buf;
+                state.col--;
+                state.lastMaxCol = state.col;
+            } else {
+                // append two lines
+                const prevLine = buffer.lines[state.row - 1] as Line;
+                state.col = prevLine.size;
+                state.lastMaxCol = state.col;
+                prevLine.text += text;
+                buffer.lines.splice(state.row, 1);
+                state.row--;
+            }
+            break;
         }
-        state.col++;
-        state.lastMaxCol = state.col;
+        case "Enter": {
+            const line = buffer.lines[state.row] as Line;
+            const buf = line.text.slice(state.col);
+            line.text = line.text.slice(0, state.col);
+            state.row++;
+            state.col = 0;
+            state.lastMaxCol = state.col;
+            buffer.lines.splice(state.row, 0, new Line(buf));
+            break;
+        }
+        default: {
+            if (IGNORE_KEYS.includes(key)) return;
+
+            const line = buffer.lines[state.row] as Line;
+            if (state.col >= line.size) {
+                line.text += key;
+            } else {
+                line.text = line.text.slice(0, state.col) + key + line.text.slice(state.col);
+            }
+            state.col++;
+            state.lastMaxCol = state.col;
+        }
     }
 }
