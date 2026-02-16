@@ -1,5 +1,13 @@
 console.log("Alt+v: Focus canvas");
 
+type EditorConfig = {
+    fontFamily: string;
+    fontColor: string;
+    cursorColor: string;
+    baseFontSize: number;
+    lineHeight: number;
+};
+
 type VimMode = "normal" | "insert";
 
 type VimState = {
@@ -27,6 +35,7 @@ class Line {
         return this.text.length;
     }
 }
+
 const state: VimState = {
     mode: "normal",
     row: 0,
@@ -56,7 +65,7 @@ function isFullWidth(char: string): boolean {
 }
 
 function drawEmpty(ctx: CanvasRenderingContext2D, x: number, y: number) {
-    const radius = baseFontSize / 8;
+    const radius = config.baseFontSize / 8;
     ctx.fillStyle = "#ccc";
     ctx.beginPath();
     ctx.arc(x, y, radius, 0, Math.PI * 2);
@@ -65,7 +74,7 @@ function drawEmpty(ctx: CanvasRenderingContext2D, x: number, y: number) {
 }
 
 function drawChar(ctx: CanvasRenderingContext2D, ch: string, x: number, y: number) {
-    ctx.fillStyle = "green";
+    ctx.fillStyle = config.fontColor;
     ctx.fillText(ch, x, y);
 }
 
@@ -74,11 +83,11 @@ function drawLine(ctx: CanvasRenderingContext2D, line: Line, x: number, y: numbe
 
     for (const ch of line.text) {
         if (ch === " ") {
-            drawEmpty(ctx, cursorX + baseFontSize / 4, y + lineHeight / 2);
+            drawEmpty(ctx, cursorX + config.baseFontSize / 4, y + config.lineHeight / 2);
         } else {
-            drawChar(ctx, ch, cursorX, y + lineHeight / 2);
+            drawChar(ctx, ch, cursorX, y + config.lineHeight / 2);
         }
-        cursorX += isFullWidth(ch) ? baseFontSize : baseFontSize / 2;
+        cursorX += isFullWidth(ch) ? config.baseFontSize : config.baseFontSize / 2;
     }
 }
 
@@ -86,7 +95,7 @@ function drawLines(ctx: CanvasRenderingContext2D) {
     for (let y = 0; y < state.screenrows; y++) {
         const targetRow = y + state.rowoff;
         if (targetRow < buffer.lines.length) {
-            drawLine(ctx, buffer.lines[targetRow]!, 0, lineN(y));
+            drawLine(ctx, buffer.lines[targetRow]!, 0, y * config.lineHeight);
         }
     }
 }
@@ -107,9 +116,9 @@ function drawCursor(
     let w;
 
     x = calcWidth(text.slice(0, startCol));
-    y = (startRow - state.rowoff) * lineHeight;
+    y = (startRow - state.rowoff) * config.lineHeight;
     w = calcWidth(text.slice(startCol, endCol + 1));
-    const h = lineHeight;
+    const h = config.lineHeight;
     ctx.strokeRect(x, y, w, h);
 }
 
@@ -131,7 +140,7 @@ function scroll() {
 function calcWidth(text: string): number {
     let width = 0;
     for (const ch of text) {
-        width += isFullWidth(ch) ? baseFontSize : baseFontSize / 2;
+        width += isFullWidth(ch) ? config.baseFontSize : config.baseFontSize / 2;
     }
     return width;
 }
@@ -140,19 +149,28 @@ function clearCanvas(ctx: CanvasRenderingContext2D) {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 }
 
-const baseFontSize = 16;
-const lineHeight = baseFontSize;
-const lineN = (n: number): number => n * lineHeight;
+const config: EditorConfig = {
+    fontFamily: "Consolas",
+    fontColor: "green",
+    cursorColor: "blue",
+    baseFontSize: 16,
+    lineHeight: 16,
+};
+
+function applyConfig(config: EditorConfig) {
+    canvas.width = state.screencols * (config.baseFontSize / 2);
+    canvas.height = state.screenrows * config.lineHeight;
+    ctx.font = `${config.baseFontSize}px ${config.fontFamily}`;
+    ctx.fillStyle = config.fontColor;
+    ctx.strokeStyle = config.cursorColor;
+}
 
 const canvas = document.createElement("canvas");
 const ctx = canvas.getContext("2d") as CanvasRenderingContext2D;
-canvas.width = state.screencols * baseFontSize / 2;
-canvas.height = state.screenrows * lineHeight;
+
+applyConfig(config);
 canvas.tabIndex = -1;
 canvas.style.outline = "none";
-ctx.font = `${baseFontSize}px Consolas`;
-ctx.fillStyle = "green";
-ctx.strokeStyle = "blue";
 ctx.textBaseline = "middle";
 
 container.appendChild(canvas);
