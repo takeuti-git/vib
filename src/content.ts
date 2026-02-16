@@ -38,7 +38,9 @@ const state: VimState = {
     lastMaxCol: 0,
 };
 const buffer: VimBuffer = {
-    lines: [new Line("hello ハロー world ワールド!" )],
+    lines: [
+        new Line("hello world ハロー　ワールド!" ),
+    ],
 };
 
 const container = document.createElement("div");
@@ -53,20 +55,28 @@ function isFullWidth(char: string): boolean {
     return /[^\x00-\x7F]/.test(char);
 }
 
-function drawText(ctx: CanvasRenderingContext2D, text: string, x: number, y: number) {
+function drawEmpty(ctx: CanvasRenderingContext2D, x: number, y: number) {
+    const radius = baseFontSize / 8;
+    ctx.fillStyle = "#ccc";
+    ctx.beginPath();
+    ctx.arc(x, y, radius, 0, Math.PI * 2);
+    ctx.closePath();
+    ctx.fill();
+}
+
+function drawChar(ctx: CanvasRenderingContext2D, ch: string, x: number, y: number) {
+    ctx.fillStyle = "green";
+    ctx.fillText(ch, x, y);
+}
+
+function drawLine(ctx: CanvasRenderingContext2D, line: Line, x: number, y: number) {
     let cursorX = x;
 
-    for (const ch of text) {
+    for (const ch of line.text) {
         if (ch === " ") {
-            ctx.fillStyle = "#ccc";
-            ctx.beginPath();
-            const x = cursorX + (baseFontSize / 4);
-            ctx.arc(x, y + lineHeight / 2, baseFontSize / 8, 0, Math.PI * 2);
-            ctx.closePath();
-            ctx.fill();
+            drawEmpty(ctx, cursorX + baseFontSize / 4, y + lineHeight / 2);
         } else {
-            ctx.fillStyle = "green";
-            ctx.fillText(ch, cursorX, y + lineHeight / 2);
+            drawChar(ctx, ch, cursorX, y + lineHeight / 2);
         }
         cursorX += isFullWidth(ch) ? baseFontSize : baseFontSize / 2;
     }
@@ -76,7 +86,7 @@ function drawLines(ctx: CanvasRenderingContext2D) {
     for (let y = 0; y < state.screenrows; y++) {
         const targetRow = y + state.rowoff;
         if (targetRow < buffer.lines.length) {
-            drawText(ctx, buffer.lines[targetRow]!.text, 0, lineN(y));
+            drawLine(ctx, buffer.lines[targetRow]!, 0, lineN(y));
         }
     }
 }
@@ -131,8 +141,8 @@ function clearCanvas(ctx: CanvasRenderingContext2D) {
 }
 
 const baseFontSize = 16;
-const lineHeight = baseFontSize// + (baseFontSize / 4);
-const lineN = (line: number): number => line * lineHeight;
+const lineHeight = baseFontSize;
+const lineN = (n: number): number => n * lineHeight;
 
 const canvas = document.createElement("canvas");
 const ctx = canvas.getContext("2d") as CanvasRenderingContext2D;
@@ -140,7 +150,6 @@ canvas.width = state.screencols * baseFontSize / 2;
 canvas.height = state.screenrows * lineHeight;
 canvas.tabIndex = -1;
 canvas.style.outline = "none";
-// ctx.font = `${baseFontSize}px "JetBrains Mono", monospace`;
 ctx.font = `${baseFontSize}px Consolas`;
 ctx.fillStyle = "green";
 ctx.strokeStyle = "blue";
