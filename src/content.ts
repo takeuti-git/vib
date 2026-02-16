@@ -191,6 +191,64 @@ function moveCursor(key: MoveKey) {
     }
 }
 
+function insertRow(at: number, text: string) {
+    if (at < 0 || at > buffer.lines.length) return;
+    buffer.lines.splice(at, 0, new Line(text));
+}
+
+function deleteRow(at: number) {
+    if (at < 0 || at >= buffer.lines.length) return;
+    buffer.lines.splice(at, 1);
+}
+
+function appendTextToLine(line: Line, text: string) {
+    line.text += text;
+}
+
+function insertNewLine() {
+    const line = buffer.lines[state.row] as Line;
+    const buf = line.text.slice(state.col);
+    line.text = line.text.slice(0, state.col);
+    state.row++;
+    state.col = 0;
+    state.lastMaxCol = state.col;
+    insertRow(state.row, buf);
+}
+
+function insertChar(ch: string) {
+    if (IGNORE_KEYS.includes(ch)) return;
+
+    const line = buffer.lines[state.row] as Line;
+    if (state.col >= line.size) {
+        line.text += ch;
+    } else {
+        line.text = line.text.slice(0, state.col) + ch + line.text.slice(state.col);
+    }
+    state.col++;
+    state.lastMaxCol = state.col;
+}
+
+function deleteChar() {
+    if (state.col === 0 && state.row === 0) return;
+
+    const line = buffer.lines[state.row] as Line;
+    const text = line.text;
+    if (state.col > 0) {
+        const buf = text.slice(0, state.col - 1) + text.slice(state.col);
+        line.text = buf;
+        state.col--;
+        state.lastMaxCol = state.col;
+    } else {
+        // append two lines
+        const prevLine = buffer.lines[state.row - 1] as Line;
+        state.col = prevLine.size;
+        state.lastMaxCol = state.col;
+        appendTextToLine(prevLine, line.text);
+        deleteRow(state.row);
+        state.row--;
+    }
+}
+
 function processKeypress(e: KeyboardEvent) {
     const key = e.key;
     if (isFunctionKey(key)) {
@@ -229,47 +287,15 @@ function processKeypress(e: KeyboardEvent) {
                 ) return;
                 moveCursor(MOVE_KEYS.RIGHT);
             }
-            if (state.col === 0 && state.row === 0) return;
-
-            const line = buffer.lines[state.row] as Line;
-            const text = line.text;
-            if (state.col > 0) {
-                const buf = text.slice(0, state.col - 1) + text.slice(state.col);
-                line.text = buf;
-                state.col--;
-                state.lastMaxCol = state.col;
-            } else {
-                // append two lines
-                const prevLine = buffer.lines[state.row - 1] as Line;
-                state.col = prevLine.size;
-                state.lastMaxCol = state.col;
-                prevLine.text += text;
-                buffer.lines.splice(state.row, 1);
-                state.row--;
-            }
+            deleteChar();
             break;
         }
         case "Enter": {
-            const line = buffer.lines[state.row] as Line;
-            const buf = line.text.slice(state.col);
-            line.text = line.text.slice(0, state.col);
-            state.row++;
-            state.col = 0;
-            state.lastMaxCol = state.col;
-            buffer.lines.splice(state.row, 0, new Line(buf));
+            insertNewLine();
             break;
         }
         default: {
-            if (IGNORE_KEYS.includes(key)) return;
-
-            const line = buffer.lines[state.row] as Line;
-            if (state.col >= line.size) {
-                line.text += key;
-            } else {
-                line.text = line.text.slice(0, state.col) + key + line.text.slice(state.col);
-            }
-            state.col++;
-            state.lastMaxCol = state.col;
+            insertChar(key);
         }
     }
 }
