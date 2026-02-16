@@ -6,6 +6,10 @@ type VimState = {
     mode: VimMode,
     row: number;
     col: number;
+    rowoff: number;
+    coloff: number;
+    screenrows: number;
+    screencols: number;
     lastMaxCol: number;
 };
 
@@ -25,8 +29,12 @@ class Line {
 }
 const state: VimState = {
     mode: "normal",
-    col: 0,
     row: 0,
+    col: 0,
+    rowoff: 0,
+    coloff: 0,
+    screenrows: 10,
+    screencols: 40,
     lastMaxCol: 0,
 };
 const buffer: VimBuffer = {
@@ -64,6 +72,15 @@ function drawText(ctx: CanvasRenderingContext2D, text: string, x: number, y: num
     }
 }
 
+function drawLines(ctx: CanvasRenderingContext2D) {
+    for (let y = 0; y < state.screenrows; y++) {
+        const targetRow = y + state.rowoff;
+        if (targetRow < buffer.lines.length) {
+            drawText(ctx, buffer.lines[targetRow]!.text, 0, lineN(y));
+        }
+    }
+}
+
 function drawCursor(
     ctx: CanvasRenderingContext2D,
     startRow: number,
@@ -80,10 +97,25 @@ function drawCursor(
     let w;
 
     x = calcWidth(text.slice(0, startCol));
-    y = startRow * lineHeight;
+    y = (startRow - state.rowoff) * lineHeight;
     w = calcWidth(text.slice(startCol, endCol + 1));
     const h = lineHeight;
     ctx.strokeRect(x, y, w, h);
+}
+
+function scroll() {
+    if (state.row < state.rowoff) {
+        state.rowoff = state.row;
+    }
+    if (state.row >= state.rowoff + state.screenrows) {
+        state.rowoff = state.row - state.screenrows + 1;
+    }
+    if (state.col < state.coloff) {
+        state.coloff = state.col;
+    }
+    if (state.col >= state.coloff + state.screencols) {
+        state.coloff = state.col - state.screencols + 1;
+    }
 }
 
 function calcWidth(text: string): number {
@@ -98,15 +130,16 @@ function clearCanvas(ctx: CanvasRenderingContext2D) {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 }
 
-const canvas = document.createElement("canvas");
-const ctx = canvas.getContext("2d") as CanvasRenderingContext2D;
-canvas.width = 300;
-canvas.height = 160;
-canvas.tabIndex = -1;
-canvas.style.outline = "none";
 const baseFontSize = 16;
 const lineHeight = baseFontSize// + (baseFontSize / 4);
 const lineN = (line: number): number => line * lineHeight;
+
+const canvas = document.createElement("canvas");
+const ctx = canvas.getContext("2d") as CanvasRenderingContext2D;
+canvas.width = state.screencols * baseFontSize / 2;
+canvas.height = state.screenrows * lineHeight;
+canvas.tabIndex = -1;
+canvas.style.outline = "none";
 // ctx.font = `${baseFontSize}px "JetBrains Mono", monospace`;
 ctx.font = `${baseFontSize}px Consolas`;
 ctx.fillStyle = "green";
@@ -128,14 +161,13 @@ const IGNORE_KEYS = [
 ];
 
 document.addEventListener("keydown", (e) => {
+    // processing
     processKeypress(e);
 
+    // drawing
     clearCanvas(ctx);
-    for (let i = 0; i < buffer.lines.length; i++) {
-        drawText(ctx, buffer.lines[i]!.text, 0, lineN(i));
-    }
-
-    // drawCursor(ctx, state.row, state.col, state.row, state.col + 1);
+    scroll();
+    drawLines(ctx);
     drawCursor(ctx, state.row, state.col);
 });
 
