@@ -48,6 +48,7 @@ const state: VimState = {
 };
 const buffer: VimBuffer = {
     lines: [
+        new Line("12345678901234567890123456789023456789" ),
         new Line("hello world ハロー　ワールド!" ),
     ],
 };
@@ -81,7 +82,7 @@ function drawChar(ctx: CanvasRenderingContext2D, ch: string, x: number, y: numbe
 function drawLine(ctx: CanvasRenderingContext2D, line: Line, x: number, y: number) {
     let cursorX = x;
 
-    for (const ch of line.text) {
+    for (const ch of line.text.slice(state.coloff)) {
         if (ch === " ") {
             drawEmpty(ctx, cursorX + config.baseFontSize / 4, y + config.lineHeight / 2);
         } else {
@@ -102,22 +103,14 @@ function drawLines(ctx: CanvasRenderingContext2D) {
 
 function drawCursor(
     ctx: CanvasRenderingContext2D,
-    startRow: number,
-    startCol: number,
-    endRow: number = startRow,
-    endCol: number = startCol,
 ) {
-    const line = buffer.lines[startRow] as Line;
+    const line = buffer.lines[state.row] as Line;
     const text = line.text;
     // const ch = text[startCol] ?? " ";
 
-    let x;
-    let y;
-    let w;
-
-    x = calcWidth(text.slice(0, startCol));
-    y = (startRow - state.rowoff) * config.lineHeight;
-    w = calcWidth(text.slice(startCol, endCol + 1));
+    const x = calcWidth(text.slice(0 + state.coloff, state.col));
+    const y = (state.row - state.rowoff) * config.lineHeight;
+    const w = calcWidth(text.slice(state.col, state.col + 1));
     const h = config.lineHeight;
     ctx.strokeRect(x, y, w, h);
 }
@@ -190,12 +183,12 @@ const IGNORE_KEYS = [
 document.addEventListener("keydown", (e) => {
     // processing
     processKeypress(e);
+    scroll();
 
     // drawing
     clearCanvas(ctx);
-    scroll();
     drawLines(ctx);
-    drawCursor(ctx, state.row, state.col);
+    drawCursor(ctx);
 });
 
 const MOVE_KEYS = {
@@ -208,7 +201,6 @@ const MOVE_KEYS = {
 type MoveKey = keyof typeof MOVE_KEYS;
 
 function moveCursor(key: MoveKey) {
-    const line = buffer.lines[state.row] as Line;
     switch (key) {
         case MOVE_KEYS.LEFT: {
             if (state.col !== 0) {
@@ -222,9 +214,10 @@ function moveCursor(key: MoveKey) {
             break;
         }
         case MOVE_KEYS.RIGHT: {
-            if (state.col < line.size) {
+            const curLine = buffer.lines[state.row] as Line;
+            if (state.col < curLine.size) {
                 state.col++;
-            } else if (buffer.lines[state.row + 1] && state.col === line.size) {
+            } else if (buffer.lines[state.row + 1] && state.col === curLine.size) {
                 state.row++;
                 state.col = 0;
             }
