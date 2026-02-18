@@ -11,14 +11,14 @@ type EditorConfig = {
 type VimMode = "normal" | "insert";
 
 type VimState = {
-    mode: VimMode,
+    mode: VimMode;
     row: number;
     col: number;
+    cx: number; // カーソルのピクセル単位のx座標
     rowoff: number;
     coloff: number;
     screenrows: number;
     screencols: number;
-    lastMaxCol: number;
 };
 
 type VimBuffer = {
@@ -40,15 +40,18 @@ const state: VimState = {
     mode: "normal",
     row: 0,
     col: 0,
+    cx: 0,
     rowoff: 0,
     coloff: 0,
     screenrows: 10,
     screencols: 40,
-    lastMaxCol: 0,
 };
 const buffer: VimBuffer = {
     lines: [
         new Line("12345678901234567890123456789023456789" ),
+        new Line("hello world ハロー　ワールド!" ),
+        new Line("12345678901234567890123456789023456789" ),
+        new Line("hello world ハロー　ワールド!" ),
         new Line("hello world ハロー　ワールド!" ),
     ],
 };
@@ -108,7 +111,7 @@ function drawCursor(
     const text = line.text;
     // const ch = text[startCol] ?? " ";
 
-    const x = calcWidth(text.slice(0 + state.coloff, state.col));
+    const x = calcWidth(text.slice(0, state.col));
     const y = (state.row - state.rowoff) * config.lineHeight;
     const w = calcWidth(text.slice(state.col, state.col + 1));
     const h = config.lineHeight;
@@ -136,6 +139,17 @@ function calcWidth(text: string): number {
         width += isFullWidth(ch) ? config.baseFontSize : config.baseFontSize / 2;
     }
     return width;
+}
+
+function cxToCol(cx: number, text: string): number {
+    let width = 0;
+    let col = 0;
+    for (const ch of text) {
+        width += calcWidth(ch);
+        if (width >= cx) break;
+        col++;
+    }
+    return col;
 }
 
 function clearCanvas(ctx: CanvasRenderingContext2D) {
@@ -189,6 +203,8 @@ document.addEventListener("keydown", (e) => {
     clearCanvas(ctx);
     drawLines(ctx);
     drawCursor(ctx);
+
+    console.log(state.cx, "col: ", state.col);
 });
 
 const MOVE_KEYS = {
@@ -204,39 +220,46 @@ function moveCursor(key: MoveKey) {
     switch (key) {
         case MOVE_KEYS.LEFT: {
             if (state.col !== 0) {
+                const prevChar = buffer.lines[state.row]!.text.slice(state.col - 1, state.col);
+                state.cx -= calcWidth(prevChar);
                 state.col--;
             } else if (state.row > 0) {
-                const prevLineLen = buffer.lines[state.row - 1]!.size;
+                const prevLine = buffer.lines[state.row - 1] as Line;
+                const prevLineLen = prevLine.size;
                 state.row--;
                 state.col = prevLineLen;
+                state.cx = Math.min(312, calcWidth(prevLine.text));
             }
-            state.lastMaxCol = state.col;
             break;
         }
         case MOVE_KEYS.RIGHT: {
             const curLine = buffer.lines[state.row] as Line;
             if (state.col < curLine.size) {
+                const currChar = curLine.text.slice(state.col, state.col + 1);
+                state.cx += calcWidth(currChar);
                 state.col++;
             } else if (buffer.lines[state.row + 1] && state.col === curLine.size) {
                 state.row++;
                 state.col = 0;
+                state.cx = 0;
             }
-            state.lastMaxCol = state.col;
             break;
         }
         case MOVE_KEYS.UP: {
             if (state.row !== 0) {
-                const prevLineLen = buffer.lines[state.row - 1]!.size;
-                state.col = Math.min(prevLineLen, state.lastMaxCol);
+                const prevLine = buffer.lines[state.row - 1] as Line;
                 state.row--;
+                state.cx = Math.min(state.cx, calcWidth(prevLine.text));
+                state.col = cxToCol(state.cx, prevLine.text);
             }
             break;
         }
         case MOVE_KEYS.DOWN: {
             if (state.row < buffer.lines.length - 1) {
-                const nextLineLen = buffer.lines[state.row + 1]!.size;
-                state.col = Math.min(nextLineLen, state.lastMaxCol);
+                const nextLine = buffer.lines[state.row + 1] as Line;
                 state.row++;
+                state.cx = Math.min(state.cx, calcWidth(nextLine.text));
+                state.col = cxToCol(state.cx, nextLine.text);
             }
             break;
         }
@@ -263,7 +286,6 @@ function insertNewLine() {
     line.text = line.text.slice(0, state.col);
     state.row++;
     state.col = 0;
-    state.lastMaxCol = state.col;
     insertRow(state.row, buf);
 }
 
@@ -277,7 +299,6 @@ function insertChar(ch: string) {
         line.text = line.text.slice(0, state.col) + ch + line.text.slice(state.col);
     }
     state.col++;
-    state.lastMaxCol = state.col;
 }
 
 function deleteChar() {
@@ -289,12 +310,10 @@ function deleteChar() {
         const buf = text.slice(0, state.col - 1) + text.slice(state.col);
         line.text = buf;
         state.col--;
-        state.lastMaxCol = state.col;
     } else {
         // append two lines
         const prevLine = buffer.lines[state.row - 1] as Line;
         state.col = prevLine.size;
-        state.lastMaxCol = state.col;
         appendTextToLine(prevLine, line.text);
         deleteRow(state.row);
         state.row--;
