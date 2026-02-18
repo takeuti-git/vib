@@ -12,11 +12,11 @@ type VimMode = "normal" | "insert";
 
 type VimState = {
     mode: VimMode;
-    row: number;
-    col: number;
-    cx: number; // カーソルのピクセル単位のx座標
+    row: number; // 現在の行数
+    col: number; // 現在の行内の文字数
+    px: number; // フォント幅を考慮したピクセル単位のx座標
     rowoff: number;
-    coloff: number;
+    pxoff: number;
     screenrows: number;
     screencols: number;
 };
@@ -40,9 +40,9 @@ const state: VimState = {
     mode: "normal",
     row: 0,
     col: 0,
-    cx: 0,
+    px: 0,
     rowoff: 0,
-    coloff: 0,
+    pxoff: 0,
     screenrows: 10,
     screencols: 40,
 };
@@ -83,9 +83,12 @@ function drawChar(ctx: CanvasRenderingContext2D, ch: string, x: number, y: numbe
 }
 
 function drawLine(ctx: CanvasRenderingContext2D, line: Line, x: number, y: number) {
-    let cursorX = x;
+    const text = line.text;
+    const colStart = cxToCol(state.pxoff, text);
+    const subPixelOffset = calcWidth(text.slice(0, colStart)) - state.pxoff;
+    let cursorX = x + subPixelOffset;
 
-    for (const ch of line.text.slice(state.coloff)) {
+    for (const ch of text.slice(colStart)) {
         if (ch === " ") {
             drawEmpty(ctx, cursorX + config.baseFontSize / 4, y + config.lineHeight / 2);
         } else {
@@ -100,6 +103,8 @@ function drawLines(ctx: CanvasRenderingContext2D) {
         const targetRow = y + state.rowoff;
         if (targetRow < buffer.lines.length) {
             drawLine(ctx, buffer.lines[targetRow]!, 0, y * config.lineHeight);
+        } else {
+            drawLine(ctx, new Line("~"), 0, y * config.lineHeight);
         }
     }
 }
@@ -109,9 +114,8 @@ function drawCursor(
 ) {
     const line = buffer.lines[state.row] as Line;
     const text = line.text;
-    // const ch = text[startCol] ?? " ";
 
-    const x = calcWidth(text.slice(0, state.col));
+    const x = state.px - state.pxoff;
     const y = (state.row - state.rowoff) * config.lineHeight;
     const w = calcWidth(text.slice(state.col, state.col + 1));
     const h = config.lineHeight;
@@ -120,16 +124,22 @@ function drawCursor(
 
 function scroll() {
     if (state.row < state.rowoff) {
+        // decrease rowoff
         state.rowoff = state.row;
     }
     if (state.row >= state.rowoff + state.screenrows) {
+        // increase rowoff
         state.rowoff = state.row - state.screenrows + 1;
     }
-    if (state.col < state.coloff) {
-        state.coloff = state.col;
+    if (state.px < state.pxoff) {
+        // decrease cxoff
+        state.pxoff = state.px;
     }
-    if (state.col >= state.coloff + state.screencols) {
-        state.coloff = state.col - state.screencols + 1;
+    const fontsize = config.baseFontSize / 2;
+    const screenWidth = state.screencols * fontsize;
+    if (state.px >= state.pxoff + screenWidth) {
+        // increase cxoff
+        state.pxoff = state.px - (fontsize * state.screencols) + fontsize;
     }
 }
 
@@ -142,11 +152,12 @@ function calcWidth(text: string): number {
 }
 
 function cxToCol(cx: number, text: string): number {
+    // 与えられたcxを文字数単位に変換する
     let width = 0;
     let col = 0;
     for (const ch of text) {
         width += calcWidth(ch);
-        if (width >= cx) break;
+        if (width > cx) break;
         col++;
     }
     return col;
@@ -204,7 +215,7 @@ document.addEventListener("keydown", (e) => {
     drawLines(ctx);
     drawCursor(ctx);
 
-    console.log(state.cx, "col: ", state.col);
+    console.log("cx: ", state.px, "cxoff: ", state.pxoff, "col: ", state.col);
 });
 
 const MOVE_KEYS = {
@@ -221,14 +232,14 @@ function moveCursor(key: MoveKey) {
         case MOVE_KEYS.LEFT: {
             if (state.col !== 0) {
                 const prevChar = buffer.lines[state.row]!.text.slice(state.col - 1, state.col);
-                state.cx -= calcWidth(prevChar);
+                state.px -= calcWidth(prevChar);
                 state.col--;
             } else if (state.row > 0) {
                 const prevLine = buffer.lines[state.row - 1] as Line;
                 const prevLineLen = prevLine.size;
                 state.row--;
                 state.col = prevLineLen;
-                state.cx = Math.min(312, calcWidth(prevLine.text));
+                state.px = calcWidth(prevLine.text);
             }
             break;
         }
@@ -236,30 +247,44 @@ function moveCursor(key: MoveKey) {
             const curLine = buffer.lines[state.row] as Line;
             if (state.col < curLine.size) {
                 const currChar = curLine.text.slice(state.col, state.col + 1);
-                state.cx += calcWidth(currChar);
+                state.px += calcWidth(currChar);
                 state.col++;
             } else if (buffer.lines[state.row + 1] && state.col === curLine.size) {
                 state.row++;
                 state.col = 0;
-                state.cx = 0;
+                state.px = 0;
             }
             break;
         }
         case MOVE_KEYS.UP: {
             if (state.row !== 0) {
+                const cxBeforeMove = state.px;
                 const prevLine = buffer.lines[state.row - 1] as Line;
                 state.row--;
-                state.cx = Math.min(state.cx, calcWidth(prevLine.text));
-                state.col = cxToCol(state.cx, prevLine.text);
+                state.px = Math.min(state.px, calcWidth(prevLine.text));
+                state.col = cxToCol(state.px, prevLine.text);
+                state.px = calcWidth(prevLine.text.slice(0, state.col));
+                if (state.px >= cxBeforeMove + config.baseFontSize / 2) {
+                    // 半角文字から全角文字に移動する時、移動前が後ろ側なら寄せる
+                    state.px -= config.baseFontSize;
+                    state.col--;
+                }
             }
             break;
         }
         case MOVE_KEYS.DOWN: {
             if (state.row < buffer.lines.length - 1) {
+                const cxBeforeMove = state.px;
                 const nextLine = buffer.lines[state.row + 1] as Line;
                 state.row++;
-                state.cx = Math.min(state.cx, calcWidth(nextLine.text));
-                state.col = cxToCol(state.cx, nextLine.text);
+                state.px = Math.min(state.px, calcWidth(nextLine.text));
+                state.col = cxToCol(state.px, nextLine.text);
+                state.px = calcWidth(nextLine.text.slice(0, state.col));
+                if (state.px >= cxBeforeMove + config.baseFontSize / 2) {
+                    // 半角文字から全角文字に移動する時、移動前が後ろ側なら寄せる
+                    state.px -= config.baseFontSize;
+                    state.col--;
+                }
             }
             break;
         }
@@ -286,6 +311,7 @@ function insertNewLine() {
     line.text = line.text.slice(0, state.col);
     state.row++;
     state.col = 0;
+    state.px = 0;
     insertRow(state.row, buf);
 }
 
@@ -298,6 +324,7 @@ function insertChar(ch: string) {
     } else {
         line.text = line.text.slice(0, state.col) + ch + line.text.slice(state.col);
     }
+    state.px += calcWidth(ch);
     state.col++;
 }
 
@@ -307,13 +334,16 @@ function deleteChar() {
     const line = buffer.lines[state.row] as Line;
     const text = line.text;
     if (state.col > 0) {
-        const buf = text.slice(0, state.col - 1) + text.slice(state.col);
-        line.text = buf;
+        const targetChar = text.slice(state.col - 1, state.col);
+        const deleted = text.slice(0, state.col - 1) + text.slice(state.col);
+        line.text = deleted;
         state.col--;
+        state.px -= calcWidth(targetChar);
     } else {
         // append two lines
         const prevLine = buffer.lines[state.row - 1] as Line;
         state.col = prevLine.size;
+        state.px = calcWidth(prevLine.text);
         appendTextToLine(prevLine, line.text);
         deleteRow(state.row);
         state.row--;
