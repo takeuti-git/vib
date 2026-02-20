@@ -4,13 +4,10 @@
     "version": "0.1.0",
     "permissions": ["storage", "scripting", "tabs"],
     "description": "Vim In Browser",
-    "background": {
-        "service_worker": "src/background.ts"
-    },
     "content_scripts": [
         {
             "matches": ["<all_urls>"],
-            "js": ["src/content.ts"],
+            "js": ["src/content/index.ts"],
             "run_at": "document_idle"
         }
     ]
