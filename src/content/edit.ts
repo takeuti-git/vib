@@ -102,10 +102,10 @@ function appendTextToLine(line: Line, text: string) {
     line.text += text;
 }
 
-function insertCharInLine(line: Line, ch: string, col: number) {
+function insertTextInLine(line: Line, text: string, col: number) {
     const before = line.text.slice(0, col);
     const after = line.text.slice(col);
-    line.text = before + ch + after;
+    line.text = before + text + after;
 }
 
 export function insertNewLine(state: EditorState) {
@@ -125,10 +125,10 @@ export function insertChar(ch: string, state: EditorState, config: EditorConfig)
     if (state.col >= line.size) {
         appendTextToLine(line, ch);
     } else {
-        insertCharInLine(line, ch, state.col);
+        insertTextInLine(line, ch, state.col);
     }
     state.px += calcWidth(ch, config);
-    state.col++;
+    state.col += ch.length;
 }
 
 export function deleteChar(state: EditorState, config: EditorConfig) {

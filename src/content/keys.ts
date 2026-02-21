@@ -9,6 +9,7 @@ export const IGNORE_KEYS = [
     "Hiragana", "Zenkaku",
     "Home", "End", "PageUp", "PageDown", "Clear",
     "NumLock", "ContextMenu",
+    "Process",
 ];
 
 export function isIgnoreKey(key: string): boolean {

@@ -1,4 +1,4 @@
-import { appendContainer, initCanvas, initContainer } from "./dom.js";
+import { appendContainer, initCanvas, initContainer, initInput } from "./dom.js";
 import { initEditorConfig, initConfig } from "./config.js";
 import { initEditorState } from "./state.js";
 import { setupListeners } from "./setup.js";
@@ -6,6 +6,7 @@ import { setupListeners } from "./setup.js";
 function main() {
     const container = initContainer();
     const canvas = initCanvas(container);
+    const input = initInput(container);
     appendContainer(container);
 
     const state = initEditorState();

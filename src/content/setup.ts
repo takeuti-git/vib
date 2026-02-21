@@ -3,16 +3,34 @@ import { isFunctionKey, MOVE_KEYS } from "./keys.js";
 import { deleteChar, insertChar, insertNewLine, moveCursor, scrollWindow } from "./edit.js";
 import { render } from "./render.js";
 
-export function setupListeners(canvas: HTMLCanvasElement, state: EditorState, config: EditorConfig) {
-    document.addEventListener("keydown", (e) => {
-        if (e.altKey && e.code === "KeyV") {
-            canvas.focus();
-            return;
-        }
-        if (document.activeElement !== canvas) {
-            console.log("canvas is not focused");
-            return;
-        }
+export function setupListeners(
+    canvas: HTMLCanvasElement,
+    state: EditorState,
+    config: EditorConfig
+) {
+    const input = document.getElementById("vib-input") as HTMLInputElement | null;
+    if (!input) throw new Error("vib: input element not found.");
+
+    canvas.addEventListener("click", () => {
+        input.focus();
+        render(canvas, state, config);
+    });
+
+    input.addEventListener("compositionstart", () => {
+        input.style.zIndex = "9999";
+    });
+
+    input.addEventListener("compositionend", () => {
+        insertChar(input.value, state, config);
+        scrollWindow(state, config);
+        render(canvas, state, config);
+        input.value = "";
+        input.style.zIndex = "-1";
+    });
+
+    input.addEventListener("keydown", (e) => {
+        if (e.isComposing) return;
+        input.value = "";
 
         // processing
         processKeypress(e, state, config);
@@ -20,8 +38,6 @@ export function setupListeners(canvas: HTMLCanvasElement, state: EditorState, co
 
         // drawing
         render(canvas, state, config);
-
-        console.log("cx: ", state.px, "cxoff: ", state.pxoff, "col: ", state.col);
     });
 }
 
