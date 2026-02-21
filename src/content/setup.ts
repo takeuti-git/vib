@@ -2,14 +2,41 @@ import type { EditorConfig, EditorState } from "./types.js";
 import { isFunctionKey, MOVE_KEYS } from "./keys.js";
 import { deleteChar, insertChar, insertNewLine, moveCursor, scrollWindow } from "./edit.js";
 import { render } from "./render.js";
+import { getLines } from "./line.js";
 
 export function setupListeners(
     canvas: HTMLCanvasElement,
+    input: HTMLInputElement,
     state: EditorState,
     config: EditorConfig
 ) {
-    const input = document.getElementById("vib-input") as HTMLInputElement | null;
-    if (!input) throw new Error("vib: input element not found.");
+    let destEl: HTMLInputElement | HTMLTextAreaElement | null = null;
+    const setDestElValue = () => {
+        if (!destEl) return;
+        destEl.value = state.lines.map(l => l.text).join("\n");
+    };
+
+    document.addEventListener("keydown", (e) => {
+        if (e.altKey && e.code === "KeyV") {
+            const currentEl = document.activeElement;
+            if (currentEl === input) return;
+
+            if (
+                (currentEl instanceof HTMLInputElement) ||
+                (currentEl instanceof HTMLTextAreaElement)
+            ) {
+                destEl = currentEl;
+                input.focus();
+                state.row = 0;
+                state.col = 0;
+                state.px = 0;
+                state.rowoff = 0;
+                state.pxoff = 0;
+                state.lines = getLines(currentEl.value);
+                render(canvas, state, config);
+            }
+        }
+    });
 
     canvas.addEventListener("click", () => {
         input.focus();
@@ -17,20 +44,28 @@ export function setupListeners(
     });
 
     input.addEventListener("compositionstart", () => {
+        // 日本語変換が始まったとき
         input.style.zIndex = "9999";
     });
 
     input.addEventListener("compositionend", () => {
+        // 日本語変換が終わったとき
         insertChar(input.value, state, config);
         scrollWindow(state, config);
         render(canvas, state, config);
         input.value = "";
         input.style.zIndex = "-1";
+        setDestElValue();
     });
 
     input.addEventListener("keydown", (e) => {
         if (e.isComposing) return;
-        input.value = "";
+
+        if (e.altKey && e.code === "KeyV" && destEl) {
+            destEl.focus();
+            e.stopPropagation();
+            return;
+        }
 
         // processing
         processKeypress(e, state, config);
@@ -38,6 +73,9 @@ export function setupListeners(
 
         // drawing
         render(canvas, state, config);
+
+        input.value = "";
+        setDestElValue();
     });
 }
 

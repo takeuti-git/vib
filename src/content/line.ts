@@ -9,3 +9,6 @@ export class Line {
     }
 }
 
+export function getLines(text: string): Line[] {
+    return text.split("\n").map(line => new Line(line));
+}

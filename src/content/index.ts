@@ -13,7 +13,7 @@ function main() {
     const config = initEditorConfig();
 
     initConfig(canvas, config);
-    setupListeners(canvas, state, config);
+    setupListeners(canvas, input, state, config);
 
     console.log("Alt+v: Focus canvas");
 }
