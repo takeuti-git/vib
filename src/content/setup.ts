@@ -72,9 +72,11 @@ export function setupListeners(
     input.addEventListener("keydown", (e) => {
         if (e.isComposing) return;
 
-        if (e.altKey && e.code === "KeyV" && destEl) {
-            destEl.focus();
-            e.stopPropagation();
+        if (e.altKey && e.code === "KeyV") {
+            if (destEl) {
+                destEl.focus();
+                e.stopPropagation();
+            }
             return;
         }
 
