@@ -3,6 +3,7 @@ import type { Line } from "./line";
 type EditorColors = {
     font: string;
     cursor: string;
+    empty: string;
 };
 
 export type EditorConfig = {

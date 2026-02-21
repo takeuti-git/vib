@@ -2,7 +2,7 @@ export function isFunctionKey(key: string): boolean {
     return /^F\d+/.test(key);
 }
 
-export const IGNORE_KEYS = [
+const IGNORE_KEYS = [
     "Escape", "Delete", "Insert",
     "Enter", "Control", "Shift", "Alt", "Meta",
     "Alphanumeric", "Tab", "Backspace", "Convert", "NonConvert",

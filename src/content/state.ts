@@ -1,7 +1,7 @@
 import type { EditorState } from "./types";
 import { Line } from "./line";
 
-export function initEditorState(): EditorState {
+export function createEditorState(): EditorState {
     return {
         row: 0,
         col: 0,
@@ -12,13 +12,4 @@ export function initEditorState(): EditorState {
             new Line()
         ],
     };
-}
-
-export function resetEditorState(state: EditorState) {
-    state.row = 0;
-    state.col = 0;
-    state.px = 0;
-    state.rowoff = 0;
-    state.pxoff = 0;
-    state.lines = [];
 }

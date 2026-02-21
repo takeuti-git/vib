@@ -1,0 +1,458 @@
+import type { EditorConfig, EditorState } from "./types";
+import { Line, getLines } from "./line";
+import { isFunctionKey, isIgnoreKey, MOVE_KEYS, type MoveKey } from "./keys";
+import { isFullWidth } from "./utils";
+import { hideContainer, showContainer } from "./dom";
+
+export class Editor {
+    private config: EditorConfig;
+    private state: EditorState;
+    private container: HTMLDivElement;
+    private canvas: HTMLCanvasElement;
+    private input: HTMLInputElement;
+
+    private ctx: CanvasRenderingContext2D;
+
+    constructor(
+        config: EditorConfig,
+        state: EditorState,
+        container: HTMLDivElement,
+        canvas: HTMLCanvasElement,
+        input: HTMLInputElement
+    ) {
+        this.config = config;
+        this.state = state;
+        this.container = container;
+        this.canvas = canvas;
+        this.input = input;
+        this.ctx = canvas.getContext("2d") as CanvasRenderingContext2D;
+        this.init();
+    }
+
+    // ------------------------------
+    // | initializing
+    // ------------------------------
+
+    private init(): void {
+        this.initConfig();
+        this.setupListeners();
+        this.render();
+    }
+
+    private initConfig() {
+        this.applyConfig();
+        this.canvas.tabIndex = -1;
+        this.canvas.style.outline = "none";
+
+        const ctx = this.canvas.getContext("2d") as CanvasRenderingContext2D;
+        ctx.textBaseline = "middle";
+    }
+
+    private setupListeners() {
+        let destEl: HTMLInputElement | HTMLTextAreaElement | null = null;
+        const setDestElValue = () => {
+            if (!destEl) return;
+            destEl.value = this.state.lines.map(l => l.text).join("\n");
+        };
+
+        document.addEventListener("keydown", (e) => {
+            if (e.altKey && e.code === "KeyV") {
+                const activeEl = document.activeElement;
+                if (activeEl === this.input) return;
+
+                if (
+                    (activeEl instanceof HTMLInputElement) ||
+                    (activeEl instanceof HTMLTextAreaElement)
+                ) {
+                    showContainer(this.container);
+
+                    destEl = activeEl;
+                    this.input.focus();
+
+                    this.resetState();
+                    this.state.lines = getLines(activeEl.value);
+                    this.render();
+                }
+                return;
+            }
+
+            if (e.altKey && e.code === "KeyQ") {
+                if (this.container.style.visibility === "hidden") {
+                    showContainer(this.container);
+                } else {
+                    hideContainer(this.container);
+                }
+            }
+        });
+
+        this.canvas.addEventListener("click", () => {
+            this.input.focus();
+            this.render();
+        });
+
+        this.input.addEventListener("compositionend", () => {
+            // 日本語変換が始まったとき
+            this.input.style.zIndex = "9999";
+        });
+        this.input.addEventListener("compositionend", () => {
+            // 日本語変換が終わったとき
+            this.insertChar(this.input.value);
+            this.scrollWindow();
+            this.render();
+            this.input.value = "";
+            this.input.style.zIndex = "-1";
+            setDestElValue();
+        });
+        this.input.addEventListener("keydown", (e) => {
+            if (e.isComposing) return;
+
+            if (e.altKey && e.code === "KeyV") {
+                if (destEl) {
+                    destEl.focus();
+                    e.stopPropagation();
+                }
+                return;
+            }
+
+            // processing
+            this.processKeypress(e);
+            this.scrollWindow();
+
+            // drawing
+            this.render();
+
+            this.input.value = "";
+            setDestElValue();
+        });
+    }
+
+    private processKeypress(e: KeyboardEvent) {
+        const key = e.key;
+        if (isFunctionKey(key)) return;
+
+        switch (key) {
+            case "ArrowLeft":
+                this.moveCursor(MOVE_KEYS.LEFT);
+            break;
+            case "ArrowRight":
+                this.moveCursor(MOVE_KEYS.RIGHT);
+            break;
+            case "ArrowUp":
+                this.moveCursor(MOVE_KEYS.UP);
+            break;
+            case "ArrowDown":
+                this.moveCursor(MOVE_KEYS.DOWN);
+            break;
+
+            case "Delete":
+                case "Backspace": {
+                if (key === "Delete") {
+                    if (this.isAtTail()) return;
+                    this.moveCursor(MOVE_KEYS.RIGHT);
+                }
+                this.deleteChar();
+                break;
+            }
+            case "Enter": {
+                this.insertNewLine();
+                break;
+            }
+            default: {
+                this.insertChar(key);
+            }
+        }
+    }
+
+    // ------------------------------
+    // | editing
+    // ------------------------------
+
+    private scrollWindow(): void {
+        if (this.state.row < this.state.rowoff) {
+            // decrease rowoff
+            this.state.rowoff = this.state.row;
+        }
+        if (this.state.row >= this.state.rowoff + this.config.screenrows) {
+            // increase rowoff
+            this.state.rowoff = this.state.row - this.config.screenrows + 1;
+        }
+
+        if (this.state.px < this.state.pxoff) {
+            // decrease pxoff
+            this.state.pxoff = this.state.px;
+        }
+
+        const fontsize = this.config.baseFontSize / 2;
+        const screenWidth = this.config.screencols * fontsize;
+        if (this.state.px >= this.state.pxoff + screenWidth) {
+            // increase pxoff
+            this.state.pxoff = this.state.px - (fontsize * this.config.screencols) + fontsize;
+        }
+    }
+
+    private moveCursor(key: MoveKey): void {
+        switch (key) {
+            case MOVE_KEYS.LEFT: {
+                if (this.state.col !== 0) {
+                    const prevChar = this.currentLine.text.slice(this.state.col - 1, this.state.col);
+                    this.state.px -= this.calcWidth(prevChar);
+                    this.state.col--;
+                } else if (this.state.row > 0) {
+                    const prevLine = this.prevLine as Line;
+                    const prevLineLen = prevLine.size;
+                    this.state.row--;
+                    this.state.col = prevLineLen;
+                    this.state.px = this.calcWidth(prevLine.text);
+                }
+                break;
+            }
+            case MOVE_KEYS.RIGHT: {
+                const currLine = this.currentLine;
+                if (this.state.col < currLine.size) {
+                    const currChar = currLine.text.slice(this.state.col, this.state.col + 1);
+                    this.state.px += this.calcWidth(currChar);
+                    this.state.col++;
+                } else if (this.nextLine && this.state.col === currLine.size) {
+                    this.state.row++;
+                    this.state.col = 0;
+                    this.state.px = 0;
+                }
+                break;
+            }
+            case MOVE_KEYS.UP: {
+                if (this.state.row !== 0) {
+                    const cxBeforeMove = this.state.px;
+                    const prevLine = this.prevLine as Line;
+                    this.state.row--;
+                    this.state.px = Math.min(this.state.px, this.calcWidth(prevLine.text));
+                    this.state.col = this.cxToCol(this.state.px, prevLine.text);
+                    this.state.px = this.calcWidth(prevLine.text.slice(0, this.state.col));
+
+                    if (this.state.px >= cxBeforeMove + this.config.baseFontSize / 2) {
+                        // 半角文字から全角文字に移動する時、移動前が後ろ側なら寄せる
+                        this.state.px -= this.config.baseFontSize;
+                        this.state.col--;
+                    }
+                }
+                break;
+            }
+            case MOVE_KEYS.DOWN: {
+                if (this.state.row < this.state.lines.length - 1) {
+                    const cxBeforeMove = this.state.px;
+                    const nextLine = this.nextLine as Line;
+                    this.state.row++;
+                    this.state.px = Math.min(this.state.px, this.calcWidth(nextLine.text));
+                    this.state.col = this.cxToCol(this.state.px, nextLine.text);
+                    this.state.px = this.calcWidth(nextLine.text.slice(0, this.state.col));
+                    if (this.state.px >= cxBeforeMove + this.config.baseFontSize / 2) {
+                        // 半角文字から全角文字に移動する時、移動前が後ろ側なら寄せる
+                        this.state.px -= this.config.baseFontSize;
+                        this.state.col--;
+                    }
+                }
+                break;
+            }
+        }
+    }
+
+    private insertNewLine(): void {
+        const currLine = this.currentLine;
+        const textBefore = currLine.text.slice(0, this.state.col);
+        const textAfter = currLine.text.slice(this.state.col);
+        currLine.text = textBefore;
+        this.state.row++;
+        this.state.col = 0;
+        this.state.px = 0;
+        this.insertRow(this.state.row, textAfter);
+    }
+
+    private insertChar(ch: string): void {
+        if (isIgnoreKey(ch)) return;
+
+        const currLine = this.currentLine;
+        if (this.state.col >= currLine.size) {
+            this.appendTextToLine(currLine, ch);
+        } else {
+            this.insertTextInLine(currLine, ch, this.state.col);
+        }
+        this.state.px += this.calcWidth(ch);
+        this.state.col += ch.length;
+    }
+
+    /** col - 1 の文字を削除する */
+    private deleteChar(): void {
+        if (this.state.row === 0 && this.state.col === 0) return;
+
+        const currLine = this.currentLine;
+        const text = currLine.text;
+        if (this.state.col > 0) {
+            const targetChar = text[this.state.col - 1] as string;
+            const modified = text.slice(0, this.state.col - 1) + text.slice(this.state.col);
+            currLine.text = modified;
+            this.state.col--;
+            this.state.px -= this.calcWidth(targetChar);
+        } else {
+            // append two lines
+            const prevLine = this.prevLine as Line;
+            this.state.col = prevLine.size;
+            this.state.px = this.calcWidth(prevLine.text);
+            this.appendTextToLine(prevLine, currLine.text);
+            this.deleteRow(this.state.row);
+            this.state.row--;
+        }
+    }
+
+    private isAtTail(): boolean {
+        return (
+            this.state.row === this.state.lines.length - 1 &&
+            this.state.col === this.currentLine.size
+        );
+    }
+
+    // ------------------------------
+    // | helpers
+    // ------------------------------
+
+    private get currentLine(): Line {
+        return this.state.lines[this.state.row] as Line;
+    }
+
+    private get nextLine(): Line | undefined {
+        return this.state.lines[this.state.row + 1];
+    }
+
+    private get prevLine(): Line | undefined {
+        return this.state.lines[this.state.row - 1];
+    }
+
+    private insertRow(row: number, text: string): void {
+        if (row < 0 || row > this.state.lines.length) return;
+        this.state.lines.splice(row, 0, new Line(text));
+    }
+
+    private deleteRow(row: number): void {
+        if (row < 0 || row >= this.state.lines.length) return;
+        this.state.lines.splice(row, 1);
+    }
+
+    private appendTextToLine(line: Line, text: string): void {
+        line.text += text;
+    }
+
+    private insertTextInLine(line: Line, text: string, col: number): void {
+        const before = line.text.slice(0, col);
+        const after = line.text.slice(col);
+        line.text = before + text + after;
+    }
+
+    private calcWidth(text: string): number {
+        let width = 0;
+        for (const ch of text) {
+            width += isFullWidth(ch)
+                ? this.config.baseFontSize
+                : this.config.baseFontSize / 2;;
+        }
+        return width;
+    }
+
+    private cxToCol(cx: number, text: string): number {
+        let width = 0;
+        let col = 0;
+        for (const ch of text) {
+            width += this.calcWidth(ch);
+            if (width > cx) break;
+            col++;
+        }
+        return col;
+    }
+
+    private applyConfig(): void {
+        const ctx = this.canvas.getContext("2d") as CanvasRenderingContext2D;
+        this.canvas.width = this.config.screencols * (this.config.baseFontSize / 2);
+        this.canvas.height = this.config.screenrows * this.config.lineHeight;
+        ctx.font = `${this.config.baseFontSize}px ${this.config.fontFamily}`;
+        ctx.fillStyle = this.config.colors.font;
+        ctx.strokeStyle = this.config.colors.cursor;
+    }
+
+    private resetState(): void {
+        this.state.row = 0;
+        this.state.col = 0;
+        this.state.px = 0;
+        this.state.rowoff = 0;
+        this.state.pxoff = 0;
+        this.state.lines = [];
+    }
+
+    // ------------------------------
+    // | rendering
+    // ------------------------------
+
+    private render(): void {
+        this.clearCanvas();
+        this.drawLines();
+        this.drawCursor();
+    }
+
+    private clearCanvas(): void {
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    }
+
+    private drawLines() {
+        const px = 0; // 将来行番号の表示により変わる可能性
+        for (let y = 0; y < this.config.screenrows; y++) {
+            const targetRow = y + this.state.rowoff;
+            const py = y * this.config.lineHeight;
+
+            if (targetRow < this.state.lines.length) {
+                this.drawLine(px, py, this.state.lines[targetRow]!.text);
+            } else {
+                this.drawLine(px, py, "~");
+            }
+        }
+    }
+
+    private drawCursor() {
+        const currLine = this.currentLine;
+        const text = currLine.text;
+
+        const x = this.state.px - this.state.pxoff;
+        const y = (this.state.row - this.state.rowoff) * this.config.lineHeight;
+        // sliceの返り値は空文字になりえるためcalcWidthは0を返すことがある
+        const w = this.calcWidth(text.slice(this.state.col, this.state.col + 1));
+        const h = this.config.lineHeight;
+        this.ctx.strokeRect(x, y, w, h);
+    }
+
+    private drawLine(x: number, y: number, text: string): void {
+        const startCol = this.cxToCol(this.state.pxoff, text);
+        const subPixelOffset = this.calcWidth(text.slice(0, startCol)) - this.state.pxoff;
+        let cursorX = x + subPixelOffset;
+        const cursorY = y + this.config.lineHeight / 2;
+
+        const drawingText = text.slice(startCol, startCol + this.config.screencols);
+        for (const ch of drawingText) {
+            if (ch === " ") {
+                this.drawEmpty(cursorX, cursorY);
+            } else {
+                this.drawChar(cursorX, cursorY, ch);
+            }
+            cursorX += this.calcWidth(ch);
+        }
+    }
+
+    private drawEmpty(x: number, y: number): void {
+        const radius = this.config.baseFontSize / 8;
+        this.ctx.fillStyle = this.config.colors.empty;
+        this.ctx.beginPath();
+        const px = x + this.config.baseFontSize / 4;
+        this.ctx.arc(px, y, radius, 0, Math.PI * 2);
+        this.ctx.closePath();
+        this.ctx.fill();
+    }
+
+    private drawChar(x: number, y: number, ch: string): void {
+        this.ctx.fillStyle = this.config.colors.font;
+        this.ctx.fillText(ch, x, y);
+    }
+}
