@@ -1,6 +1,6 @@
-import { Line } from "./line.js";
 import type { EditorConfig, EditorState } from "./types";
-import { calcWidth, cxToCol } from "./utils.js";
+import { Line } from "./line";
+import { calcWidth, cxToCol } from "./utils";
 
 export function render(canvas: HTMLCanvasElement, state: EditorState, config: EditorConfig) {
     const ctx = canvas.getContext("2d") as CanvasRenderingContext2D;

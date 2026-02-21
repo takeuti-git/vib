@@ -1,10 +1,10 @@
-import type { EditorConfig, EditorState } from "./types.js";
-import { isFunctionKey, MOVE_KEYS } from "./keys.js";
-import { deleteChar, insertChar, insertNewLine, moveCursor, scrollWindow } from "./edit.js";
-import { render } from "./render.js";
-import { getLines } from "./line.js";
-import { hideContainer, showContainer } from "./dom.js";
-import { resetEditorState } from "./state.js";
+import type { EditorConfig, EditorState } from "./types";
+import { isFunctionKey, MOVE_KEYS } from "./keys";
+import { deleteChar, insertChar, insertNewLine, moveCursor, scrollWindow } from "./edit";
+import { render } from "./render";
+import { getLines } from "./line";
+import { hideContainer, showContainer } from "./dom";
+import { resetEditorState } from "./state";
 
 export function setupListeners(
     container: HTMLDivElement,

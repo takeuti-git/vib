@@ -1,5 +1,5 @@
 import type { EditorState } from "./types";
-import { Line } from "./line.js";
+import { Line } from "./line";
 
 export function initEditorState(): EditorState {
     return {

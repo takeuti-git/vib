@@ -1,7 +1,7 @@
 import type { EditorConfig, EditorState } from "./types";
-import { isIgnoreKey, MOVE_KEYS, type MoveKey } from "./keys.js";
-import { Line } from "./line.js";
-import { calcWidth, cxToCol } from "./utils.js";
+import { isIgnoreKey, MOVE_KEYS, type MoveKey } from "./keys";
+import { Line } from "./line";
+import { calcWidth, cxToCol } from "./utils";
 
 export function scrollWindow(state: EditorState, config: EditorConfig) {
     if (state.row < state.rowoff) {

@@ -1,8 +1,8 @@
-import { appendContainer, createCanvas, createContainer, createInput } from "./dom.js";
-import { initEditorConfig, initConfig } from "./config.js";
-import { initEditorState } from "./state.js";
-import { setupListeners } from "./setup.js";
-import { render } from "./render.js";
+import { appendContainer, createCanvas, createContainer, createInput } from "./dom";
+import { initEditorConfig, initConfig } from "./config";
+import { initEditorState } from "./state";
+import { setupListeners } from "./setup";
+import { render } from "./render";
 
 function main() {
     const container = createContainer();
