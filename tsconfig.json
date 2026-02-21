@@ -10,6 +10,8 @@
     "outDir": "./dist",
     "lib": ["DOM", "ES2020"],
 
+    "erasableSyntaxOnly": true,
+
     // Stricter Typechecking Options
     "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": true,
