@@ -4,6 +4,7 @@ import { deleteChar, insertChar, insertNewLine, moveCursor, scrollWindow } from 
 import { render } from "./render.js";
 import { getLines } from "./line.js";
 import { hideContainer, showContainer } from "./dom.js";
+import { resetEditorState } from "./state.js";
 
 export function setupListeners(
     container: HTMLDivElement,
@@ -31,11 +32,8 @@ export function setupListeners(
 
                 destEl = currentEl;
                 input.focus();
-                state.row = 0;
-                state.col = 0;
-                state.px = 0;
-                state.rowoff = 0;
-                state.pxoff = 0;
+
+                resetEditorState(state);
                 state.lines = getLines(currentEl.value);
                 render(canvas, state, config);
             }

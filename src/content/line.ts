@@ -1,6 +1,6 @@
 export class Line {
     public text: string;
-    constructor(text: string) {
+    constructor(text: string = "") {
         this.text = text;
     }
 
