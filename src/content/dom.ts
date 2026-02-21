@@ -1,15 +1,14 @@
-export function initContainer(): HTMLElement {
+export function createContainer(): HTMLDivElement {
     const container = document.createElement("div");
     container.style.position = "fixed";
     container.style.bottom = "50px";
     container.style.right = "50px";
     container.style.zIndex = "9999";
     container.style.border = "1px solid black";
-
     return container;
 }
 
-export function initCanvas(container: HTMLElement): HTMLCanvasElement {
+export function createCanvas(container: HTMLElement): HTMLCanvasElement {
     const canvas = document.createElement("canvas");
     canvas.tabIndex = -1;
     canvas.style.position = "relative";
@@ -20,9 +19,8 @@ export function initCanvas(container: HTMLElement): HTMLCanvasElement {
     return canvas;
 }
 
-export function initInput(container: HTMLElement): HTMLInputElement {
+export function createInput(container: HTMLElement): HTMLInputElement {
     const input = document.createElement("input");
-    input.id = "vib-input";
     input.style.position = "absolute";
     input.style.top = "0";
     input.style.left = "0";
@@ -38,4 +36,14 @@ export function initInput(container: HTMLElement): HTMLInputElement {
 
 export function appendContainer(container: HTMLElement): void {
     document.body.appendChild(container);
+}
+
+export function showContainer(container: HTMLElement) {
+    container.style.visibility = "visible";
+    container.style.display = "block";
+}
+
+export function hideContainer(container: HTMLElement) {
+    container.style.visibility = "hidden";
+    container.style.display = "none";
 }

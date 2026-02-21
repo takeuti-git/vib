@@ -3,8 +3,10 @@ import { isFunctionKey, MOVE_KEYS } from "./keys.js";
 import { deleteChar, insertChar, insertNewLine, moveCursor, scrollWindow } from "./edit.js";
 import { render } from "./render.js";
 import { getLines } from "./line.js";
+import { hideContainer, showContainer } from "./dom.js";
 
 export function setupListeners(
+    container: HTMLDivElement,
     canvas: HTMLCanvasElement,
     input: HTMLInputElement,
     state: EditorState,
@@ -25,6 +27,8 @@ export function setupListeners(
                 (currentEl instanceof HTMLInputElement) ||
                 (currentEl instanceof HTMLTextAreaElement)
             ) {
+                showContainer(container);
+
                 destEl = currentEl;
                 input.focus();
                 state.row = 0;
@@ -34,6 +38,15 @@ export function setupListeners(
                 state.pxoff = 0;
                 state.lines = getLines(currentEl.value);
                 render(canvas, state, config);
+            }
+            return;
+        }
+
+        if (e.altKey && e.code === "KeyQ") {
+            if (container.style.visibility === "hidden") {
+                showContainer(container);
+            } else {
+                hideContainer(container);
             }
         }
     });
