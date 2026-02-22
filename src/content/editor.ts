@@ -425,7 +425,7 @@ export class Editor {
             }
 
             if (targetRow < this.state.lines.length) {
-                this.drawLineNumber(px, py, rowDisplay);
+                this.drawLineNumber(px, py, targetRow, rowDisplay);
                 this.drawLineText(px, py, this.state.lines[targetRow]!.text);
             }
         }
@@ -458,11 +458,13 @@ export class Editor {
         this.ctx.fillText(rowcol, w, y + this.config.lines.height / 2);
     }
 
-    private drawLineNumber(x: number, y: number, row: number) {
-        this.ctx.fillStyle = this.config.colors.lineNumber;
+    private drawLineNumber(x: number, y: number, row: number, lineNum: number) {
+        this.ctx.fillStyle = (row === this.state.row)
+            ? this.config.colors.lineNumberCurrent
+            : this.config.colors.lineNumber;
         this.ctx.textAlign = "right";
         // 行番号の右側に空白1つ分開ける
-        this.ctx.fillText(row.toString(), x - this.config.baseFontSize / 2, y);
+        this.ctx.fillText(lineNum.toString(), x - this.config.baseFontSize / 2, y);
     }
 
     private drawLineText(x: number, y: number, text: string): void {

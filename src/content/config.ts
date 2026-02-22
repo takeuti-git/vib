@@ -10,6 +10,7 @@ type EditorColors = {
     cursorOutline: string;
     emptyChar: string;
     lineNumber: string;
+    lineNumberCurrent: string;
     statusBarBg: string;
     statusBarText: string;
 };
@@ -49,6 +50,7 @@ export function createEditorConfig(): EditorConfig {
             cursorOutline: "#00f",
             emptyChar: "#ccc",
             lineNumber: "#777",
+            lineNumberCurrent: "#ff8c00",
             statusBarBg: "#555",
             statusBarText: "#fff",
         },
