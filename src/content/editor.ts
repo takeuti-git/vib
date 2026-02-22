@@ -417,8 +417,17 @@ export class Editor {
             const targetRow = y + this.state.rowoff;
             const py = y * this.config.lines.height + this.config.lines.height / 2;
 
+            let rowDisplay;
+            if (this.config.lines.relativeNumbers) {
+                rowDisplay = (this.state.row === targetRow)
+                    ? targetRow + 1
+                    : Math.abs(this.state.row - targetRow);
+            } else {
+                rowDisplay = targetRow + 1;
+            }
+
             if (targetRow < this.state.lines.length) {
-                this.drawLineNumber(px, py, targetRow + 1);
+                this.drawLineNumber(px, py, rowDisplay);
                 this.drawLineText(px, py, this.state.lines[targetRow]!.text);
             }
         }
