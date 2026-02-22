@@ -181,9 +181,9 @@ export class Editor {
             // decrease rowoff
             this.state.rowoff = this.state.row;
         }
-        if (this.state.row >= this.state.rowoff + this.config.screenrows) {
+        if (this.state.row >= this.state.rowoff + this.config.screenrows - this.config.statusBarHeight) {
             // increase rowoff
-            this.state.rowoff = this.state.row - this.config.screenrows + 1;
+            this.state.rowoff = this.state.row - this.config.screenrows + 1 + this.config.statusBarHeight;
         }
 
         if (this.state.px < this.state.pxoff) {
@@ -414,7 +414,7 @@ export class Editor {
         const fontsize = this.config.baseFontSize / 2;
         const px = this.config.lines.marginLeft * fontsize; // 行番号の余白
 
-        for (let y = 0; y < this.config.screenrows; y++) {
+        for (let y = 0; y < this.config.screenrows - this.config.statusBarHeight; y++) {
             const targetRow = y + this.state.rowoff;
             const py = y * this.config.lines.height + this.config.lines.height / 2;
 
