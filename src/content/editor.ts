@@ -403,6 +403,7 @@ export class Editor {
         this.clearCanvas();
         this.drawLines();
         this.drawCursor();
+        this.drawStatusBar();
     }
 
     private clearCanvas(): void {
@@ -442,6 +443,14 @@ export class Editor {
         const w = this.calcWidth(text[this.state.col] ?? "");
         const h = this.config.lines.height;
         this.ctx.strokeRect(x, y, w, h);
+    }
+
+    private drawStatusBar(): void {
+        const y = this.config.screenrows - this.config.statusBarHeight;
+        const w = this.config.screencols * this.config.baseFontSize / 2;
+        const h = this.config.statusBarHeight * this.config.lines.height;
+        this.ctx.fillStyle = this.config.colors.statusBarBg;
+        this.ctx.fillRect(0, y * this.config.lines.height, w, h);
     }
 
     private drawLineNumber(x: number, y: number, row: number) {
