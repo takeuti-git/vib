@@ -90,7 +90,7 @@ export class Editor {
             this.render();
         });
 
-        this.input.addEventListener("compositionend", () => {
+        this.input.addEventListener("compositionstart", () => {
             // 日本語変換が始まったとき
             this.input.style.zIndex = "9999";
         });
@@ -126,26 +126,34 @@ export class Editor {
         });
     }
 
+    // ------------------------------
+    // | processing basic inputs
+    // ------------------------------
+
     private processKeypress(e: KeyboardEvent) {
         const key = e.key;
         if (isFunctionKey(key)) return;
 
         switch (key) {
-            case "ArrowLeft":
+            case "ArrowLeft": {
                 this.moveCursor(MOVE_KEYS.LEFT);
-            break;
-            case "ArrowRight":
+                break;
+            }
+            case "ArrowRight": {
                 this.moveCursor(MOVE_KEYS.RIGHT);
-            break;
-            case "ArrowUp":
+                break;
+            }
+            case "ArrowUp": {
                 this.moveCursor(MOVE_KEYS.UP);
-            break;
-            case "ArrowDown":
+                break;
+            }
+            case "ArrowDown": {
                 this.moveCursor(MOVE_KEYS.DOWN);
-            break;
+                break;
+            }
 
             case "Delete":
-                case "Backspace": {
+            case "Backspace": {
                 if (key === "Delete") {
                     if (this.isAtTail()) return;
                     this.moveCursor(MOVE_KEYS.RIGHT);
@@ -228,11 +236,7 @@ export class Editor {
                     this.state.col = this.cxToCol(this.state.px, prevLine.text);
                     this.state.px = this.calcWidth(prevLine.text.slice(0, this.state.col));
 
-                    if (this.state.px >= cxBeforeMove + this.config.baseFontSize / 2) {
-                        // 半角文字から全角文字に移動する時、移動前が後ろ側なら寄せる
-                        this.state.px -= this.config.baseFontSize;
-                        this.state.col--;
-                    }
+                    this.alignCursorToLeft(cxBeforeMove);
                 }
                 break;
             }
@@ -244,14 +248,19 @@ export class Editor {
                     this.state.px = Math.min(this.state.px, this.calcWidth(nextLine.text));
                     this.state.col = this.cxToCol(this.state.px, nextLine.text);
                     this.state.px = this.calcWidth(nextLine.text.slice(0, this.state.col));
-                    if (this.state.px >= cxBeforeMove + this.config.baseFontSize / 2) {
-                        // 半角文字から全角文字に移動する時、移動前が後ろ側なら寄せる
-                        this.state.px -= this.config.baseFontSize;
-                        this.state.col--;
-                    }
+
+                    this.alignCursorToLeft(cxBeforeMove);
                 }
                 break;
             }
+        }
+    }
+
+    /** 半角文字から全角文字に上下移動する時、移動前が移動後の後ろ側なら右に寄せる */
+    private alignCursorToLeft(cxBeforeMove: number): void {
+        if (this.state.px >= cxBeforeMove + this.config.baseFontSize / 2) {
+            this.state.px -= this.config.baseFontSize;
+            this.state.col--;
         }
     }
 
@@ -300,13 +309,6 @@ export class Editor {
             this.deleteRow(this.state.row);
             this.state.row--;
         }
-    }
-
-    private isAtTail(): boolean {
-        return (
-            this.state.row === this.state.lines.length - 1 &&
-            this.state.col === this.currentLine.size
-        );
     }
 
     // ------------------------------
@@ -364,6 +366,13 @@ export class Editor {
             col++;
         }
         return col;
+    }
+
+    private isAtTail(): boolean {
+        return (
+            this.state.row === this.state.lines.length - 1 &&
+            this.state.col === this.currentLine.size
+        );
     }
 
     private applyConfig(): void {
