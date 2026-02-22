@@ -30,6 +30,8 @@ export function createInput(container: HTMLElement): HTMLInputElement {
     input.style.margin = "0";
     input.style.outline = "none";
     input.style.border = "4px ridge";
+
+    input.name = "vib-input";
     container.appendChild(input);
     return input;
 }
