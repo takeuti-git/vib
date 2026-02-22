@@ -439,7 +439,7 @@ export class Editor {
         const y = (this.state.row - this.state.rowoff) * this.config.lines.height;
         const w = this.calcWidth(text[this.state.col] ?? "");
         const h = this.config.lines.height;
-        this.ctx.fillStyle = this.config.colors.cursor;
+        this.ctx.fillStyle = this.config.colors.cursorBody;
         this.ctx.strokeStyle = this.config.colors.cursorOutline;
         this.ctx.fillRect(x, y, w, h);
         this.ctx.strokeRect(x, y, w, h);
@@ -485,7 +485,7 @@ export class Editor {
     private drawEmpty(x: number, y: number): void {
         const radius = this.config.baseFontSize / 8;
         const px = x + this.config.baseFontSize / 4;
-        this.ctx.fillStyle = this.config.colors.empty;
+        this.ctx.fillStyle = this.config.colors.emptyChar;
         this.ctx.beginPath();
         this.ctx.arc(px, y, radius, 0, Math.PI * 2);
         this.ctx.closePath();
@@ -493,7 +493,7 @@ export class Editor {
     }
 
     private drawChar(x: number, y: number, ch: string): void {
-        this.ctx.fillStyle = this.config.colors.font;
+        this.ctx.fillStyle = this.config.colors.bodyText;
         this.ctx.fillText(ch, x, y);
     }
 }

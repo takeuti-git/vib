@@ -5,10 +5,10 @@ type EditorLines = {
 };
 
 type EditorColors = {
-    font: string;
-    cursor: string;
+    bodyText: string;
+    cursorBody: string;
     cursorOutline: string;
-    empty: string;
+    emptyChar: string;
     lineNumber: string;
     statusBarBg: string;
     statusBarText: string;
@@ -44,10 +44,10 @@ export function createEditorConfig(): EditorConfig {
         },
 
         colors: {
-            font: "green",
-            cursor: "#00f5",
+            bodyText: "green",
+            cursorBody: "#00f5",
             cursorOutline: "#00f",
-            empty: "#ccc",
+            emptyChar: "#ccc",
             lineNumber: "#777",
             statusBarBg: "#555",
             statusBarText: "#fff",
