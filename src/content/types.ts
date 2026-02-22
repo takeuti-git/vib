@@ -4,6 +4,7 @@ type EditorColors = {
     font: string;
     cursor: string;
     empty: string;
+    lineNumber: string;
 };
 
 export type EditorConfig = {
@@ -14,6 +15,7 @@ export type EditorConfig = {
 
     screenrows: number;
     screencols: number;
+    lineNumberWidth: number;
 };
 
 export type EditorState = {
