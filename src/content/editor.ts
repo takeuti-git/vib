@@ -1,4 +1,5 @@
-import type { EditorConfig, EditorState } from "./types";
+import type { EditorConfig } from "./config";
+import type { EditorState } from "./state";
 import { Line, getLines } from "./line";
 import { isFunctionKey, isIgnoreKey, MOVE_KEYS, type MoveKey } from "./keys";
 import { isFullWidth } from "./utils";
@@ -123,7 +124,6 @@ export class Editor {
 
             this.input.value = "";
             setDestElValue();
-            console.log("px:", this.state.px, "pxoff:", this.state.pxoff);
         });
     }
 
@@ -192,7 +192,7 @@ export class Editor {
         }
 
         const fontsize = this.config.baseFontSize / 2;
-        const lineNumberMargin = this.config.lineNumberWidth * fontsize;
+        const lineNumberMargin = this.config.lines.marginLeft * fontsize;
         const screenWidth = this.config.screencols * fontsize - lineNumberMargin;
         if (this.state.px >= this.state.pxoff + screenWidth) {
             // increase pxoff
@@ -380,7 +380,7 @@ export class Editor {
     private applyConfig(): void {
         const ctx = this.canvas.getContext("2d") as CanvasRenderingContext2D;
         this.canvas.width = this.config.screencols * (this.config.baseFontSize / 2);
-        this.canvas.height = this.config.screenrows * this.config.lineHeight;
+        this.canvas.height = this.config.screenrows * this.config.lines.height;
         ctx.font = `${this.config.baseFontSize}px ${this.config.fontFamily}`;
         ctx.fillStyle = this.config.colors.font;
         ctx.strokeStyle = this.config.colors.cursor;
@@ -411,11 +411,11 @@ export class Editor {
 
     private drawLines() {
         const fontsize = this.config.baseFontSize / 2;
-        const px = this.config.lineNumberWidth * fontsize; // 行番号の余白
+        const px = this.config.lines.marginLeft * fontsize; // 行番号の余白
 
         for (let y = 0; y < this.config.screenrows; y++) {
             const targetRow = y + this.state.rowoff;
-            const py = y * this.config.lineHeight + this.config.lineHeight / 2;
+            const py = y * this.config.lines.height + this.config.lines.height / 2;
 
             if (targetRow < this.state.lines.length) {
                 this.drawLineNumber(px, py, targetRow + 1);
@@ -428,10 +428,10 @@ export class Editor {
         const currLine = this.currentLine;
         const text = currLine.text;
 
-        const x = this.state.px - this.state.pxoff + (this.config.lineNumberWidth * this.config.baseFontSize / 2);
-        const y = (this.state.row - this.state.rowoff) * this.config.lineHeight;
+        const x = this.state.px - this.state.pxoff + (this.config.lines.marginLeft * this.config.baseFontSize / 2);
+        const y = (this.state.row - this.state.rowoff) * this.config.lines.height;
         const w = this.calcWidth(text[this.state.col] ?? "");
-        const h = this.config.lineHeight;
+        const h = this.config.lines.height;
         this.ctx.strokeRect(x, y, w, h);
     }
 
@@ -448,7 +448,7 @@ export class Editor {
         const subPixelOffset = this.calcWidth(text.slice(0, startCol)) - this.state.pxoff;
         let cursorX = x + subPixelOffset;
 
-        const drawingText = text.slice(startCol, startCol + this.config.screencols - this.config.lineNumberWidth);
+        const drawingText = text.slice(startCol, startCol + this.config.screencols - this.config.lines.marginLeft);
         for (const ch of drawingText) {
             if (ch === " ") {
                 this.drawEmpty(cursorX, y);
