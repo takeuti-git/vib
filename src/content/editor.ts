@@ -238,6 +238,9 @@ export class Editor {
                     this.state.px = this.calcWidth(prevLine.text.slice(0, this.state.col));
 
                     this.alignCursorToLeft(cxBeforeMove);
+                } else {
+                    this.state.col = 0;
+                    this.state.px = 0;
                 }
                 break;
             }
@@ -251,6 +254,10 @@ export class Editor {
                     this.state.px = this.calcWidth(nextLine.text.slice(0, this.state.col));
 
                     this.alignCursorToLeft(cxBeforeMove);
+                } else {
+                    const text = this.currentLine.text;
+                    this.state.col = text.length;
+                    this.state.px = this.calcWidth(text);
                 }
                 break;
             }
