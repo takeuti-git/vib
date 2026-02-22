@@ -45,8 +45,7 @@ export class Editor {
         this.canvas.tabIndex = -1;
         this.canvas.style.outline = "none";
 
-        const ctx = this.canvas.getContext("2d") as CanvasRenderingContext2D;
-        ctx.textBaseline = "middle";
+        this.ctx.textBaseline = "middle";
     }
 
     private setupListeners() {
@@ -181,9 +180,9 @@ export class Editor {
             // decrease rowoff
             this.state.rowoff = this.state.row;
         }
-        if (this.state.row >= this.state.rowoff + this.config.screenrows) {
+        if (this.state.row >= this.state.rowoff + this.config.screenrows - this.config.statusBarHeight) {
             // increase rowoff
-            this.state.rowoff = this.state.row - this.config.screenrows + 1;
+            this.state.rowoff = this.state.row - this.config.screenrows + 1 + this.config.statusBarHeight;
         }
 
         if (this.state.px < this.state.pxoff) {
@@ -382,8 +381,6 @@ export class Editor {
         this.canvas.width = this.config.screencols * (this.config.baseFontSize / 2);
         this.canvas.height = this.config.screenrows * this.config.lines.height;
         ctx.font = `${this.config.baseFontSize}px ${this.config.fontFamily}`;
-        ctx.fillStyle = this.config.colors.font;
-        ctx.strokeStyle = this.config.colors.cursor;
     }
 
     private resetState(): void {
@@ -403,6 +400,7 @@ export class Editor {
         this.clearCanvas();
         this.drawLines();
         this.drawCursor();
+        this.drawStatusBar();
     }
 
     private clearCanvas(): void {
@@ -413,7 +411,7 @@ export class Editor {
         const fontsize = this.config.baseFontSize / 2;
         const px = this.config.lines.marginLeft * fontsize; // 行番号の余白
 
-        for (let y = 0; y < this.config.screenrows; y++) {
+        for (let y = 0; y < this.config.screenrows - this.config.statusBarHeight; y++) {
             const targetRow = y + this.state.rowoff;
             const py = y * this.config.lines.height + this.config.lines.height / 2;
 
@@ -441,7 +439,23 @@ export class Editor {
         const y = (this.state.row - this.state.rowoff) * this.config.lines.height;
         const w = this.calcWidth(text[this.state.col] ?? "");
         const h = this.config.lines.height;
+        this.ctx.fillStyle = this.config.colors.cursor;
+        this.ctx.strokeStyle = this.config.colors.cursorOutline;
+        this.ctx.fillRect(x, y, w, h);
         this.ctx.strokeRect(x, y, w, h);
+    }
+
+    private drawStatusBar(): void {
+        const y = (this.config.screenrows - this.config.statusBarHeight) * this.config.lines.height;
+        const w = this.config.screencols * this.config.baseFontSize / 2;
+        const h = this.config.statusBarHeight * this.config.lines.height;
+        this.ctx.fillStyle = this.config.colors.statusBarBg;
+        this.ctx.fillRect(0, y, w, h);
+
+        this.ctx.fillStyle = this.config.colors.statusBarText;
+        this.ctx.textAlign = "right";
+        const rowcol = `${this.state.row + 1},${this.state.col + 1}`;
+        this.ctx.fillText(rowcol, w, y + this.config.lines.height / 2);
     }
 
     private drawLineNumber(x: number, y: number, row: number) {

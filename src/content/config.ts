@@ -7,13 +7,18 @@ type EditorLines = {
 type EditorColors = {
     font: string;
     cursor: string;
+    cursorOutline: string;
     empty: string;
     lineNumber: string;
+    statusBarBg: string;
+    statusBarText: string;
 };
 
 export type EditorConfig = {
     screenrows: number;
     screencols: number;
+
+    statusBarHeight: number;
 
     fontFamily: string;
     baseFontSize: number;
@@ -27,6 +32,8 @@ export function createEditorConfig(): EditorConfig {
         screenrows: 10,
         screencols: 40,
 
+        statusBarHeight: 1,
+
         fontFamily: "Consolas",
         baseFontSize: 16,
 
@@ -38,9 +45,12 @@ export function createEditorConfig(): EditorConfig {
 
         colors: {
             font: "green",
-            cursor: "blue",
+            cursor: "#00f5",
+            cursorOutline: "#00f",
             empty: "#ccc",
             lineNumber: "#777",
+            statusBarBg: "#555",
+            statusBarText: "#fff",
         },
     };
 }
