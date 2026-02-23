@@ -530,8 +530,7 @@ export class Editor {
     }
 
     private drawEmptyFullWidth(x: number, y: number, text: string, col: number): void {
-        const adjustedY = y - this.config.baseFontSize / 2;
-        const w = this.config.baseFontSize;
+        const size = this.config.baseFontSize;
 
         const leftChar = text[col - 1];
         const currChar = text[col];
@@ -540,7 +539,7 @@ export class Editor {
             connectLeft: currChar === leftChar,
             connectRight: currChar === rightChar,
         };
-        this.drawEmptySquare(x, adjustedY, w, context);
+        this.drawEmptySquare(x, y, size, context);
     }
 
     // ------------------------------
@@ -601,37 +600,34 @@ export class Editor {
             this.ctx.fillRect(x, y, size, size);
         }
         else if (options.stroke) {
+            const topLeft = { x, y };
+            const topRight = { x: x + size, y };
+            const bottomLeft = { x, y: y + size };
+            const bottomRight = { x: x + size, y: y + size };
+
             // top
-            this.ctx.beginPath();
-            this.ctx.moveTo(x, y);
-            this.ctx.lineTo(x + size, y);
-            this.ctx.closePath();
-            this.ctx.stroke();
+            this.drawStraightLine(topLeft, topRight);
 
             // bottom
-            this.ctx.beginPath();
-            this.ctx.moveTo(x, y + size);
-            this.ctx.lineTo(x + size, y + size);
-            this.ctx.closePath();
-            this.ctx.stroke();
+            this.drawStraightLine(bottomLeft, bottomRight);
 
             // left
             if (!context.connectLeft) {
-                this.ctx.beginPath();
-                this.ctx.moveTo(x, y);
-                this.ctx.lineTo(x, y + size);
-                this.ctx.closePath();
-                this.ctx.stroke();
+                this.drawStraightLine(topLeft, bottomLeft);
             }
 
             // right
             if (!context.connectRight) {
-                this.ctx.beginPath();
-                this.ctx.moveTo(x + size, y);
-                this.ctx.lineTo(x + size, y + size);
-                this.ctx.closePath();
-                this.ctx.stroke();
+                this.drawStraightLine(topRight, bottomRight);
             }
         }
+    }
+
+    private drawStraightLine(start: { x: number, y: number }, end: { x: number, y: number }) {
+        this.ctx.beginPath();
+        this.ctx.moveTo(start.x, start.y);
+        this.ctx.lineTo(end.x, end.y);
+        this.ctx.closePath();
+        this.ctx.stroke();
     }
 }
