@@ -1,6 +1,7 @@
 type EditorLines = {
     height: number;
-    marginLeft: number;
+    number: boolean;
+    lineNumberCols: number;
     relativeNumbers: boolean;
 };
 
@@ -40,7 +41,8 @@ export function createEditorConfig(): EditorConfig {
 
         lines: {
             height: 16,
-            marginLeft: 5,
+            number: true,
+            lineNumberCols: 5,
             relativeNumbers: true,
         },
 

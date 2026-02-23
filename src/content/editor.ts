@@ -180,7 +180,7 @@ export class Editor {
             // decrease rowoff
             this.state.rowoff = this.state.row;
         }
-        if (this.state.row >= this.state.rowoff + this.config.screenrows - this.config.statusBarHeight) {
+        if (this.state.row + this.config.statusBarHeight >= this.state.rowoff + this.config.screenrows) {
             // increase rowoff
             this.state.rowoff = this.state.row - this.config.screenrows + 1 + this.config.statusBarHeight;
         }
@@ -191,11 +191,11 @@ export class Editor {
         }
 
         const fontsize = this.config.baseFontSize / 2;
-        const lineNumberMargin = this.config.lines.marginLeft * fontsize;
-        const screenWidth = this.config.screencols * fontsize - lineNumberMargin;
-        if (this.state.px >= this.state.pxoff + screenWidth) {
+        const screenWidth = this.config.screencols * fontsize;
+        if (this.state.px + this.lineNumberMargin >= this.state.pxoff + screenWidth) {
             // increase pxoff
-            this.state.pxoff = this.state.px - (fontsize * this.config.screencols) + fontsize + lineNumberMargin;
+            this.state.pxoff = this.state.px - (fontsize * this.config.screencols)
+            + fontsize + this.lineNumberMargin;
         }
     }
 
@@ -415,8 +415,7 @@ export class Editor {
     }
 
     private drawLines() {
-        const fontsize = this.config.baseFontSize / 2;
-        const px = this.config.lines.marginLeft * fontsize; // 行番号の余白
+        const px = this.lineNumberMargin;
 
         for (let y = 0; y < this.config.screenrows - this.config.statusBarHeight; y++) {
             const targetRow = y + this.state.rowoff;
@@ -442,7 +441,7 @@ export class Editor {
         const currLine = this.currentLine;
         const text = currLine.text;
 
-        const x = this.state.px - this.state.pxoff + (this.config.lines.marginLeft * this.config.baseFontSize / 2);
+        const x = this.state.px - this.state.pxoff + this.lineNumberMargin;
         const y = (this.state.row - this.state.rowoff) * this.config.lines.height;
         const w = this.calcWidth(text[this.state.col] ?? "");
         const h = this.config.lines.height;
@@ -480,7 +479,10 @@ export class Editor {
         const subPixelOffset = this.calcWidth(text.slice(0, startCol)) - this.state.pxoff;
         let cursorX = x + subPixelOffset;
 
-        const drawingText = text.slice(startCol, startCol + this.config.screencols - this.config.lines.marginLeft);
+        const drawingText = text.slice(
+            startCol,
+            startCol + this.config.screencols - this.lineNumberCols
+        );
         for (const ch of drawingText) {
             if (ch === " ") {
                 this.drawEmpty(cursorX, y);
@@ -504,5 +506,21 @@ export class Editor {
     private drawChar(x: number, y: number, ch: string): void {
         this.ctx.fillStyle = this.config.colors.bodyText;
         this.ctx.fillText(ch, x, y);
+    }
+
+    // ------------------------------
+    // | rendering helpers
+    // ------------------------------
+
+    private get lineNumberMargin(): number {
+        return (this.config.lines.number)
+            ? this.config.lines.lineNumberCols * this.config.baseFontSize / 2
+            : 0;
+    }
+
+    private get lineNumberCols(): number {
+        return (this.config.lines.number)
+            ? this.config.lines.lineNumberCols
+            : 0;
     }
 }
