@@ -10,6 +10,11 @@ type DrawingOptions = {
     fill: boolean;
 };
 
+type SquareContext = {
+    connectLeft: boolean;
+    connectRight: boolean;
+};
+
 export class Editor {
     private config: EditorConfig;
     private state: EditorState;
@@ -491,16 +496,16 @@ export class Editor {
             startCol,
             startCol + this.config.screencols - this.lineNumberCols
         );
-        for (const ch of drawingText) {
+        Array.from(drawingText).forEach((ch, i) => {
             if (ch === " " /* half width space */) {
                 this.drawEmptyHalfWidth(cursorX, y);
             } else if (ch === "　" /* full width space */) {
-                this.drawEmptyFullWidth(cursorX, y);
+                this.drawEmptyFullWidth(cursorX, y, drawingText, i);
             } else {
                 this.drawChar(cursorX, y, ch);
             }
             cursorX += this.calcWidth(ch);
-        }
+        });
     }
 
     private drawChar(x: number, y: number, ch: string): void {
@@ -514,10 +519,18 @@ export class Editor {
         this.drawEmptyCircle(px, y, radius);
     }
 
-    private drawEmptyFullWidth(x: number, y: number): void {
+    private drawEmptyFullWidth(x: number, y: number, text: string, col: number): void {
         const adjustedY = y - this.config.baseFontSize / 2;
         const w = this.config.baseFontSize;
-        this.drawEmptySquare(x, adjustedY, w);
+
+        const leftChar = text[col - 1];
+        const currChar = text[col];
+        const rightChar = text[col + 1];
+        const context: SquareContext = {
+            connectLeft: currChar === leftChar,
+            connectRight: currChar === rightChar,
+        };
+        this.drawEmptySquare(x, adjustedY, w, context);
     }
 
     // ------------------------------
@@ -562,6 +575,7 @@ export class Editor {
         x: number,
         y: number,
         size: number,
+        context: SquareContext,
         opts: Partial<DrawingOptions> = {}
     ): void {
         const options: DrawingOptions = {
@@ -573,11 +587,43 @@ export class Editor {
         this.ctx.strokeStyle = this.config.colors.emptyChar;
         this.ctx.fillStyle = this.config.colors.emptyChar;
 
-        this.ctx.beginPath();
-        this.ctx.rect(x, y, size, size);
-        this.ctx.closePath();
+        // 1: 先にrectで線を引いてからcontextに応じてclearcanvasを行う
+        // 2: 上下の線は必ず書いて、contextに応じて左右の線も書く
 
-        if (options.stroke) this.ctx.stroke();
+        if (options.stroke && !options.fill) {
+            // top
+            this.ctx.beginPath();
+            this.ctx.moveTo(x, y);
+            this.ctx.lineTo(x + size, y);
+            this.ctx.closePath();
+            this.ctx.stroke();
+
+            // bottom
+            this.ctx.beginPath();
+            this.ctx.moveTo(x, y + size);
+            this.ctx.lineTo(x + size, y + size);
+            this.ctx.closePath();
+            this.ctx.stroke();
+
+            // left
+            if (!context.connectLeft) {
+                this.ctx.beginPath();
+                this.ctx.moveTo(x, y);
+                this.ctx.lineTo(x, y + size);
+                this.ctx.closePath();
+                this.ctx.stroke();
+            }
+
+            // right
+            if (!context.connectRight) {
+                this.ctx.beginPath();
+                this.ctx.moveTo(x + size, y);
+                this.ctx.lineTo(x + size, y + size);
+                this.ctx.closePath();
+                this.ctx.stroke();
+            }
+        }
+
         if (options.fill) this.ctx.fill();
     }
 }
