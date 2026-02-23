@@ -439,7 +439,7 @@ export class Editor {
 
         for (let y = 0; y < this.config.screenrows - this.config.statusBarHeight; y++) {
             const targetRow = y + this.state.rowoff;
-            const py = y * this.config.lines.height + this.config.lines.height / 2;
+            const py = y * this.config.lines.height + this.halfLineHeight;
 
             let rowDisplay;
             if (this.config.lines.relativeNumbers) {
@@ -484,7 +484,7 @@ export class Editor {
         this.ctx.fillStyle = this.config.colors.statusBarText;
         this.ctx.textAlign = "right";
         const rowcol = `${this.state.row + 1},${this.state.col + 1}`;
-        this.ctx.fillText(rowcol, w, y + this.config.lines.height / 2);
+        this.ctx.fillText(rowcol, w, y + this.halfLineHeight);
     }
 
     private drawLineNumber(x: number, y: number, row: number, lineNum: number) {
@@ -530,6 +530,7 @@ export class Editor {
     }
 
     private drawEmptyFullWidth(x: number, y: number, text: string, col: number): void {
+        const adjustedY = y - this.config.baseFontSize / 2;
         const size = this.config.baseFontSize;
 
         const leftChar = text[col - 1];
@@ -539,7 +540,7 @@ export class Editor {
             connectLeft: currChar === leftChar,
             connectRight: currChar === rightChar,
         };
-        this.drawEmptySquare(x, y, size, context);
+        this.drawEmptySquare(x, adjustedY, size, context);
     }
 
     // ------------------------------
@@ -556,6 +557,10 @@ export class Editor {
         return (this.config.lines.number)
             ? this.config.lines.lineNumberCols
             : 0;
+    }
+
+    private get halfLineHeight(): number {
+        return this.config.lines.height / 2;
     }
 
     private drawEmptyCircle(

@@ -30,6 +30,7 @@ export type EditorConfig = {
 };
 
 export function createEditorConfig(): EditorConfig {
+    const height = 16;
     return {
         screenrows: 10,
         screencols: 40,
@@ -37,10 +38,10 @@ export function createEditorConfig(): EditorConfig {
         statusBarHeight: 1,
 
         fontFamily: "Consolas",
-        baseFontSize: 16,
+        baseFontSize: height,
 
         lines: {
-            height: 16,
+            height: height + 2, // cannot be smaller than baseFontSize
             number: true,
             lineNumberCols: 5,
             relativeNumbers: true,
