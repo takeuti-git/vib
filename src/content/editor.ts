@@ -55,7 +55,7 @@ export class Editor {
         this.canvas.tabIndex = -1;
         this.canvas.style.outline = "none";
 
-        this.ctx.textBaseline = "middle";
+        this.ctx.textBaseline = "top";
     }
 
     private setupListeners() {
@@ -429,7 +429,7 @@ export class Editor {
 
         for (let y = 0; y < this.config.screenrows - this.config.statusBarHeight; y++) {
             const targetRow = y + this.state.rowoff;
-            const py = y * this.config.lines.height + this.config.lines.height / 2;
+            const py = y * this.config.lines.height;
 
             let rowDisplay;
             if (this.config.lines.relativeNumbers) {
@@ -474,7 +474,7 @@ export class Editor {
         this.ctx.fillStyle = this.config.colors.statusBarText;
         this.ctx.textAlign = "right";
         const rowcol = `${this.state.row + 1},${this.state.col + 1}`;
-        this.ctx.fillText(rowcol, w, y + this.config.lines.height / 2);
+        this.ctx.fillText(rowcol, w, y);
     }
 
     private drawLineNumber(x: number, y: number, row: number, lineNum: number) {
