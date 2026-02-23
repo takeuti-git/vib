@@ -394,10 +394,20 @@ export class Editor {
     }
 
     private applyConfig(): void {
-        const ctx = this.canvas.getContext("2d") as CanvasRenderingContext2D;
-        this.canvas.width = this.config.screencols * (this.config.baseFontSize / 2);
-        this.canvas.height = this.config.screenrows * this.config.lines.height;
-        ctx.font = `${this.config.baseFontSize}px ${this.config.fontFamily}`;
+        const width = this.config.screencols * (this.config.baseFontSize / 2);
+        const height = this.config.screenrows * this.config.lines.height;
+
+        // CSSの設定
+        this.canvas.style.width = `${width}px`;
+        this.canvas.style.height = `${height}px`;
+
+        // CSSの解像度と物理ピクセルの解像度の比から正確なピクセル数を求める
+        const dpr = window.devicePixelRatio;
+        this.canvas.width = Math.floor(width * dpr);
+        this.canvas.height = Math.floor(height * dpr);
+        this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+        this.ctx.font = `${this.config.baseFontSize}px ${this.config.fontFamily}`;
     }
 
     private resetState(): void {
