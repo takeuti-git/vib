@@ -1,13 +1,14 @@
 import { Editor } from "./editor";
-import { appendContainer, createCanvas, createContainer, createInput } from "./dom";
+import { createCanvas, createContainer, createInput, mountElementShadow } from "./dom";
 import { createEditorConfig } from "./config";
 import { createEditorState } from "./state";
 
 (function main() {
     const container = createContainer();
-    const canvas = createCanvas(container);
-    const input = createInput(container);
-    appendContainer(container);
+    const canvas = createCanvas();
+    const input = createInput();
+    mountElementShadow(container);
+    container.append(canvas, input);
 
     const state = createEditorState();
     const config = createEditorConfig();

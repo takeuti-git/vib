@@ -1,26 +1,41 @@
+export function mountElementShadow(el: HTMLElement): void {
+    const shadowHost = document.getElementById("vib-shadowHost") 
+        ?? document.createElement("div");
+    shadowHost.id = "vib-shadowHost";
+    document.body.appendChild(shadowHost);
+
+    const shadowRoot = shadowHost.attachShadow({ mode: "open" });
+    shadowRoot.appendChild(el);
+}
+
 export function createContainer(): HTMLDivElement {
     const container = document.createElement("div");
+    container.id = "vib-container";
     container.style.position = "fixed";
     container.style.bottom = "50px";
     container.style.right = "50px";
-    container.style.zIndex = "9999";
-    container.style.border = "1px solid black";
+    container.style.zIndex = "999";
+    container.style.outline = "1px solid black";
+    container.style.height = "fit-content";
+    container.style.boxSizing = "content-box";
     return container;
 }
 
-export function createCanvas(container: HTMLElement): HTMLCanvasElement {
+export function createCanvas(): HTMLCanvasElement {
     const canvas = document.createElement("canvas");
+    canvas.id = "vib-canvas";
     canvas.tabIndex = -1;
     canvas.style.position = "relative";
     canvas.style.zIndex = "1";
+    canvas.style.display = "block";
     canvas.style.backgroundColor = "white";
     canvas.style.outline = "none";
-    container.appendChild(canvas);
     return canvas;
 }
 
-export function createInput(container: HTMLElement): HTMLInputElement {
+export function createInput(): HTMLInputElement {
     const input = document.createElement("input");
+    input.id = "vib-input";
     input.style.position = "absolute";
     input.style.top = "0";
     input.style.left = "0";
@@ -30,14 +45,7 @@ export function createInput(container: HTMLElement): HTMLInputElement {
     input.style.margin = "0";
     input.style.outline = "none";
     input.style.border = "4px ridge";
-
-    input.name = "vib-input";
-    container.appendChild(input);
     return input;
-}
-
-export function appendContainer(container: HTMLElement): void {
-    document.body.appendChild(container);
 }
 
 export function showContainer(container: HTMLElement) {
