@@ -587,10 +587,10 @@ export class Editor {
         this.ctx.strokeStyle = this.config.colors.emptyChar;
         this.ctx.fillStyle = this.config.colors.emptyChar;
 
-        // 1: 先にrectで線を引いてからcontextに応じてclearcanvasを行う
-        // 2: 上下の線は必ず書いて、contextに応じて左右の線も書く
-
-        if (options.stroke && !options.fill) {
+        if (options.fill) {
+            this.ctx.fillRect(x, y, size, size);
+        }
+        else if (options.stroke) {
             // top
             this.ctx.beginPath();
             this.ctx.moveTo(x, y);
@@ -623,7 +623,5 @@ export class Editor {
                 this.ctx.stroke();
             }
         }
-
-        if (options.fill) this.ctx.fill();
     }
 }
