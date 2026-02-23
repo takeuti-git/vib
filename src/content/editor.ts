@@ -114,6 +114,9 @@ export class Editor {
             setDestElValue();
         });
         this.input.addEventListener("keydown", (e) => {
+            if (isFunctionKey(e.key)) return;
+            e.preventDefault();
+            if (e.ctrlKey) return;
             if (e.isComposing) return;
 
             if (e.altKey && e.code === "KeyV") {
