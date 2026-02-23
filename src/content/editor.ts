@@ -5,6 +5,11 @@ import { isFunctionKey, isIgnoreKey, MOVE_KEYS, type MoveKey } from "./keys";
 import { isFullWidth } from "./utils";
 import { hideContainer, showContainer } from "./dom";
 
+type DrawingOptions = {
+    stroke: boolean;
+    fill: boolean;
+};
+
 export class Editor {
     private config: EditorConfig;
     private state: EditorState;
@@ -430,9 +435,12 @@ export class Editor {
                 rowDisplay = targetRow + 1;
             }
 
-            if (targetRow < this.state.lines.length) {
-                this.drawLineNumber(px, py, targetRow, rowDisplay);
-                this.drawLineText(px, py, this.state.lines[targetRow]!.text);
+            const line = this.state.lines[targetRow];
+            if (line) {
+                if (this.config.lines.number) {
+                    this.drawLineNumber(px, py, targetRow, rowDisplay);
+                }
+                this.drawLineText(px, py, line.text);
             }
         }
     }
@@ -484,8 +492,10 @@ export class Editor {
             startCol + this.config.screencols - this.lineNumberCols
         );
         for (const ch of drawingText) {
-            if (ch === " ") {
-                this.drawEmpty(cursorX, y);
+            if (ch === " " /* half width space */) {
+                this.drawEmptyHalfWidth(cursorX, y);
+            } else if (ch === "　" /* full width space */) {
+                this.drawEmptyFullWidth(cursorX, y);
             } else {
                 this.drawChar(cursorX, y, ch);
             }
@@ -493,19 +503,21 @@ export class Editor {
         }
     }
 
-    private drawEmpty(x: number, y: number): void {
-        const radius = this.config.baseFontSize / 8;
-        const px = x + this.config.baseFontSize / 4;
-        this.ctx.fillStyle = this.config.colors.emptyChar;
-        this.ctx.beginPath();
-        this.ctx.arc(px, y, radius, 0, Math.PI * 2);
-        this.ctx.closePath();
-        this.ctx.fill();
-    }
-
     private drawChar(x: number, y: number, ch: string): void {
         this.ctx.fillStyle = this.config.colors.bodyText;
         this.ctx.fillText(ch, x, y);
+    }
+
+    private drawEmptyHalfWidth(x: number, y: number): void {
+        const radius = this.config.baseFontSize / 8;
+        const px = x + this.config.baseFontSize / 4;
+        this.drawEmptyCircle(px, y, radius);
+    }
+
+    private drawEmptyFullWidth(x: number, y: number): void {
+        const adjustedY = y - this.config.baseFontSize / 2;
+        const w = this.config.baseFontSize;
+        this.drawEmptySquare(x, adjustedY, w);
     }
 
     // ------------------------------
@@ -522,5 +534,50 @@ export class Editor {
         return (this.config.lines.number)
             ? this.config.lines.lineNumberCols
             : 0;
+    }
+
+    private drawEmptyCircle(
+        x: number,
+        y: number,
+        radius: number,
+        opts: Partial<DrawingOptions> = {}
+    ): void {
+        const options: DrawingOptions = {
+            stroke: false,
+            fill: true,
+            ...opts
+        };
+
+        this.ctx.strokeStyle = this.config.colors.emptyChar;
+        this.ctx.fillStyle = this.config.colors.emptyChar;
+        this.ctx.beginPath();
+        this.ctx.arc(x, y, radius, 0, Math.PI * 2);
+        this.ctx.closePath();
+
+        if (options.stroke) this.ctx.stroke();
+        if (options.fill) this.ctx.fill();
+    }
+
+    private drawEmptySquare(
+        x: number,
+        y: number,
+        size: number,
+        opts: Partial<DrawingOptions> = {}
+    ): void {
+        const options: DrawingOptions = {
+            stroke: true,
+            fill: false,
+            ...opts
+        };
+
+        this.ctx.strokeStyle = this.config.colors.emptyChar;
+        this.ctx.fillStyle = this.config.colors.emptyChar;
+
+        this.ctx.beginPath();
+        this.ctx.rect(x, y, size, size);
+        this.ctx.closePath();
+
+        if (options.stroke) this.ctx.stroke();
+        if (options.fill) this.ctx.fill();
     }
 }
