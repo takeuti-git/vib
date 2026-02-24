@@ -107,19 +107,22 @@ export class Renderer {
     }
 
     private drawStatusBar(state: EditorState): void {
+        const lineHeight = this.config.lines.height;
         const statusBarHeight = this.config.statusBarHeight;
         const y = (this.config.screenrows - statusBarHeight)
-                   * this.config.lines.height;
+                   * lineHeight;
         const w = this.config.screencols * this.halfFontSize;
         const h = statusBarHeight * this.config.lines.height;
         this.ctx.fillStyle = this.config.colors.statusBarBg;
+        // 背景の矩形を描く
         this.ctx.fillRect(0, y, w, h);
 
-        const x = w; // ウィンドウの右端から左方向に描く
+        const leftX = w; // ウィンドウの右端から左方向に描く
+        const bottomY = y + this.halfLineHeight + ((statusBarHeight - 1) * lineHeight);
         const rowcol = `${state.row + 1},${state.col + 1}`;
         this.ctx.fillStyle = this.config.colors.statusBarText;
         this.ctx.textAlign = "right";
-        this.ctx.fillText(rowcol, x, y + this.halfLineHeight);
+        this.ctx.fillText(rowcol, leftX, bottomY);
     }
 
     private drawLineNumber(
