@@ -197,6 +197,11 @@ export class Editor {
                 this.insertNewLine();
                 break;
             }
+
+            case "Tab": {
+                this.indent();
+                break;
+            }
             default: {
                 if (e.key.length > 1) return;
                 this.insertText(key);
@@ -358,6 +363,12 @@ export class Editor {
             this.deleteRow(this.state.row);
             this.state.row--;
         }
+    }
+
+    private indent(): void {
+        const tabstop = this.config.tabstop;
+        const count = tabstop - (this.state.logicalWidth % tabstop);
+        this.insertText(" ".repeat(count));
     }
 
     // ------------------------------

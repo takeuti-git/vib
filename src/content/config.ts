@@ -24,6 +24,8 @@ export type EditorConfig = {
 
     statusBarHeight: number;
 
+    tabstop: number; // >=1
+
     renderWhitespace: Whitespace;
 
     fontFamily: string;
@@ -42,6 +44,8 @@ export function createEditorConfig(): EditorConfig {
         statusBarHeight: 1,
 
         renderWhitespace: "all",
+
+        tabstop: 4,
 
         fontFamily: "Consolas",
         baseFontSize: height,
