@@ -2,7 +2,7 @@ import type { EditorConfig } from "./config";
 import type { EditorState } from "./state";
 import type { Renderer } from "./renderer";
 import { Line, getLines } from "./line";
-import { isFunctionKey, isIgnoreKey, MOVE_KEYS, type MoveKey } from "./keys";
+import { isFunctionKey, MOVE_KEYS, type MoveKey } from "./keys";
 import { hideContainer, showContainer } from "./dom";
 import { LOGICAL_HALF_WIDTH, LOGICAL_FULL_WIDTH, calcLogicalWidth, logicalWidthToCol } from "./utils";
 
@@ -89,7 +89,7 @@ export class Editor {
         });
         this.input.addEventListener("compositionend", () => {
             // 日本語変換が終わったとき
-            this.insertChar(this.input.value);
+            this.insertText(this.input.value);
             this.scrollWindow();
             this.render();
             this.input.value = "";
@@ -186,8 +186,8 @@ export class Editor {
                 break;
             }
             default: {
-                if (isIgnoreKey(key)) return;
-                this.insertChar(key);
+                if (e.key.length > 1) return;
+                this.insertText(key);
             }
         }
         this.scrollWindow();
@@ -314,15 +314,15 @@ export class Editor {
         this.insertRow(this.state.row, textAfter);
     }
 
-    private insertChar(ch: string): void {
+    private insertText(text: string): void {
         const currLine = this.currentLine;
         if (this.state.col >= currLine.size) {
-            this.appendTextToLine(currLine, ch);
+            this.appendTextToLine(currLine, text);
         } else {
-            this.insertTextInLine(currLine, ch, this.state.col);
+            this.insertTextInLine(currLine, text);
         }
-        this.state.logicalWidth += calcLogicalWidth(ch);
-        this.state.col += ch.length;
+        this.state.logicalWidth += calcLogicalWidth(text);
+        this.state.col += text.length
     }
 
     /** col - 1 の文字を削除する */
@@ -378,9 +378,9 @@ export class Editor {
         line.text += text;
     }
 
-    private insertTextInLine(line: Line, text: string, col: number): void {
-        const before = line.text.slice(0, col);
-        const after = line.text.slice(col);
+    private insertTextInLine(line: Line, text: string): void {
+        const before = line.text.slice(0, this.state.col);
+        const after = line.text.slice(this.state.col);
         line.text = before + text + after;
     }
 
