@@ -67,7 +67,7 @@ export class Renderer {
         const px = this.lineNumberMargin;
 
         const number = this.config.lines.number;
-        const relativenumber = this.config.lines.relativeNumbers;
+        const relativenumber = this.config.lines.relativenumber;
         for (let y = 0; y < this.config.screenrows - this.config.statusBarHeight; y++) {
             const targetRow = y + state.rowoff;
             const py = y * this.config.lines.height + this.halfLineHeight;

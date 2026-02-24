@@ -1,8 +1,8 @@
 type EditorLines = {
     height: number;
     number: boolean;
+    relativenumber: boolean;
     lineNumberCols: number;
-    relativeNumbers: boolean;
 };
 
 type EditorColors = {
@@ -43,8 +43,8 @@ export function createEditorConfig(): EditorConfig {
         lines: {
             height: height + 2, // cannot be smaller than baseFontSize
             number: true,
+            relativenumber: true,
             lineNumberCols: 5,
-            relativeNumbers: true,
         },
 
         colors: {
