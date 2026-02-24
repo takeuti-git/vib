@@ -15,8 +15,11 @@ type SquareContext = {
     connectRight: boolean;
 };
 
+const LOGICAL_HALF_WIDTH = 1;
+const LOGICAL_FULL_WIDTH = 2;
+
 function getLogicalWidth(ch: string): number {
-    return isFullWidth(ch) ? 2 : 1;
+    return isFullWidth(ch) ? LOGICAL_FULL_WIDTH : LOGICAL_HALF_WIDTH;
 }
 
 function calcLogicalWidth(text: string): number {
@@ -222,9 +225,9 @@ export class Editor {
             this.state.logicalWidth + lineNumberCols
             >= this.state.logicaloff + screencols
         ) {
-            // スクロール時に常に1列開けるため1を加算する
+            // スクロール時に常に列を開けるためLOGICAL_HALF_WIDHTを加算する
             this.state.logicaloff = this.state.logicalWidth - screencols
-            + lineNumberCols + 1;
+            + lineNumberCols + LOGICAL_HALF_WIDTH;
         }
 
         console.log(this.state.logicaloff);
@@ -303,9 +306,8 @@ export class Editor {
 
     /** 半角文字から全角文字に上下移動する時、移動前が移動後の後ろ側なら右に寄せる */
     private alignCursorToLeft(widthBeforeMove: number): void {
-        // 実際の移動量が-1以外になることはないはず
-        if (this.state.logicalWidth >= widthBeforeMove + 2) {
-            this.state.logicalWidth -= 1;
+        if (this.state.logicalWidth >= widthBeforeMove + LOGICAL_FULL_WIDTH) {
+            this.state.logicalWidth -= LOGICAL_HALF_WIDTH;
             this.state.col--;
         }
     }
@@ -317,7 +319,6 @@ export class Editor {
         currLine.text = textBefore;
         this.state.row++;
         this.state.col = 0;
-        // this.state.px = 0;
         this.state.logicalWidth = 0;
         this.insertRow(this.state.row, textAfter);
     }
@@ -329,7 +330,6 @@ export class Editor {
         } else {
             this.insertTextInLine(currLine, ch, this.state.col);
         }
-        // this.state.px += this.calcWidth(ch);
         this.state.logicalWidth += calcLogicalWidth(ch);
         this.state.col += ch.length;
     }
@@ -345,13 +345,11 @@ export class Editor {
             const modified = text.slice(0, this.state.col - 1) + text.slice(this.state.col);
             currLine.text = modified;
             this.state.col--;
-            // this.state.px -= this.calcWidth(targetChar);
             this.state.logicalWidth -= calcLogicalWidth(targetChar);
         } else {
             // append two lines
             const prevLine = this.prevLine as Line;
             this.state.col = prevLine.size;
-            // this.state.px = this.calcWidth(prevLine.text);
             this.state.logicalWidth = calcLogicalWidth(prevLine.text);
             this.appendTextToLine(prevLine, currLine.text);
             this.deleteRow(this.state.row);
@@ -400,7 +398,7 @@ export class Editor {
         for (const ch of text) {
             width += isFullWidth(ch)
                 ? this.config.baseFontSize
-                : this.config.baseFontSize / 2;
+                : this.halfFontSize;
         }
         return width;
     }
@@ -425,7 +423,7 @@ export class Editor {
     }
 
     private applyConfig(): void {
-        const width = this.config.screencols * (this.config.baseFontSize / 2);
+        const width = this.config.screencols * this.halfFontSize;
         const height = this.config.screenrows * this.config.lines.height;
 
         // CSSの設定
@@ -495,7 +493,7 @@ export class Editor {
         const currLine = this.currentLine;
         const text = currLine.text;
 
-        const x = ((this.state.logicalWidth - this.state.logicaloff) * this.config.baseFontSize / 2)
+        const x = ((this.state.logicalWidth - this.state.logicaloff) * this.halfFontSize)
                    + this.lineNumberMargin;
         const y = (this.state.row - this.state.rowoff) * this.config.lines.height;
         const w = this.calcWidth(text[this.state.col] ?? "");
@@ -508,7 +506,7 @@ export class Editor {
 
     private drawStatusBar(): void {
         const y = (this.config.screenrows - this.config.statusBarHeight) * this.config.lines.height;
-        const w = this.config.screencols * this.config.baseFontSize / 2;
+        const w = this.config.screencols * this.halfFontSize;
         const h = this.config.statusBarHeight * this.config.lines.height;
         this.ctx.fillStyle = this.config.colors.statusBarBg;
         this.ctx.fillRect(0, y, w, h);
@@ -524,15 +522,17 @@ export class Editor {
             ? this.config.colors.lineNumberCurrent
             : this.config.colors.lineNumber;
         this.ctx.textAlign = "right";
-        // 行番号の右側に空白1つ分開ける
-        this.ctx.fillText(lineNum.toString(), x - this.config.baseFontSize / 2, y);
+        // 行番号の右側に空白1つ分開ける: x - halfFontsize
+        this.ctx.fillText(lineNum.toString(), x - this.halfFontSize, y);
     }
 
     private drawLineText(x: number, y: number, text: string): void {
         this.ctx.textAlign = "start";
         const startCol = this.logicalWidthToCol(this.state.logicaloff, text);
-        const subPixelOffset = this.calcWidth(text.slice(0, startCol)) 
-                               - (this.state.logicaloff * this.config.baseFontSize / 2);
+        const subPixelOffset = (
+            this.calcWidth(text.slice(0, startCol))
+            - (this.state.logicaloff * this.halfFontSize)
+        );
         let cursorX = x + subPixelOffset;
 
         const drawingText = text.slice(
@@ -563,7 +563,7 @@ export class Editor {
     }
 
     private drawEmptyFullWidth(x: number, y: number, text: string, col: number): void {
-        const adjustedY = y - this.config.baseFontSize / 2;
+        const adjustedY = y - this.halfFontSize;
         const size = this.config.baseFontSize;
 
         const leftChar = text[col - 1];
@@ -582,7 +582,7 @@ export class Editor {
 
     private get lineNumberMargin(): number {
         return (this.config.lines.number)
-            ? this.config.lines.lineNumberCols * this.config.baseFontSize / 2
+            ? this.config.lines.lineNumberCols * this.halfFontSize
             : 0;
     }
 
@@ -594,6 +594,10 @@ export class Editor {
 
     private get halfLineHeight(): number {
         return this.config.lines.height / 2;
+    }
+
+    private get halfFontSize(): number {
+        return this.config.baseFontSize / 2;
     }
 
     private drawEmptyCircle(
