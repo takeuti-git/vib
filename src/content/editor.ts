@@ -1,42 +1,33 @@
 import type { EditorConfig } from "./config";
 import type { EditorState } from "./state";
+import type { Renderer } from "./renderer";
 import { Line, getLines } from "./line";
 import { isFunctionKey, MOVE_KEYS, type MoveKey } from "./keys";
-import { isFullWidth } from "./utils";
 import { hideContainer, showContainer } from "./dom";
-
-type DrawingOptions = {
-    stroke: boolean;
-    fill: boolean;
-};
-
-type SquareContext = {
-    connectLeft: boolean;
-    connectRight: boolean;
-};
+import { LOGICAL_HALF_WIDTH, LOGICAL_FULL_WIDTH, calcLogicalWidth, logicalWidthToCol } from "./utils";
 
 export class Editor {
-    private config: EditorConfig;
-    private state: EditorState;
-    private container: HTMLDivElement;
-    private canvas: HTMLCanvasElement;
-    private input: HTMLInputElement;
-
-    private ctx: CanvasRenderingContext2D;
+    private readonly config: EditorConfig;
+    private readonly state: EditorState;
+    private readonly container: HTMLDivElement;
+    private readonly canvas: HTMLCanvasElement;
+    private readonly input: HTMLInputElement;
+    private readonly renderer: Renderer;
 
     constructor(
         config: EditorConfig,
         state: EditorState,
         container: HTMLDivElement,
         canvas: HTMLCanvasElement,
-        input: HTMLInputElement
+        input: HTMLInputElement,
+        renderer: Renderer,
     ) {
         this.config = config;
         this.state = state;
         this.container = container;
         this.canvas = canvas;
         this.input = input;
-        this.ctx = canvas.getContext("2d") as CanvasRenderingContext2D;
+        this.renderer = renderer;
         this.init();
     }
 
@@ -45,20 +36,12 @@ export class Editor {
     // ------------------------------
 
     private init(): void {
-        this.initConfig();
-        this.setupListeners();
+        this.renderer.applyConfig();
         this.render();
+        this.setupListeners();
     }
 
-    private initConfig() {
-        this.applyConfig();
-        this.canvas.tabIndex = -1;
-        this.canvas.style.outline = "none";
-
-        this.ctx.textBaseline = "middle";
-    }
-
-    private setupListeners() {
+    private setupListeners(): void {
         let destEl: HTMLInputElement | HTMLTextAreaElement | null = null;
         const setDestElValue = () => {
             if (!destEl) return;
@@ -113,11 +96,36 @@ export class Editor {
             this.input.style.zIndex = "-1";
             setDestElValue();
         });
+
+        const resizingMap: Record<string, () => void> = {
+            ArrowLeft: () => {
+                this.config.screencols = Math.min(this.config.screencols + 2, 80);
+            },
+            ArrowRight: () => {
+                this.config.screencols = Math.max(2 + this.config.lines.lineNumberCols, this.config.screencols - 2);
+            },
+            ArrowUp: () => {
+                this.config.screenrows = Math.min(this.config.screenrows + 1, 40);
+            },
+            ArrowDown: () => {
+                this.config.screenrows = Math.max(1 + this.config.statusBarHeight, this.config.screenrows - 1);
+            },
+        };
         this.input.addEventListener("keydown", (e) => {
             if (isFunctionKey(e.key)) return;
             e.preventDefault();
             if (e.ctrlKey) return;
             if (e.isComposing) return;
+
+            if (e.shiftKey) {
+                const action = resizingMap[e.key];
+                if (action) {
+                    action();
+                    this.renderer.applyConfig();
+                    this.render();
+                    return;
+                }
+            }
 
             if (e.altKey && e.code === "KeyV") {
                 if (destEl) {
@@ -129,7 +137,6 @@ export class Editor {
 
             // processing
             this.processKeypress(e);
-            this.scrollWindow();
 
             // drawing
             this.render();
@@ -143,7 +150,7 @@ export class Editor {
     // | processing basic inputs
     // ------------------------------
 
-    private processKeypress(e: KeyboardEvent) {
+    private processKeypress(e: KeyboardEvent): void {
         const key = e.key;
         if (isFunctionKey(key)) return;
 
@@ -183,6 +190,7 @@ export class Editor {
                 this.insertText(key);
             }
         }
+        this.scrollWindow();
     }
 
     // ------------------------------
@@ -199,17 +207,20 @@ export class Editor {
             this.state.rowoff = this.state.row - this.config.screenrows + 1 + this.config.statusBarHeight;
         }
 
-        if (this.state.px < this.state.pxoff) {
-            // decrease pxoff
-            this.state.pxoff = this.state.px;
+        if (this.state.logicalWidth < this.state.logicaloff) {
+            // decrease logicaloff
+            this.state.logicaloff = this.state.logicalWidth;
         }
 
-        const fontsize = this.config.baseFontSize / 2;
-        const screenWidth = this.config.screencols * fontsize;
-        if (this.state.px + this.lineNumberMargin >= this.state.pxoff + screenWidth) {
-            // increase pxoff
-            this.state.pxoff = this.state.px - (fontsize * this.config.screencols)
-            + fontsize + this.lineNumberMargin;
+        const screencols = this.config.screencols;
+        const lineNumberCols = this.config.lines.lineNumberCols;
+        if (
+            this.state.logicalWidth + lineNumberCols
+            >= this.state.logicaloff + screencols
+        ) {
+            // スクロール時に常に列を開けるためLOGICAL_HALF_WIDHTを加算する
+            this.state.logicaloff = this.state.logicalWidth - screencols
+            + lineNumberCols + LOGICAL_HALF_WIDTH;
         }
     }
 
@@ -218,14 +229,14 @@ export class Editor {
             case MOVE_KEYS.LEFT: {
                 if (this.state.col !== 0) {
                     const prevChar = this.currentLine.text.slice(this.state.col - 1, this.state.col);
-                    this.state.px -= this.calcWidth(prevChar);
+                    this.state.logicalWidth -= calcLogicalWidth(prevChar);
                     this.state.col--;
                 } else if (this.state.row > 0) {
                     const prevLine = this.prevLine as Line;
                     const prevLineLen = prevLine.size;
                     this.state.row--;
                     this.state.col = prevLineLen;
-                    this.state.px = this.calcWidth(prevLine.text);
+                    this.state.logicalWidth = calcLogicalWidth(prevLine.text);
                 }
                 break;
             }
@@ -233,45 +244,51 @@ export class Editor {
                 const currLine = this.currentLine;
                 if (this.state.col < currLine.size) {
                     const currChar = currLine.text.slice(this.state.col, this.state.col + 1);
-                    this.state.px += this.calcWidth(currChar);
+                    this.state.logicalWidth += calcLogicalWidth(currChar);
                     this.state.col++;
                 } else if (this.nextLine && this.state.col === currLine.size) {
                     this.state.row++;
                     this.state.col = 0;
-                    this.state.px = 0;
+                    this.state.logicalWidth = 0;
                 }
                 break;
             }
             case MOVE_KEYS.UP: {
                 if (this.state.row !== 0) {
-                    const cxBeforeMove = this.state.px;
+                    const widthBeforeMove = this.state.logicalWidth;
                     const prevLine = this.prevLine as Line;
                     this.state.row--;
-                    this.state.px = Math.min(this.state.px, this.calcWidth(prevLine.text));
-                    this.state.col = this.cxToCol(this.state.px, prevLine.text);
-                    this.state.px = this.calcWidth(prevLine.text.slice(0, this.state.col));
+                    this.state.logicalWidth = Math.min(
+                        this.state.logicalWidth, calcLogicalWidth(prevLine.text)
+                    );
+                    this.state.col = logicalWidthToCol(this.state.logicalWidth, prevLine.text);
+                    this.state.logicalWidth = calcLogicalWidth(prevLine.text.slice(0, this.state.col));
 
-                    this.alignCursorToLeft(cxBeforeMove);
+                    this.alignCursorToLeft(widthBeforeMove);
                 } else {
+                    // 先頭行にいるとき
                     this.state.col = 0;
-                    this.state.px = 0;
+                    this.state.logicalWidth = 0;
                 }
                 break;
             }
             case MOVE_KEYS.DOWN: {
                 if (this.state.row < this.state.lines.length - 1) {
-                    const cxBeforeMove = this.state.px;
+                    const widthBeforeMove = this.state.logicalWidth;
                     const nextLine = this.nextLine as Line;
                     this.state.row++;
-                    this.state.px = Math.min(this.state.px, this.calcWidth(nextLine.text));
-                    this.state.col = this.cxToCol(this.state.px, nextLine.text);
-                    this.state.px = this.calcWidth(nextLine.text.slice(0, this.state.col));
+                    this.state.logicalWidth = Math.min(
+                        this.state.logicalWidth, calcLogicalWidth(nextLine.text)
+                    );
+                    this.state.col = logicalWidthToCol(this.state.logicalWidth, nextLine.text);
+                    this.state.logicalWidth = calcLogicalWidth(nextLine.text.slice(0, this.state.col));
 
-                    this.alignCursorToLeft(cxBeforeMove);
+                    this.alignCursorToLeft(widthBeforeMove);
                 } else {
+                    // 末尾業にいるとき
                     const text = this.currentLine.text;
                     this.state.col = text.length;
-                    this.state.px = this.calcWidth(text);
+                    this.state.logicalWidth = calcLogicalWidth(text);
                 }
                 break;
             }
@@ -279,9 +296,9 @@ export class Editor {
     }
 
     /** 半角文字から全角文字に上下移動する時、移動前が移動後の後ろ側なら右に寄せる */
-    private alignCursorToLeft(cxBeforeMove: number): void {
-        if (this.state.px >= cxBeforeMove + this.config.baseFontSize / 2) {
-            this.state.px -= this.config.baseFontSize;
+    private alignCursorToLeft(widthBeforeMove: number): void {
+        if (this.state.logicalWidth >= widthBeforeMove + LOGICAL_FULL_WIDTH) {
+            this.state.logicalWidth -= LOGICAL_HALF_WIDTH;
             this.state.col--;
         }
     }
@@ -293,7 +310,7 @@ export class Editor {
         currLine.text = textBefore;
         this.state.row++;
         this.state.col = 0;
-        this.state.px = 0;
+        this.state.logicalWidth = 0;
         this.insertRow(this.state.row, textAfter);
     }
 
@@ -304,8 +321,8 @@ export class Editor {
         } else {
             this.insertTextInLine(currLine, text);
         }
-        this.state.px += this.calcWidth(text);
-        this.state.col += text.length;
+        this.state.logicalWidth += calcLogicalWidth(text);
+        this.state.col += text.length
     }
 
     /** col - 1 の文字を削除する */
@@ -319,12 +336,12 @@ export class Editor {
             const modified = text.slice(0, this.state.col - 1) + text.slice(this.state.col);
             currLine.text = modified;
             this.state.col--;
-            this.state.px -= this.calcWidth(targetChar);
+            this.state.logicalWidth -= calcLogicalWidth(targetChar);
         } else {
             // append two lines
             const prevLine = this.prevLine as Line;
             this.state.col = prevLine.size;
-            this.state.px = this.calcWidth(prevLine.text);
+            this.state.logicalWidth = calcLogicalWidth(prevLine.text);
             this.appendTextToLine(prevLine, currLine.text);
             this.deleteRow(this.state.row);
             this.state.row--;
@@ -367,27 +384,6 @@ export class Editor {
         line.text = before + text + after;
     }
 
-    private calcWidth(text: string): number {
-        let width = 0;
-        for (const ch of text) {
-            width += isFullWidth(ch)
-                ? this.config.baseFontSize
-                : this.config.baseFontSize / 2;;
-        }
-        return width;
-    }
-
-    private cxToCol(cx: number, text: string): number {
-        let width = 0;
-        let col = 0;
-        for (const ch of text) {
-            width += this.calcWidth(ch);
-            if (width > cx) break;
-            col++;
-        }
-        return col;
-    }
-
     private isAtTail(): boolean {
         return (
             this.state.row === this.state.lines.length - 1 &&
@@ -395,29 +391,12 @@ export class Editor {
         );
     }
 
-    private applyConfig(): void {
-        const width = this.config.screencols * (this.config.baseFontSize / 2);
-        const height = this.config.screenrows * this.config.lines.height;
-
-        // CSSの設定
-        this.canvas.style.width = `${width}px`;
-        this.canvas.style.height = `${height}px`;
-
-        // CSSの解像度と物理ピクセルの解像度の比から正確なピクセル数を求める
-        const dpr = window.devicePixelRatio;
-        this.canvas.width = Math.floor(width * dpr);
-        this.canvas.height = Math.floor(height * dpr);
-        this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-
-        this.ctx.font = `${this.config.baseFontSize}px ${this.config.fontFamily}`;
-    }
-
     private resetState(): void {
         this.state.row = 0;
         this.state.col = 0;
         this.state.px = 0;
+        this.state.logicalWidth = 0;
         this.state.rowoff = 0;
-        this.state.pxoff = 0;
         this.state.lines = [];
     }
 
@@ -426,215 +405,6 @@ export class Editor {
     // ------------------------------
 
     private render(): void {
-        this.clearCanvas();
-        this.drawLines();
-        this.drawCursor();
-        this.drawStatusBar();
-    }
-
-    private clearCanvas(): void {
-        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-    }
-
-    private drawLines() {
-        const px = this.lineNumberMargin;
-
-        for (let y = 0; y < this.config.screenrows - this.config.statusBarHeight; y++) {
-            const targetRow = y + this.state.rowoff;
-            const py = y * this.config.lines.height + this.halfLineHeight;
-
-            let rowDisplay;
-            if (this.config.lines.relativeNumbers) {
-                rowDisplay = (this.state.row === targetRow)
-                    ? targetRow + 1
-                    : Math.abs(this.state.row - targetRow);
-            } else {
-                rowDisplay = targetRow + 1;
-            }
-
-            const line = this.state.lines[targetRow];
-            if (line) {
-                if (this.config.lines.number) {
-                    this.drawLineNumber(px, py, targetRow, rowDisplay);
-                }
-                this.drawLineText(px, py, line.text);
-            }
-        }
-    }
-
-    private drawCursor() {
-        const currLine = this.currentLine;
-        const text = currLine.text;
-
-        const x = this.state.px - this.state.pxoff + this.lineNumberMargin;
-        const y = (this.state.row - this.state.rowoff) * this.config.lines.height;
-        const w = this.calcWidth(text[this.state.col] ?? "");
-        const h = this.config.lines.height;
-        this.ctx.fillStyle = this.config.colors.cursorBody;
-        this.ctx.strokeStyle = this.config.colors.cursorOutline;
-        this.ctx.fillRect(x, y, w, h);
-        this.ctx.strokeRect(x, y, w, h);
-    }
-
-    private drawStatusBar(): void {
-        const y = (this.config.screenrows - this.config.statusBarHeight) * this.config.lines.height;
-        const w = this.config.screencols * this.config.baseFontSize / 2;
-        const h = this.config.statusBarHeight * this.config.lines.height;
-        this.ctx.fillStyle = this.config.colors.statusBarBg;
-        this.ctx.fillRect(0, y, w, h);
-
-        this.ctx.fillStyle = this.config.colors.statusBarText;
-        this.ctx.textAlign = "right";
-        const rowcol = `${this.state.row + 1},${this.state.col + 1}`;
-        this.ctx.fillText(rowcol, w, y + this.halfLineHeight);
-    }
-
-    private drawLineNumber(x: number, y: number, row: number, lineNum: number) {
-        this.ctx.fillStyle = (row === this.state.row)
-            ? this.config.colors.lineNumberCurrent
-            : this.config.colors.lineNumber;
-        this.ctx.textAlign = "right";
-        // 行番号の右側に空白1つ分開ける
-        this.ctx.fillText(lineNum.toString(), x - this.config.baseFontSize / 2, y);
-    }
-
-    private drawLineText(x: number, y: number, text: string): void {
-        this.ctx.textAlign = "start";
-        const startCol = this.cxToCol(this.state.pxoff, text);
-        const subPixelOffset = this.calcWidth(text.slice(0, startCol)) - this.state.pxoff;
-        let cursorX = x + subPixelOffset;
-
-        const drawingText = text.slice(
-            startCol,
-            startCol + this.config.screencols - this.lineNumberCols
-        );
-        Array.from(drawingText).forEach((ch, i) => {
-            if (ch === " " /* half width space */) {
-                this.drawEmptyHalfWidth(cursorX, y);
-            } else if (ch === "　" /* full width space */) {
-                this.drawEmptyFullWidth(cursorX, y, drawingText, i);
-            } else {
-                this.drawChar(cursorX, y, ch);
-            }
-            cursorX += this.calcWidth(ch);
-        });
-    }
-
-    private drawChar(x: number, y: number, ch: string): void {
-        this.ctx.fillStyle = this.config.colors.bodyText;
-        this.ctx.fillText(ch, x, y);
-    }
-
-    private drawEmptyHalfWidth(x: number, y: number): void {
-        const radius = this.config.baseFontSize / 8;
-        const px = x + this.config.baseFontSize / 4;
-        this.drawEmptyCircle(px, y, radius);
-    }
-
-    private drawEmptyFullWidth(x: number, y: number, text: string, col: number): void {
-        const adjustedY = y - this.config.baseFontSize / 2;
-        const size = this.config.baseFontSize;
-
-        const leftChar = text[col - 1];
-        const currChar = text[col];
-        const rightChar = text[col + 1];
-        const context: SquareContext = {
-            connectLeft: currChar === leftChar,
-            connectRight: currChar === rightChar,
-        };
-        this.drawEmptySquare(x, adjustedY, size, context);
-    }
-
-    // ------------------------------
-    // | rendering helpers
-    // ------------------------------
-
-    private get lineNumberMargin(): number {
-        return (this.config.lines.number)
-            ? this.config.lines.lineNumberCols * this.config.baseFontSize / 2
-            : 0;
-    }
-
-    private get lineNumberCols(): number {
-        return (this.config.lines.number)
-            ? this.config.lines.lineNumberCols
-            : 0;
-    }
-
-    private get halfLineHeight(): number {
-        return this.config.lines.height / 2;
-    }
-
-    private drawEmptyCircle(
-        x: number,
-        y: number,
-        radius: number,
-        opts: Partial<DrawingOptions> = {}
-    ): void {
-        const options: DrawingOptions = {
-            stroke: false,
-            fill: true,
-            ...opts
-        };
-
-        this.ctx.strokeStyle = this.config.colors.emptyChar;
-        this.ctx.fillStyle = this.config.colors.emptyChar;
-        this.ctx.beginPath();
-        this.ctx.arc(x, y, radius, 0, Math.PI * 2);
-        this.ctx.closePath();
-
-        if (options.stroke) this.ctx.stroke();
-        if (options.fill) this.ctx.fill();
-    }
-
-    private drawEmptySquare(
-        x: number,
-        y: number,
-        size: number,
-        context: SquareContext,
-        opts: Partial<DrawingOptions> = {}
-    ): void {
-        const options: DrawingOptions = {
-            stroke: true,
-            fill: false,
-            ...opts
-        };
-
-        this.ctx.strokeStyle = this.config.colors.emptyChar;
-        this.ctx.fillStyle = this.config.colors.emptyChar;
-
-        if (options.fill) {
-            this.ctx.fillRect(x, y, size, size);
-        }
-        else if (options.stroke) {
-            const topLeft = { x, y };
-            const topRight = { x: x + size, y };
-            const bottomLeft = { x, y: y + size };
-            const bottomRight = { x: x + size, y: y + size };
-
-            // top
-            this.drawStraightLine(topLeft, topRight);
-
-            // bottom
-            this.drawStraightLine(bottomLeft, bottomRight);
-
-            // left
-            if (!context.connectLeft) {
-                this.drawStraightLine(topLeft, bottomLeft);
-            }
-
-            // right
-            if (!context.connectRight) {
-                this.drawStraightLine(topRight, bottomRight);
-            }
-        }
-    }
-
-    private drawStraightLine(start: { x: number, y: number }, end: { x: number, y: number }) {
-        this.ctx.beginPath();
-        this.ctx.moveTo(start.x, start.y);
-        this.ctx.lineTo(end.x, end.y);
-        this.ctx.closePath();
-        this.ctx.stroke();
+        this.renderer.render(this.state);
     }
 }
