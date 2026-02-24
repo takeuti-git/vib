@@ -5,6 +5,8 @@ type EditorLines = {
     lineNumberCols: number;
 };
 
+type Whitespace = "none" | "all";
+
 type EditorColors = {
     bodyText: string;
     cursorBody: string;
@@ -22,6 +24,8 @@ export type EditorConfig = {
 
     statusBarHeight: number;
 
+    renderWhitespace: Whitespace;
+
     fontFamily: string;
     baseFontSize: number;
 
@@ -36,6 +40,8 @@ export function createEditorConfig(): EditorConfig {
         screencols: 40,
 
         statusBarHeight: 1,
+
+        renderWhitespace: "all",
 
         fontFamily: "Consolas",
         baseFontSize: height,

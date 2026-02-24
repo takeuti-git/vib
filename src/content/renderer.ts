@@ -159,12 +159,14 @@ export class Renderer {
             startCol + this.config.screencols - this.lineNumberCols
         );
         Array.from(drawingText).forEach((ch, i) => {
-            if (ch === " " /* half width space */) {
-                this.drawEmptyHalfWidth(cursorX, y);
-            } else if (ch === "　" /* full width space */) {
-                this.drawEmptyFullWidth(cursorX, y, drawingText, i);
-            } else {
-                this.drawChar(cursorX, y, ch);
+            this.drawChar(cursorX, y, ch);
+
+            if (this.config.renderWhitespace === "all") {
+                if (ch === " " /* half width whitespace */) {
+                    this.drawEmptyHalfWidth(cursorX, y);
+                } else if (ch === "　" /* full width whitespace */) {
+                    this.drawEmptyFullWidth(cursorX, y, drawingText, i);
+                }
             }
             cursorX += this.calcWidth(ch);
         });
