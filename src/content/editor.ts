@@ -60,17 +60,9 @@ export class Editor {
     // ------------------------------
 
     private init(): void {
-        this.initConfig();
-        this.setupListeners();
-        this.render();
-    }
-
-    private initConfig() {
         this.applyConfig();
-        this.canvas.tabIndex = -1;
-        this.canvas.style.outline = "none";
-
-        this.ctx.textBaseline = "middle";
+        this.render();
+        this.setupListeners();
     }
 
     private setupListeners() {
@@ -128,11 +120,36 @@ export class Editor {
             this.input.style.zIndex = "-1";
             setDestElValue();
         });
+
+        const resizingMap: Record<string, () => void> = {
+            ArrowLeft: () => {
+                this.config.screencols = Math.min(this.config.screencols + 2, 80);
+            },
+            ArrowRight: () => {
+                this.config.screencols = Math.max(2 + this.config.lines.lineNumberCols, this.config.screencols - 2);
+            },
+            ArrowUp: () => {
+                this.config.screenrows = Math.min(this.config.screenrows + 1, 40);
+            },
+            ArrowDown: () => {
+                this.config.screenrows = Math.max(1 + this.config.statusBarHeight, this.config.screenrows - 1);
+            },
+        };
         this.input.addEventListener("keydown", (e) => {
             if (isFunctionKey(e.key)) return;
             e.preventDefault();
             if (e.ctrlKey) return;
             if (e.isComposing) return;
+
+            if (e.shiftKey) {
+                const action = resizingMap[e.key];
+                if (action) {
+                    action();
+                    this.applyConfig();
+                    this.render();
+                    return;
+                }
+            }
 
             if (e.altKey && e.code === "KeyV") {
                 if (destEl) {
@@ -229,8 +246,6 @@ export class Editor {
             this.state.logicaloff = this.state.logicalWidth - screencols
             + lineNumberCols + LOGICAL_HALF_WIDTH;
         }
-
-        console.log(this.state.logicaloff);
     }
 
     private moveCursor(key: MoveKey): void {
@@ -437,6 +452,7 @@ export class Editor {
         this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
         this.ctx.font = `${this.config.baseFontSize}px ${this.config.fontFamily}`;
+        this.ctx.textBaseline = "middle";
     }
 
     private resetState(): void {
@@ -470,18 +486,17 @@ export class Editor {
             const targetRow = y + this.state.rowoff;
             const py = y * this.config.lines.height + this.halfLineHeight;
 
-            let rowDisplay;
-            if (this.config.lines.relativeNumbers) {
-                rowDisplay = (this.state.row === targetRow)
-                    ? targetRow + 1
-                    : Math.abs(this.state.row - targetRow);
-            } else {
-                rowDisplay = targetRow + 1;
-            }
-
             const line = this.state.lines[targetRow];
             if (line) {
                 if (this.config.lines.number) {
+                    let rowDisplay;
+                    if (this.config.lines.relativeNumbers) {
+                        rowDisplay = (this.state.row === targetRow)
+                            ? targetRow + 1
+                            : Math.abs(this.state.row - targetRow);
+                    } else {
+                        rowDisplay = targetRow + 1;
+                    }
                     this.drawLineNumber(px, py, targetRow, rowDisplay);
                 }
                 this.drawLineText(px, py, line.text);
