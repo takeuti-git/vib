@@ -2,6 +2,7 @@ import { Editor } from "./editor";
 import { createCanvas, createContainer, createInput, mountElementShadow } from "./dom";
 import { createEditorConfig } from "./config";
 import { createEditorState } from "./state";
+import { Renderer } from "./renderer";
 
 (function main() {
     const container = createContainer();
@@ -12,7 +13,8 @@ import { createEditorState } from "./state";
 
     const state = createEditorState();
     const config = createEditorConfig();
-    /* const editor = */ new Editor(config, state, container, canvas, input);
+    const renderer = new Renderer(config, canvas);
+    /* const editor = */new Editor(config, state, container, canvas, input, renderer);
 
     console.log("Alt+v: Focus canvas");
 })();
