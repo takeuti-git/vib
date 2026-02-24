@@ -41,6 +41,7 @@ export function createInput(): HTMLInputElement {
     input.style.left = "0";
     input.style.zIndex = "-1";
     input.style.width = "fit-content";
+    input.style.maxWidth = "100%";
     input.style.padding = "2px";
     input.style.margin = "0";
     input.style.outline = "none";
