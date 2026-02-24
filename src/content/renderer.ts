@@ -52,6 +52,7 @@ export class Renderer {
         this.drawLines(state);
         this.drawCursor(state);
         this.drawStatusBar(state);
+        this.adjustLineNumberMargin();
     }
 
     // ------------------------------
@@ -122,6 +123,14 @@ export class Renderer {
         this.ctx.fillStyle = this.config.colors.statusBarText;
         this.ctx.textAlign = "right";
         this.ctx.fillText(rowcol, leftX, bottomY);
+    }
+
+    private adjustLineNumberMargin() {
+        // 行番号右の余白にlineTextがはみ出て描写されるのを消去する
+        const x = this.config.lines.lineNumberCols * this.halfFontSize - 1;
+        const w = -this.halfFontSize;
+        const h = (this.config.screenrows - this.config.statusBarHeight) * this.config.lines.height;
+        this.ctx.clearRect(x, 0, w, h);
     }
 
     private drawLineNumber(
