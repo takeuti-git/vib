@@ -40,7 +40,6 @@ export class Renderer {
         const dpr = window.devicePixelRatio;
         this.canvas.width = Math.floor(width * dpr);
         this.canvas.height = Math.floor(height * dpr);
-        console.log(this.canvas.width, this.canvas.height);
 
         // ctx.setTransformはプロパティをリセットする
         this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);

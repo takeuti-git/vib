@@ -78,6 +78,19 @@ export class Editor {
             }
         });
 
+        const updateCanvas = () => {
+            this.renderer.applyConfig();
+            this.render();
+        };
+
+        let windowResizeTimer: number = 0;
+        window.addEventListener("resize", () => {
+            if (windowResizeTimer) {
+                clearTimeout(windowResizeTimer);
+            }
+            windowResizeTimer = setTimeout(updateCanvas, 500);
+        });
+
         this.canvas.addEventListener("click", () => {
             this.input.focus();
             this.render();
@@ -118,11 +131,10 @@ export class Editor {
             if (e.isComposing) return;
 
             if (e.shiftKey) {
-                const action = resizingMap[e.key];
-                if (action) {
-                    action();
-                    this.renderer.applyConfig();
-                    this.render();
+                const resize = resizingMap[e.key];
+                if (resize) {
+                    resize();
+                    updateCanvas();
                     return;
                 }
             }
