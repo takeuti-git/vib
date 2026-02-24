@@ -15,6 +15,18 @@ type SquareContext = {
     connectRight: boolean;
 };
 
+function getLogicalWidth(ch: string): number {
+    return isFullWidth(ch) ? 2 : 1;
+}
+
+function calcLogicalWidth(text: string): number {
+    let width = 0;
+    for (const ch of text) {
+        width += getLogicalWidth(ch);
+    }
+    return width;
+}
+
 export class Editor {
     private config: EditorConfig;
     private state: EditorState;
@@ -179,6 +191,7 @@ export class Editor {
                 break;
             }
             default: {
+                if (isIgnoreKey(key)) return;
                 this.insertChar(key);
             }
         }
@@ -198,18 +211,23 @@ export class Editor {
             this.state.rowoff = this.state.row - this.config.screenrows + 1 + this.config.statusBarHeight;
         }
 
-        if (this.state.px < this.state.pxoff) {
-            // decrease pxoff
-            this.state.pxoff = this.state.px;
+        if (this.state.logicalWidth < this.state.logicaloff) {
+            // decrease logicaloff
+            this.state.logicaloff = this.state.logicalWidth;
         }
 
-        const fontsize = this.config.baseFontSize / 2;
-        const screenWidth = this.config.screencols * fontsize;
-        if (this.state.px + this.lineNumberMargin >= this.state.pxoff + screenWidth) {
-            // increase pxoff
-            this.state.pxoff = this.state.px - (fontsize * this.config.screencols)
-            + fontsize + this.lineNumberMargin;
+        const screencols = this.config.screencols;
+        const lineNumberCols = this.config.lines.lineNumberCols;
+        if (
+            this.state.logicalWidth + lineNumberCols
+            >= this.state.logicaloff + screencols
+        ) {
+            // スクロール時に常に1列開けるため1を加算する
+            this.state.logicaloff = this.state.logicalWidth - screencols
+            + lineNumberCols + 1;
         }
+
+        console.log(this.state.logicaloff);
     }
 
     private moveCursor(key: MoveKey): void {
@@ -217,14 +235,14 @@ export class Editor {
             case MOVE_KEYS.LEFT: {
                 if (this.state.col !== 0) {
                     const prevChar = this.currentLine.text.slice(this.state.col - 1, this.state.col);
-                    this.state.px -= this.calcWidth(prevChar);
+                    this.state.logicalWidth -= calcLogicalWidth(prevChar);
                     this.state.col--;
                 } else if (this.state.row > 0) {
                     const prevLine = this.prevLine as Line;
                     const prevLineLen = prevLine.size;
                     this.state.row--;
                     this.state.col = prevLineLen;
-                    this.state.px = this.calcWidth(prevLine.text);
+                    this.state.logicalWidth = calcLogicalWidth(prevLine.text);
                 }
                 break;
             }
@@ -232,45 +250,51 @@ export class Editor {
                 const currLine = this.currentLine;
                 if (this.state.col < currLine.size) {
                     const currChar = currLine.text.slice(this.state.col, this.state.col + 1);
-                    this.state.px += this.calcWidth(currChar);
+                    this.state.logicalWidth += calcLogicalWidth(currChar);
                     this.state.col++;
                 } else if (this.nextLine && this.state.col === currLine.size) {
                     this.state.row++;
                     this.state.col = 0;
-                    this.state.px = 0;
+                    this.state.logicalWidth = 0;
                 }
                 break;
             }
             case MOVE_KEYS.UP: {
                 if (this.state.row !== 0) {
-                    const cxBeforeMove = this.state.px;
+                    const widthBeforeMove = this.state.logicalWidth;
                     const prevLine = this.prevLine as Line;
                     this.state.row--;
-                    this.state.px = Math.min(this.state.px, this.calcWidth(prevLine.text));
-                    this.state.col = this.cxToCol(this.state.px, prevLine.text);
-                    this.state.px = this.calcWidth(prevLine.text.slice(0, this.state.col));
+                    this.state.logicalWidth = Math.min(
+                        this.state.logicalWidth, calcLogicalWidth(prevLine.text)
+                    );
+                    this.state.col = this.logicalWidthToCol(this.state.logicalWidth, prevLine.text);
+                    this.state.logicalWidth = calcLogicalWidth(prevLine.text.slice(0, this.state.col));
 
-                    this.alignCursorToLeft(cxBeforeMove);
+                    this.alignCursorToLeft(widthBeforeMove);
                 } else {
+                    // 先頭行にいるとき
                     this.state.col = 0;
-                    this.state.px = 0;
+                    this.state.logicalWidth = 0;
                 }
                 break;
             }
             case MOVE_KEYS.DOWN: {
                 if (this.state.row < this.state.lines.length - 1) {
-                    const cxBeforeMove = this.state.px;
+                    const widthBeforeMove = this.state.logicalWidth;
                     const nextLine = this.nextLine as Line;
                     this.state.row++;
-                    this.state.px = Math.min(this.state.px, this.calcWidth(nextLine.text));
-                    this.state.col = this.cxToCol(this.state.px, nextLine.text);
-                    this.state.px = this.calcWidth(nextLine.text.slice(0, this.state.col));
+                    this.state.logicalWidth = Math.min(
+                        this.state.logicalWidth, calcLogicalWidth(nextLine.text)
+                    );
+                    this.state.col = this.logicalWidthToCol(this.state.logicalWidth, nextLine.text);
+                    this.state.logicalWidth = calcLogicalWidth(nextLine.text.slice(0, this.state.col));
 
-                    this.alignCursorToLeft(cxBeforeMove);
+                    this.alignCursorToLeft(widthBeforeMove);
                 } else {
+                    // 末尾業にいるとき
                     const text = this.currentLine.text;
                     this.state.col = text.length;
-                    this.state.px = this.calcWidth(text);
+                    this.state.logicalWidth = calcLogicalWidth(text);
                 }
                 break;
             }
@@ -278,9 +302,10 @@ export class Editor {
     }
 
     /** 半角文字から全角文字に上下移動する時、移動前が移動後の後ろ側なら右に寄せる */
-    private alignCursorToLeft(cxBeforeMove: number): void {
-        if (this.state.px >= cxBeforeMove + this.config.baseFontSize / 2) {
-            this.state.px -= this.config.baseFontSize;
+    private alignCursorToLeft(widthBeforeMove: number): void {
+        // 実際の移動量が-1以外になることはないはず
+        if (this.state.logicalWidth >= widthBeforeMove + 2) {
+            this.state.logicalWidth -= 1;
             this.state.col--;
         }
     }
@@ -292,20 +317,20 @@ export class Editor {
         currLine.text = textBefore;
         this.state.row++;
         this.state.col = 0;
-        this.state.px = 0;
+        // this.state.px = 0;
+        this.state.logicalWidth = 0;
         this.insertRow(this.state.row, textAfter);
     }
 
     private insertChar(ch: string): void {
-        if (isIgnoreKey(ch)) return;
-
         const currLine = this.currentLine;
         if (this.state.col >= currLine.size) {
             this.appendTextToLine(currLine, ch);
         } else {
             this.insertTextInLine(currLine, ch, this.state.col);
         }
-        this.state.px += this.calcWidth(ch);
+        // this.state.px += this.calcWidth(ch);
+        this.state.logicalWidth += calcLogicalWidth(ch);
         this.state.col += ch.length;
     }
 
@@ -320,12 +345,14 @@ export class Editor {
             const modified = text.slice(0, this.state.col - 1) + text.slice(this.state.col);
             currLine.text = modified;
             this.state.col--;
-            this.state.px -= this.calcWidth(targetChar);
+            // this.state.px -= this.calcWidth(targetChar);
+            this.state.logicalWidth -= calcLogicalWidth(targetChar);
         } else {
             // append two lines
             const prevLine = this.prevLine as Line;
             this.state.col = prevLine.size;
-            this.state.px = this.calcWidth(prevLine.text);
+            // this.state.px = this.calcWidth(prevLine.text);
+            this.state.logicalWidth = calcLogicalWidth(prevLine.text);
             this.appendTextToLine(prevLine, currLine.text);
             this.deleteRow(this.state.row);
             this.state.row--;
@@ -373,17 +400,18 @@ export class Editor {
         for (const ch of text) {
             width += isFullWidth(ch)
                 ? this.config.baseFontSize
-                : this.config.baseFontSize / 2;;
+                : this.config.baseFontSize / 2;
         }
         return width;
     }
 
-    private cxToCol(cx: number, text: string): number {
+    /** 与えられたlogicalWidthを文字列に対応するcolに変換する */
+    private logicalWidthToCol(logicalWidth: number, text: string): number {
         let width = 0;
         let col = 0;
         for (const ch of text) {
-            width += this.calcWidth(ch);
-            if (width > cx) break;
+            width += calcLogicalWidth(ch);
+            if (width > logicalWidth) break;
             col++;
         }
         return col;
@@ -417,8 +445,8 @@ export class Editor {
         this.state.row = 0;
         this.state.col = 0;
         this.state.px = 0;
+        this.state.logicalWidth = 0;
         this.state.rowoff = 0;
-        this.state.pxoff = 0;
         this.state.lines = [];
     }
 
@@ -467,7 +495,8 @@ export class Editor {
         const currLine = this.currentLine;
         const text = currLine.text;
 
-        const x = this.state.px - this.state.pxoff + this.lineNumberMargin;
+        const x = ((this.state.logicalWidth - this.state.logicaloff) * this.config.baseFontSize / 2)
+                   + this.lineNumberMargin;
         const y = (this.state.row - this.state.rowoff) * this.config.lines.height;
         const w = this.calcWidth(text[this.state.col] ?? "");
         const h = this.config.lines.height;
@@ -501,8 +530,9 @@ export class Editor {
 
     private drawLineText(x: number, y: number, text: string): void {
         this.ctx.textAlign = "start";
-        const startCol = this.cxToCol(this.state.pxoff, text);
-        const subPixelOffset = this.calcWidth(text.slice(0, startCol)) - this.state.pxoff;
+        const startCol = this.logicalWidthToCol(this.state.logicaloff, text);
+        const subPixelOffset = this.calcWidth(text.slice(0, startCol)) 
+                               - (this.state.logicaloff * this.config.baseFontSize / 2);
         let cursorX = x + subPixelOffset;
 
         const drawingText = text.slice(
