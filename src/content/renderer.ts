@@ -44,7 +44,7 @@ export class Renderer {
 
         // ctx.setTransformはプロパティをリセットする
         this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-        this.ctx.font = `${this.config.baseFontSize}px ${this.config.fontFamily}`;
+        this.ctx.font = `${this.config.baseFontSize}px "${this.config.fontFamily}", monospace`;
         this.ctx.textBaseline = "middle";
     }
 
