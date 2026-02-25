@@ -148,7 +148,8 @@ export class Editor {
             }
 
             // processing
-            this.processKeypress(e);
+            // this.processKeypress(e);
+            this.vi_processInput_n(e.key);
 
             // drawing
             this.render();
@@ -162,9 +163,24 @@ export class Editor {
     // | processing basic inputs
     // ------------------------------
 
+    private vi_processInput_n(key: string): void {
+        switch(key) {
+            case "h":
+                this.vi_moveCursor(MOVE_KEYS.LEFT);
+                break;
+            case "j":
+                this.vi_moveCursor(MOVE_KEYS.DOWN);
+                break;
+            case "k":
+                this.vi_moveCursor(MOVE_KEYS.UP);
+                break;
+            case "l":
+                this.vi_moveCursor(MOVE_KEYS.RIGHT);
+                break;
+        }
+    }
     private processKeypress(e: KeyboardEvent): void {
         const key = e.key;
-        if (isFunctionKey(key)) return;
 
         switch (key) {
             case "ArrowLeft": {
@@ -245,9 +261,7 @@ export class Editor {
         switch (key) {
             case MOVE_KEYS.LEFT: {
                 if (this.state.col !== 0) {
-                    const prevChar = this.currentLine.text.slice(this.state.col - 1, this.state.col);
-                    this.state.logicalWidth -= calcLogicalWidth(prevChar);
-                    this.state.col--;
+                    this.moveCursorLeft();
                 } else if (this.state.row > 0) {
                     const prevLine = this.prevLine as Line;
                     const prevLineLen = prevLine.size;
@@ -260,9 +274,7 @@ export class Editor {
             case MOVE_KEYS.RIGHT: {
                 const currLine = this.currentLine;
                 if (this.state.col < currLine.size) {
-                    const currChar = currLine.text.slice(this.state.col, this.state.col + 1);
-                    this.state.logicalWidth += calcLogicalWidth(currChar);
-                    this.state.col++;
+                    this.moveCursorRight();
                 } else if (this.nextLine && this.state.col === currLine.size) {
                     this.state.row++;
                     this.state.col = 0;
@@ -272,16 +284,7 @@ export class Editor {
             }
             case MOVE_KEYS.UP: {
                 if (this.state.row !== 0) {
-                    const widthBeforeMove = this.state.logicalWidth;
-                    const prevLine = this.prevLine as Line;
-                    this.state.row--;
-                    this.state.logicalWidth = Math.min(
-                        this.state.logicalWidth, calcLogicalWidth(prevLine.text)
-                    );
-                    this.state.col = logicalWidthToCol(this.state.logicalWidth, prevLine.text);
-                    this.state.logicalWidth = calcLogicalWidth(prevLine.text.slice(0, this.state.col));
-
-                    this.alignCursorToLeft(widthBeforeMove);
+                    this.moveCursorUp();
                 } else {
                     // 先頭行にいるとき
                     this.state.col = 0;
@@ -291,21 +294,41 @@ export class Editor {
             }
             case MOVE_KEYS.DOWN: {
                 if (this.state.row < this.state.lines.length - 1) {
-                    const widthBeforeMove = this.state.logicalWidth;
-                    const nextLine = this.nextLine as Line;
-                    this.state.row++;
-                    this.state.logicalWidth = Math.min(
-                        this.state.logicalWidth, calcLogicalWidth(nextLine.text)
-                    );
-                    this.state.col = logicalWidthToCol(this.state.logicalWidth, nextLine.text);
-                    this.state.logicalWidth = calcLogicalWidth(nextLine.text.slice(0, this.state.col));
-
-                    this.alignCursorToLeft(widthBeforeMove);
+                    this.moveCursorDown();
                 } else {
-                    // 末尾業にいるとき
+                    // 末尾行にいるとき
                     const text = this.currentLine.text;
                     this.state.col = text.length;
                     this.state.logicalWidth = calcLogicalWidth(text);
+                }
+                break;
+            }
+        }
+    }
+
+    private vi_moveCursor(key: MoveKey): void {
+        switch (key) {
+            case MOVE_KEYS.LEFT: {
+                if (this.state.col !== 0) {
+                    this.moveCursorLeft();
+                }
+                break;
+            }
+            case MOVE_KEYS.RIGHT: {
+                if (this.state.col < this.currentLine.size - 1) {
+                    this.moveCursorRight();
+                }
+                break;
+            }
+            case MOVE_KEYS.UP: {
+                if (this.state.row !== 0) {
+                    this.moveCursorUp();
+                }
+                break;
+            }
+            case MOVE_KEYS.DOWN: {
+                if (this.state.row < this.state.lines.length - 1) {
+                    this.moveCursorDown();
                 }
                 break;
             }
@@ -421,6 +444,44 @@ export class Editor {
         this.state.logicalWidth = 0;
         this.state.rowoff = 0;
         this.state.lines = [];
+    }
+
+    private moveCursorLeft(): void {
+        const prevChar = this.currentLine.text.slice(this.state.col - 1, this.state.col);
+        this.state.logicalWidth -= calcLogicalWidth(prevChar);
+        this.state.col--;
+    }
+
+    private moveCursorRight(): void {
+        const currChar = this.currentLine.text.slice(this.state.col, this.state.col + 1);
+        this.state.logicalWidth += calcLogicalWidth(currChar);
+        this.state.col++;
+    }
+
+    private moveCursorUp(): void {
+        const widthBeforeMove = this.state.logicalWidth;
+        const prevLine = this.prevLine as Line;
+        this.state.row--;
+        this.state.logicalWidth = Math.min(
+            this.state.logicalWidth, calcLogicalWidth(prevLine.text)
+        );
+        this.state.col = logicalWidthToCol(this.state.logicalWidth, prevLine.text);
+        this.state.logicalWidth = calcLogicalWidth(prevLine.text.slice(0, this.state.col));
+
+        this.alignCursorToLeft(widthBeforeMove);
+    }
+
+    private moveCursorDown(): void {
+        const widthBeforeMove = this.state.logicalWidth;
+        const nextLine = this.nextLine as Line;
+        this.state.row++;
+        this.state.logicalWidth = Math.min(
+            this.state.logicalWidth, calcLogicalWidth(nextLine.text)
+        );
+        this.state.col = logicalWidthToCol(this.state.logicalWidth, nextLine.text);
+        this.state.logicalWidth = calcLogicalWidth(nextLine.text.slice(0, this.state.col));
+
+        this.alignCursorToLeft(widthBeforeMove);
     }
 
     // ------------------------------
