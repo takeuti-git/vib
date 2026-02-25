@@ -30,7 +30,7 @@ export class Renderer {
 
     public applyConfig(): void {
         const width = this.config.screencols * this.halfFontSize;
-        const height = this.config.screenrows * this.config.lines.height;
+        const height = this.config.screenrows * this.lineHeight;
 
         // CSSの設定
         this.canvas.style.width = `${width}px`;
@@ -66,27 +66,27 @@ export class Renderer {
     private drawLines(state: EditorState): void {
         const px = this.lineNumberMargin;
 
-        const number = this.config.lines.number;
-        const relativenumber = this.config.lines.relativenumber;
+        const isLineNumberOff = this.config.lineNumbers === "off";
+        const isRelative = this.config.lineNumbers === "relative";
         for (let y = 0; y < this.config.screenrows - this.config.statusBarHeight; y++) {
             const targetRow = y + state.rowoff;
-            const py = y * this.config.lines.height + this.halfLineHeight;
+            const py = y * this.lineHeight + this.halfLineHeight;
 
             const line = state.lines[targetRow];
             if (!line) return;
 
             this.drawLineText(state, px, py, line.text);
 
-            if (!number) continue;
+            if (isLineNumberOff) continue;
 
             const isCurrentRow = state.row === targetRow;
-            const absRowNumber = targetRow + 1;
+            const absoluteRowNumber = targetRow + 1;
 
-            const rowDisplayNumber = (relativenumber)
+            const rowDisplayNumber = (isRelative)
                 ? (isCurrentRow)
-                    ? absRowNumber
+                    ? absoluteRowNumber
                     : Math.abs(state.row - targetRow)
-                : absRowNumber
+                : absoluteRowNumber
             this.drawLineNumber(state, px, py, targetRow, rowDisplayNumber);
         }
     }
@@ -97,39 +97,39 @@ export class Renderer {
 
         const x = ((state.logicalWidth - state.logicaloff) * this.halfFontSize)
                    + this.lineNumberMargin;
-        const y = (state.row - state.rowoff) * this.config.lines.height;
+        const y = (state.row - state.rowoff) * this.lineHeight;
         const w = this.calcWidth(text[state.col] ?? "");
-        const h = this.config.lines.height;
-        this.ctx.fillStyle = this.config.colors.cursorBody;
-        this.ctx.strokeStyle = this.config.colors.cursorOutline;
+        const h = this.lineHeight;
+        this.ctx.fillStyle = this.config.colors.cursor.body;
+        this.ctx.strokeStyle = this.config.colors.cursor.outline;
         this.ctx.fillRect(x, y, w, h);
         this.ctx.strokeRect(x, y, w, h);
     }
 
     private drawStatusBar(state: EditorState): void {
-        const lineHeight = this.config.lines.height;
+        const lineHeight = this.lineHeight;
         const statusBarHeight = this.config.statusBarHeight;
         const y = (this.config.screenrows - statusBarHeight)
                    * lineHeight;
         const w = this.config.screencols * this.halfFontSize;
-        const h = statusBarHeight * this.config.lines.height;
-        this.ctx.fillStyle = this.config.colors.statusBarBg;
+        const h = statusBarHeight * this.lineHeight;
+        this.ctx.fillStyle = this.config.colors.statusBar.bg;
         // 背景の矩形を描く
         this.ctx.fillRect(0, y, w, h);
 
         const leftX = w; // ウィンドウの右端から左方向に描く
         const bottomY = y + this.halfLineHeight + ((statusBarHeight - 1) * lineHeight);
         const rowcol = `${state.row + 1},${state.col + 1}`;
-        this.ctx.fillStyle = this.config.colors.statusBarText;
+        this.ctx.fillStyle = this.config.colors.statusBar.text;
         this.ctx.textAlign = "right";
         this.ctx.fillText(rowcol, leftX, bottomY);
     }
 
     private adjustLineNumberMargin() {
         // 行番号右の余白にlineTextがはみ出て描写されるのを消去する
-        const x = this.config.lines.lineNumberCols * this.halfFontSize - 1;
+        const x = this.config.lineNumberCols * this.halfFontSize - 1;
         const w = -this.halfFontSize;
-        const h = (this.config.screenrows - this.config.statusBarHeight) * this.config.lines.height;
+        const h = (this.config.screenrows - this.config.statusBarHeight) * this.lineHeight;
         this.ctx.clearRect(x, 0, w, h);
     }
 
@@ -141,8 +141,8 @@ export class Renderer {
         lineNum: number
     ): void {
         this.ctx.fillStyle = (row === state.row)
-            ? this.config.colors.lineNumberCurrent
-            : this.config.colors.lineNumber;
+            ? this.config.colors.lineNumber.current
+            : this.config.colors.lineNumber.normal;
         this.ctx.textAlign = "right";
         // 行番号の右側に空白1つ分開ける: x - halfFontsize
         this.ctx.fillText(lineNum.toString(), x - this.halfFontSize, y);
@@ -181,7 +181,7 @@ export class Renderer {
     }
 
     private drawChar(x: number, y: number, ch: string): void {
-        this.ctx.fillStyle = this.config.colors.bodyText;
+        this.ctx.fillStyle = this.config.colors.text.normal;
         this.ctx.fillText(ch, x, y);
     }
 
@@ -226,8 +226,8 @@ export class Renderer {
             ...opts
         };
 
-        this.ctx.strokeStyle = this.config.colors.emptyChar;
-        this.ctx.fillStyle = this.config.colors.emptyChar;
+        this.ctx.strokeStyle = this.config.colors.text.whitespace;
+        this.ctx.fillStyle = this.config.colors.text.whitespace;
         this.ctx.beginPath();
         this.ctx.arc(x, y, radius, 0, Math.PI * 2);
         this.ctx.closePath();
@@ -249,8 +249,8 @@ export class Renderer {
             ...opts
         };
 
-        this.ctx.strokeStyle = this.config.colors.emptyChar;
-        this.ctx.fillStyle = this.config.colors.emptyChar;
+        this.ctx.strokeStyle = this.config.colors.text.whitespace;
+        this.ctx.fillStyle = this.config.colors.text.whitespace;
 
         if (options.fill) {
             this.ctx.fillRect(x, y, size, size);
@@ -295,19 +295,23 @@ export class Renderer {
     // ------------------------------
 
     private get lineNumberMargin(): number {
-        return (this.config.lines.number)
-            ? this.config.lines.lineNumberCols * this.halfFontSize
+        return (this.config.lineNumbers !== "off")
+            ? this.config.lineNumberCols * this.halfFontSize
             : 0;
     }
 
     private get lineNumberCols(): number {
-        return (this.config.lines.number)
-            ? this.config.lines.lineNumberCols
+        return (this.config.lineNumbers !== "off")
+            ? this.config.lineNumberCols
             : 0;
     }
 
+    private get lineHeight(): number {
+        return this.config.baseFontSize + this.config.lineHeightPadding;
+    }
+
     private get halfLineHeight(): number {
-        return this.config.lines.height / 2;
+        return this.lineHeight / 2;
     }
 
     private get halfFontSize(): number {

@@ -115,7 +115,7 @@ export class Editor {
                 this.config.screencols = Math.min(this.config.screencols + 2, 80);
             },
             ArrowRight: () => {
-                this.config.screencols = Math.max(2 + this.config.lines.lineNumberCols, this.config.screencols - 2);
+                this.config.screencols = Math.max(2 + this.config.lineNumberCols, this.config.screencols - 2);
             },
             ArrowUp: () => {
                 this.config.screenrows = Math.min(this.config.screenrows + 1, 40);
@@ -230,7 +230,7 @@ export class Editor {
         }
 
         const screencols = this.config.screencols;
-        const lineNumberCols = this.config.lines.lineNumberCols;
+        const lineNumberCols = this.config.lineNumberCols;
         if (
             this.state.logicalWidth + lineNumberCols
             >= this.state.logicaloff + screencols
