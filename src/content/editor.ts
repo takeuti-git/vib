@@ -103,12 +103,14 @@ export class Editor {
         });
         this.input.addEventListener("compositionend", () => {
             // 日本語変換が終わったとき
-            this.insertText(this.input.value);
-            this.scrollWindow();
-            this.render();
+            if (this.state.vi_mode === "insert") {
+                this.insertText(this.input.value);
+                this.scrollWindow();
+                this.render();
+                setDestElValue();
+            }
             this.input.value = "";
             this.input.style.zIndex = "-1";
-            setDestElValue();
         });
 
         const resizingMap: Record<string, () => void> = {
@@ -130,7 +132,6 @@ export class Editor {
             const key = e.key
             if (isFunctionKey(key)) return;
             e.preventDefault();
-            // if (e.ctrlKey) return;
             if (e.isComposing) return;
 
             if (e.shiftKey) {
@@ -155,6 +156,7 @@ export class Editor {
                     this.vi_moveCursor(MOVE_KEYS.LEFT);
                 }
                 this.state.vi_mode = "normal";
+                this.state.vi_cmd = "";
                 this.render();
                 return;
             }
