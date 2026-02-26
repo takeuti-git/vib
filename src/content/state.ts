@@ -8,6 +8,9 @@ export type EditorState = {
     rowoff: number; // 縦スクロール時の行のずれ
     logicaloff: number;
     lines: Line[];
+
+    vi_mode: "normal" | "insert";
+    vi_cmd: string;
 };
 
 export function createEditorState(): EditorState {
@@ -21,5 +24,20 @@ export function createEditorState(): EditorState {
         lines: [
             new Line()
         ],
+
+        vi_mode: "normal",
+        vi_cmd: "",
     };
+}
+
+export function resetState(state: EditorState): void {
+    state.row = 0;
+    state.col = 0;
+    state.px = 0;
+    state.logicalWidth = 0;
+    state.rowoff = 0;
+    state.logicaloff = 0;
+    state.lines = [];
+    state.vi_mode = "normal";
+    state.vi_cmd = "";
 }

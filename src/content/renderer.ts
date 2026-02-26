@@ -98,7 +98,9 @@ export class Renderer {
         const x = ((state.logicalWidth - state.logicaloff) * this.halfFontSize)
                    + this.lineNumberMargin;
         const y = (state.row - state.rowoff) * this.lineHeight;
-        const w = this.calcWidth(text[state.col] ?? "");
+        const w = (state.vi_mode === "normal")
+            ? this.calcWidth(text[state.col] ?? " ")
+            : 0;
         const h = this.lineHeight;
         this.ctx.fillStyle = this.config.colors.cursor.body;
         this.ctx.strokeStyle = this.config.colors.cursor.outline;

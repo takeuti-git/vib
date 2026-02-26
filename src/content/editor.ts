@@ -1,10 +1,11 @@
 import type { EditorConfig } from "./config";
-import type { EditorState } from "./state";
+import { resetState, type EditorState } from "./state";
 import type { Renderer } from "./renderer";
 import { Line, getLines } from "./line";
 import { isFunctionKey, MOVE_KEYS, type MoveKey } from "./keys";
 import { hideContainer, showContainer } from "./dom";
 import { LOGICAL_HALF_WIDTH, LOGICAL_FULL_WIDTH, calcLogicalWidth, logicalWidthToCol } from "./utils";
+import { isValidCmd, type NormalCmd } from "./myvim/cmd";
 
 export class Editor {
     private readonly config: EditorConfig;
@@ -62,7 +63,7 @@ export class Editor {
                     destEl = activeEl;
                     this.input.focus();
 
-                    this.resetState();
+                    resetState(this.state);
                     this.state.lines = getLines(activeEl.value);
                     this.render();
                 }
@@ -124,14 +125,16 @@ export class Editor {
                 this.config.screenrows = Math.max(1 + this.config.statusBarHeight, this.config.screenrows - 1);
             },
         };
+
         this.input.addEventListener("keydown", (e) => {
-            if (isFunctionKey(e.key)) return;
+            const key = e.key
+            if (isFunctionKey(key)) return;
             e.preventDefault();
-            if (e.ctrlKey) return;
+            // if (e.ctrlKey) return;
             if (e.isComposing) return;
 
             if (e.shiftKey) {
-                const resize = resizingMap[e.key];
+                const resize = resizingMap[key];
                 if (resize) {
                     resize();
                     updateCanvas();
@@ -147,9 +150,27 @@ export class Editor {
                 return;
             }
 
+            if (key === "Escape" || (key === "[" && e.ctrlKey)) {
+                if (this.state.vi_mode === "insert") {
+                    this.vi_moveCursor(MOVE_KEYS.LEFT);
+                }
+                this.state.vi_mode = "normal";
+                this.render();
+                return;
+            }
+
             // processing
-            // this.processKeypress(e);
-            this.vi_processInput_n(e.key);
+            if (this.state.vi_mode === "normal") {
+                this.state.vi_cmd += key;
+                const result = this.vi_processInput(this.state.vi_cmd);
+                if (result === 0 || result === 1) {
+                    this.state.vi_cmd = "";
+                }
+            }
+            else if (this.state.vi_mode === "insert") {
+                this.processKeypress(e);
+            }
+            this.scrollWindow();
 
             // drawing
             this.render();
@@ -163,67 +184,59 @@ export class Editor {
     // | processing basic inputs
     // ------------------------------
 
-    private vi_processInput_n(key: string): void {
-        switch(key) {
-            case "h":
-                this.vi_moveCursor(MOVE_KEYS.LEFT);
-                break;
-            case "j":
-                this.vi_moveCursor(MOVE_KEYS.DOWN);
-                break;
-            case "k":
-                this.vi_moveCursor(MOVE_KEYS.UP);
-                break;
-            case "l":
-                this.vi_moveCursor(MOVE_KEYS.RIGHT);
-                break;
+    private vi_normalCmdMap: Record<NormalCmd, () => void> = {
+        "h": () => this.vi_moveCursor(MOVE_KEYS.LEFT),
+        "j": () => this.vi_moveCursor(MOVE_KEYS.DOWN),
+        "k": () => this.vi_moveCursor(MOVE_KEYS.UP),
+        "l": () => this.vi_moveCursor(MOVE_KEYS.RIGHT),
+        "i": () => this.vi_goInsert(false),
+        "a": () => this.vi_goInsert(true),
+    };
+
+    private vi_processInput(input: string): 0 | 1 | 2 {
+        if (!isValidCmd(input)) return 1;
+
+        const fn = this.vi_normalCmdMap[input as NormalCmd];
+        if (fn) {
+            fn();
+            return 0;
+        }
+        return 2;
+    }
+
+    private vi_goInsert(isAppend: boolean): void {
+        this.state.vi_mode = "insert";
+        if (isAppend && this.state.col !== this.currentLine.size) {
+            this.moveCursor(MOVE_KEYS.RIGHT);
         }
     }
+
+    private keyMap: Record<string, () => void> = {
+        "ArrowLeft": () => this.moveCursor(MOVE_KEYS.LEFT),
+        "ArrowRight": () => this.moveCursor(MOVE_KEYS.RIGHT),
+        "ArrowUp": () => this.moveCursor(MOVE_KEYS.UP),
+        "ArrowDown": () => this.moveCursor(MOVE_KEYS.DOWN),
+        "Backspace": () => this.deleteChar(),
+        "Delete": () => {
+            if (this.isAtTail()) return;
+            this.moveCursor(MOVE_KEYS.RIGHT);
+            this.deleteChar();
+        },
+        "Enter": () => this.insertNewLine(),
+        "Tab": () => this.indent(),
+    };
+
     private processKeypress(e: KeyboardEvent): void {
         const key = e.key;
 
-        switch (key) {
-            case "ArrowLeft": {
-                this.moveCursor(MOVE_KEYS.LEFT);
-                break;
-            }
-            case "ArrowRight": {
-                this.moveCursor(MOVE_KEYS.RIGHT);
-                break;
-            }
-            case "ArrowUp": {
-                this.moveCursor(MOVE_KEYS.UP);
-                break;
-            }
-            case "ArrowDown": {
-                this.moveCursor(MOVE_KEYS.DOWN);
-                break;
-            }
+        const action = this.keyMap[key];
 
-            case "Delete":
-            case "Backspace": {
-                if (key === "Delete") {
-                    if (this.isAtTail()) return;
-                    this.moveCursor(MOVE_KEYS.RIGHT);
-                }
-                this.deleteChar();
-                break;
-            }
-            case "Enter": {
-                this.insertNewLine();
-                break;
-            }
-
-            case "Tab": {
-                this.indent();
-                break;
-            }
-            default: {
-                if (e.key.length > 1) return;
-                this.insertText(key);
-            }
+        if (action) {
+            action();
+        } else {
+            if (key.length > 1) return;
+            this.insertText(key);
         }
-        this.scrollWindow();
     }
 
     // ------------------------------
@@ -435,15 +448,6 @@ export class Editor {
             this.state.row === this.state.lines.length - 1 &&
             this.state.col === this.currentLine.size
         );
-    }
-
-    private resetState(): void {
-        this.state.row = 0;
-        this.state.col = 0;
-        this.state.px = 0;
-        this.state.logicalWidth = 0;
-        this.state.rowoff = 0;
-        this.state.lines = [];
     }
 
     private moveCursorLeft(): void {
