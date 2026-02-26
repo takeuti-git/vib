@@ -119,8 +119,16 @@ export class Renderer {
         // 背景の矩形を描く
         this.ctx.fillRect(0, y, w, h);
 
-        const leftX = w; // ウィンドウの右端から左方向に描く
         const bottomY = y + this.halfLineHeight + ((statusBarHeight - 1) * lineHeight);
+        {
+            const x = 0;
+            const vi_cmdText = state.vi_cmd;
+            this.ctx.fillStyle = this.config.colors.statusBar.text;
+            this.ctx.textAlign = "start";
+            this.ctx.fillText(vi_cmdText, x, bottomY);
+        }
+
+        const leftX = w; // ウィンドウの右端から左方向に描く
         const rowcol = `${state.row + 1},${state.col + 1}`;
         this.ctx.fillStyle = this.config.colors.statusBar.text;
         this.ctx.textAlign = "right";

@@ -1,5 +1,6 @@
+const FUNCTION_KEY = new RegExp(/^F\d+/);
 export function isFunctionKey(key: string): boolean {
-    return /^F\d+/.test(key);
+    return FUNCTION_KEY.test(key);
 }
 
 export const MOVE_KEYS = {

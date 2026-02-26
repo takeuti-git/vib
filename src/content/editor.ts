@@ -7,6 +7,37 @@ import { hideContainer, showContainer } from "./dom";
 import { LOGICAL_HALF_WIDTH, LOGICAL_FULL_WIDTH, calcLogicalWidth, logicalWidthToCol } from "./utils";
 import { isValidCmd, type NormalCmd } from "./myvim/cmd";
 
+const DIGIT = /^[0-9]$/;
+function isDigit(text: string): boolean {
+    for (const ch of text) {
+        if (!DIGIT.test(ch)) return false;
+    }
+    return true;
+}
+
+function vi_getCountMotion(input: string): [number, string | null] {
+    if (input[0] === "0") {
+        return [1, "0"];
+    } else if (!isDigit(input[0] as string)) {
+        return [1, input];
+    }
+
+    let count = "";
+    let motion: string | null = null;
+    for (let i = 0; i < input.length; i++) {
+        count += input[i];
+
+        const nextChar = input[i + 1]
+        if (nextChar === undefined) break;
+
+        if (!isDigit(nextChar)) {
+            motion = input.slice(i + 1);
+            break;
+        }
+    }
+    return [Number(count), motion];
+}
+
 export class Editor {
     private readonly config: EditorConfig;
     private readonly state: EditorState;
@@ -193,14 +224,24 @@ export class Editor {
         "l": () => this.vi_moveCursor(MOVE_KEYS.RIGHT),
         "i": () => this.vi_goInsert(false),
         "a": () => this.vi_goInsert(true),
+        "0": () => {
+            this.state.col = 0;
+            this.state.logicalWidth = 0;
+            this.state.logicaloff = 0;
+        },
     };
 
     private vi_processInput(input: string): 0 | 1 | 2 {
-        if (!isValidCmd(input)) return 1;
+        const [count, motion] = vi_getCountMotion(input);
+        if (motion === null) return 2; // まだcountまでしか入力がないとき
 
-        const fn = this.vi_normalCmdMap[input as NormalCmd];
+        if (!isValidCmd(motion)) return 1;
+
+        const fn = this.vi_normalCmdMap[motion as NormalCmd];
         if (fn) {
-            fn();
+            for (let i = 0; i < count; i++) {
+                fn();
+            }
             return 0;
         }
         return 2;
