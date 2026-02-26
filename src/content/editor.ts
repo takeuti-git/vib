@@ -46,6 +46,8 @@ export class Editor {
     private readonly input: HTMLInputElement;
     private readonly renderer: Renderer;
 
+    private vi_insertResolve: (() => void) | null = null;
+
     constructor(
         config: EditorConfig,
         state: EditorState,
@@ -139,6 +141,7 @@ export class Editor {
                 this.scrollWindow();
                 this.render();
                 setDestElValue();
+                this.state.vi_insertBuf.push(this.input.value);
             }
             this.input.value = "";
             this.input.style.zIndex = "-1";
@@ -183,11 +186,10 @@ export class Editor {
             }
 
             if (key === "Escape" || (key === "[" && e.ctrlKey)) {
-                if (this.state.vi_mode === "insert") {
-                    this.vi_moveCursor(MOVE_KEYS.LEFT);
-                }
                 this.state.vi_mode = "normal";
                 this.state.vi_cmd = "";
+                this.vi_insertResolve?.();
+                this.vi_insertResolve = null;
                 this.render();
                 return;
             }
@@ -239,8 +241,39 @@ export class Editor {
 
         const fn = this.vi_normalCmdMap[motion as NormalCmd];
         if (fn) {
-            for (let i = 0; i < count; i++) {
+            if (["a", "i"].includes(motion)) {
                 fn();
+                (async () => {
+                    await new Promise<void>(resolve => {
+                        this.vi_insertResolve = resolve;
+                    });
+                    console.log([this.state.vi_insertBuf]);
+                    for (let i = 0; i < count - 1; i++) {
+                        for (const token of this.state.vi_insertBuf) {
+                            if (token === "TAB") {
+                                this.indent();
+                            } else if (token === "ENTER") {
+                                this.insertNewLine();
+                            } else if (token === "BACKSPACE") {
+                                this.deleteChar();
+                            } else if (token === "DELETE") {
+                                if (!this.isAtTail()) {
+                                    this.moveCursor(MOVE_KEYS.RIGHT);
+                                    this.deleteChar();
+                                }
+                            } else {
+                                this.insertText(token);
+                            }
+                        }
+                    }
+                    this.state.vi_insertBuf = [];
+                    this.vi_moveCursor(MOVE_KEYS.LEFT);
+                    this.render();
+                })();
+            } else {
+                for (let i = 0; i < count; i++) {
+                    fn();
+                }
             }
             return 0;
         }
@@ -255,18 +288,28 @@ export class Editor {
     }
 
     private keyMap: Record<string, () => void> = {
-        "ArrowLeft": () => this.moveCursor(MOVE_KEYS.LEFT),
-        "ArrowRight": () => this.moveCursor(MOVE_KEYS.RIGHT),
-        "ArrowUp": () => this.moveCursor(MOVE_KEYS.UP),
-        "ArrowDown": () => this.moveCursor(MOVE_KEYS.DOWN),
-        "Backspace": () => this.deleteChar(),
+        // "ArrowLeft": () => this.moveCursor(MOVE_KEYS.LEFT),
+        // "ArrowRight": () => this.moveCursor(MOVE_KEYS.RIGHT),
+        // "ArrowUp": () => this.moveCursor(MOVE_KEYS.UP),
+        // "ArrowDown": () => this.moveCursor(MOVE_KEYS.DOWN),
+        "Backspace": () => {
+            this.deleteChar();
+            this.state.vi_insertBuf.push("BACKSPACE");
+        },
         "Delete": () => {
             if (this.isAtTail()) return;
             this.moveCursor(MOVE_KEYS.RIGHT);
             this.deleteChar();
+            this.state.vi_insertBuf.push("DELETE");
         },
-        "Enter": () => this.insertNewLine(),
-        "Tab": () => this.indent(),
+        "Enter": () => {
+            this.insertNewLine();
+            this.state.vi_insertBuf.push("ENTER");
+        },
+        "Tab": () => {
+            this.indent();
+            this.state.vi_insertBuf.push("TAB");
+        },
     };
 
     private processKeypress(e: KeyboardEvent): void {
@@ -279,6 +322,7 @@ export class Editor {
         } else {
             if (key.length > 1) return;
             this.insertText(key);
+            this.state.vi_insertBuf.push(key);
         }
     }
 

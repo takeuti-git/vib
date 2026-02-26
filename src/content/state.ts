@@ -11,6 +11,7 @@ export type EditorState = {
 
     vi_mode: "normal" | "insert";
     vi_cmd: string;
+    vi_insertBuf: string[];
 };
 
 export function createEditorState(): EditorState {
@@ -27,6 +28,7 @@ export function createEditorState(): EditorState {
 
         vi_mode: "normal",
         vi_cmd: "",
+        vi_insertBuf: [""],
     };
 }
 
