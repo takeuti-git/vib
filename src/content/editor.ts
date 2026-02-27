@@ -218,45 +218,43 @@ export class Editor {
         if (!isValidCmd(motion)) return 1;
 
         const fn = this.vi_normalCmdMap[motion as NormalCmd];
-        if (fn) {
-            if (["a", "i", "A", "I"].includes(motion)) {
-                fn();
-                (async () => {
-                    await new Promise<void>(resolve => {
-                        // this.state.vi_insertResolveが呼び出されるまで待つ
-                        // 現状はEscape押下時に呼び出している
-                        this.state.vi_insertResolve = resolve;
-                    });
-                    if (!this.state.vi_insertBuf.includes("MOVED")) {
-                        for (let i = 0; i < count - 1; i++) {
-                            for (const token of this.state.vi_insertBuf) {
-                                if (token === "TAB") {
-                                    this.indent();
-                                } else if (token === "ENTER") {
-                                    this.insertNewLine();
-                                } else if (token === "BACKSPACE") {
+        if (!fn) return 2; // 入力中の文字列から始まるコマンドは存在するが完成していない
+
+        if (["a", "i", "A", "I"].includes(motion)) {
+            fn();
+            (async () => {
+                await new Promise<void>(resolve => {
+                    this.state.vi_insertResolve = resolve;
+                });
+                // this.state.vi_insertResolveがどこかで呼び出されるまで待つ
+                if (!this.state.vi_insertBuf.includes("MOVED")) {
+                    for (let i = 0; i < count - 1; i++) {
+                        for (const token of this.state.vi_insertBuf) {
+                            if (token === "TAB") {
+                                this.indent();
+                            } else if (token === "ENTER") {
+                                this.insertNewLine();
+                            } else if (token === "BACKSPACE") {
+                                this.deleteChar();
+                            } else if (token === "DELETE") {
+                                if (!this.isAtTail()) {
+                                    this.moveCursor(MOVE_KEYS.RIGHT);
                                     this.deleteChar();
-                                } else if (token === "DELETE") {
-                                    if (!this.isAtTail()) {
-                                        this.moveCursor(MOVE_KEYS.RIGHT);
-                                        this.deleteChar();
-                                    }
-                                } else {
-                                    this.insertText(token);
                                 }
+                            } else {
+                                this.insertText(token);
                             }
                         }
                     }
-                    this.vi_moveCursor(MOVE_KEYS.LEFT);
-                    this.scrollWindow();
-                    this.render();
-                })();
-            } else {
-                for (let i = 0; i < count; i++) fn();
-            }
-            return 0;
+                }
+                this.vi_moveCursor(MOVE_KEYS.LEFT);
+                this.scrollWindow();
+                this.render();
+            })();
+        } else {
+            for (let i = 0; i < count; i++) fn();
         }
-        return 2;
+        return 0;
     }
 
     private vi_goInsert(isAppend: boolean): void {
@@ -536,11 +534,10 @@ export class Editor {
         const widthBeforeMove = this.state.logicalWidth;
         const prevLine = this.prevLine as Line;
         this.state.row--;
-        this.state.logicalWidth = Math.min(
-            this.state.logicalWidth, calcLogicalWidth(prevLine.text)
-        );
-        this.state.col = logicalWidthToCol(this.state.logicalWidth, prevLine.text);
-        this.state.logicalWidth = calcLogicalWidth(prevLine.text.slice(0, this.state.col));
+        const logicalWidth = Math.min(this.state.logicalWidth, calcLogicalWidth(prevLine.text));
+        const col = logicalWidthToCol(logicalWidth, prevLine.text);
+        this.state.col = col;
+        this.state.logicalWidth = calcLogicalWidth(prevLine.text.slice(0, col));
 
         this.alignCursorToLeft(widthBeforeMove);
     }
@@ -549,11 +546,10 @@ export class Editor {
         const widthBeforeMove = this.state.logicalWidth;
         const nextLine = this.nextLine as Line;
         this.state.row++;
-        this.state.logicalWidth = Math.min(
-            this.state.logicalWidth, calcLogicalWidth(nextLine.text)
-        );
-        this.state.col = logicalWidthToCol(this.state.logicalWidth, nextLine.text);
-        this.state.logicalWidth = calcLogicalWidth(nextLine.text.slice(0, this.state.col));
+        const logicalWidth = Math.min(this.state.logicalWidth, calcLogicalWidth(nextLine.text));
+        const col = logicalWidthToCol(logicalWidth, nextLine.text);
+        this.state.col = col;
+        this.state.logicalWidth = calcLogicalWidth(nextLine.text.slice(0, col));
 
         this.alignCursorToLeft(widthBeforeMove);
     }
@@ -580,16 +576,18 @@ export class Editor {
         this.state.row = 0;
         const firstLine = this.currentLine;
         const logicalWidth = Math.min(this.state.logicalWidth, calcLogicalWidth(firstLine.text));
-        this.state.logicalWidth = logicalWidth;
-        this.state.col = logicalWidthToCol(logicalWidth, firstLine.text);
+        const col = logicalWidthToCol(logicalWidth, firstLine.text);
+        this.state.col = col;
+        this.state.logicalWidth = calcLogicalWidth(firstLine.text.slice(0, col));
     }
 
     private moveCursorToEOF(): void {
         this.state.row = this.state.lines.length - 1;
         const lastLine = this.currentLine;
         const logicalWidth = Math.min(this.state.logicalWidth, calcLogicalWidth(lastLine.text));
-        this.state.logicalWidth = logicalWidth;
-        this.state.col = logicalWidthToCol(logicalWidth, lastLine.text);
+        const col = logicalWidthToCol(logicalWidth, lastLine.text);
+        this.state.col = col;
+        this.state.logicalWidth = calcLogicalWidth(lastLine.text.slice(0, col));
     }
 
     // ------------------------------
