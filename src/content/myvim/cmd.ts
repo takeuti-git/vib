@@ -10,7 +10,7 @@ export const NORMAL_CMDS = [
     // "o", "O",
     // "w", "b",
     // "W", "B",
-    // "gg", "G",
+    "gg", "G",
 ] as const;
 // e, r, c/C, s/S
 

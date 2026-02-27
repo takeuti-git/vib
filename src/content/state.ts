@@ -30,7 +30,7 @@ export function createEditorState(): EditorState {
         vi_mode: "normal",
         vi_cmd: "",
         vi_insertBuf: [""],
-        vi_insertResolbe: null,
+        vi_insertResolve: null,
     };
 }
 
