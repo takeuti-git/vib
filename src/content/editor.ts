@@ -202,11 +202,10 @@ export class Editor {
             this.moveCursorToLast();
             this.vi_goInsert(true);
         },
-        "0": () => {
-            this.state.col = 0;
-            this.state.logicalWidth = 0;
-            this.state.logicaloff = 0;
-        },
+        "0": () => this.moveCursorToFirst(),
+        "_": () => this.moveCursorToFirstNonWhitespace(),
+        "^": () => this.moveCursorToFirstNonWhitespace(),
+        "$": () => this.moveCursorToLast(),
     };
 
     private vi_processInput(input: string): 0 | 1 | 2 {
@@ -551,6 +550,10 @@ export class Editor {
         this.alignCursorToLeft(widthBeforeMove);
     }
 
+    private moveCursorToFirst(): void {
+        this.state.col = 0;
+        this.state.logicalWidth = 0;
+    }
     private moveCursorToFirstNonWhitespace(): void {
         const line = this.currentLine;
         const start = getFirstNonWhitespaceCol(line.text);
@@ -560,9 +563,9 @@ export class Editor {
 
     private moveCursorToLast(): void {
         const line = this.currentLine;
-        const end = line.text.length;
+        const end = line.text.length - 1;
         this.state.col = end;
-        this.state.logicalWidth = calcLogicalWidth(line.text);
+        this.state.logicalWidth = calcLogicalWidth(line.text.slice(0, end));
     }
 
     // ------------------------------
