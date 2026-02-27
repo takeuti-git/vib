@@ -16,8 +16,6 @@ export class Editor {
     private readonly input: HTMLInputElement;
     private readonly renderer: Renderer;
 
-    private vi_insertResolve: (() => void) | null = null;
-
     constructor(
         config: EditorConfig,
         state: EditorState,
@@ -158,9 +156,8 @@ export class Editor {
             if (key === "Escape" || (key === "[" && e.ctrlKey)) {
                 this.state.vi_mode = "normal";
                 this.state.vi_cmd = "";
-                this.vi_insertResolve?.();
-                this.vi_insertResolve = null;
-                this.render();
+                this.state.vi_insertResolve?.();
+                this.state.vi_insertResolve = null;
                 return;
             }
 
@@ -224,7 +221,7 @@ export class Editor {
                 fn();
                 (async () => {
                     await new Promise<void>(resolve => {
-                        this.vi_insertResolve = resolve;
+                        this.state.vi_insertResolve = resolve;
                     });
                     console.log([this.state.vi_insertBuf]);
                     for (let i = 0; i < count - 1; i++) {
