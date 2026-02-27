@@ -1,42 +1,12 @@
 import type { EditorConfig } from "./config";
-import { resetState, type EditorState } from "./state";
 import type { Renderer } from "./renderer";
+import { type EditorState, resetState } from "./state";
 import { Line, getLines } from "./line";
 import { isFunctionKey, MOVE_KEYS, type MoveKey } from "./keys";
 import { hideContainer, showContainer } from "./dom";
 import { LOGICAL_HALF_WIDTH, LOGICAL_FULL_WIDTH, calcLogicalWidth, logicalWidthToCol } from "./utils";
 import { isValidCmd, type NormalCmd } from "./myvim/cmd";
-
-const DIGIT = /^[0-9]$/;
-function isDigit(text: string): boolean {
-    for (const ch of text) {
-        if (!DIGIT.test(ch)) return false;
-    }
-    return true;
-}
-
-function vi_getCountMotion(input: string): [number, string | null] {
-    if (input[0] === "0") {
-        return [1, "0"];
-    } else if (!isDigit(input[0] as string)) {
-        return [1, input];
-    }
-
-    let count = "";
-    let motion: string | null = null;
-    for (let i = 0; i < input.length; i++) {
-        count += input[i];
-
-        const nextChar = input[i + 1]
-        if (nextChar === undefined) break;
-
-        if (!isDigit(nextChar)) {
-            motion = input.slice(i + 1);
-            break;
-        }
-    }
-    return [Number(count), motion];
-}
+import { getFirstNonWhitespaceCol, vi_getCountMotion } from "./myvim/motion";
 
 export class Editor {
     private readonly config: EditorConfig;
@@ -196,6 +166,7 @@ export class Editor {
 
             // processing
             if (this.state.vi_mode === "normal") {
+                if (key === "Shift") return;
                 this.state.vi_cmd += key;
                 const result = this.vi_processInput(this.state.vi_cmd);
                 if (result === 0 || result === 1) {
@@ -226,6 +197,14 @@ export class Editor {
         "l": () => this.vi_moveCursor(MOVE_KEYS.RIGHT),
         "i": () => this.vi_goInsert(false),
         "a": () => this.vi_goInsert(true),
+        "I": () => {
+            this.moveCursorToFirstNonWhitespace();
+            this.vi_goInsert(false);
+        },
+        "A": () => {
+            this.moveCursorToLast();
+            this.vi_goInsert(true);
+        },
         "0": () => {
             this.state.col = 0;
             this.state.logicalWidth = 0;
@@ -241,7 +220,7 @@ export class Editor {
 
         const fn = this.vi_normalCmdMap[motion as NormalCmd];
         if (fn) {
-            if (["a", "i"].includes(motion)) {
+            if (["a", "i", "A", "I"].includes(motion)) {
                 fn();
                 (async () => {
                     await new Promise<void>(resolve => {
@@ -573,6 +552,20 @@ export class Editor {
         this.state.logicalWidth = calcLogicalWidth(nextLine.text.slice(0, this.state.col));
 
         this.alignCursorToLeft(widthBeforeMove);
+    }
+
+    private moveCursorToFirstNonWhitespace(): void {
+        const line = this.currentLine;
+        const start = getFirstNonWhitespaceCol(line.text);
+        this.state.col = start;
+        this.state.logicalWidth = calcLogicalWidth(line.text.slice(0, start));
+    }
+
+    private moveCursorToLast(): void {
+        const line = this.currentLine;
+        const end = line.text.length;
+        this.state.col = end;
+        this.state.logicalWidth = calcLogicalWidth(line.text);
     }
 
     // ------------------------------
