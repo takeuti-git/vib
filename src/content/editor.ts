@@ -158,6 +158,7 @@ export class Editor {
                 this.state.vi_cmd = "";
                 this.state.vi_insertResolve?.();
                 this.state.vi_insertResolve = null;
+                this.render();
                 return;
             }
 
@@ -220,53 +221,54 @@ export class Editor {
                 fn();
                 (async () => {
                     await new Promise<void>(resolve => {
+                        // this.state.vi_insertResolveが呼び出されるまで待つ
+                        // 現状はEscape押下時に呼び出している
                         this.state.vi_insertResolve = resolve;
                     });
-                    console.log([this.state.vi_insertBuf]);
-                    for (let i = 0; i < count - 1; i++) {
-                        for (const token of this.state.vi_insertBuf) {
-                            if (token === "TAB") {
-                                this.indent();
-                            } else if (token === "ENTER") {
-                                this.insertNewLine();
-                            } else if (token === "BACKSPACE") {
-                                this.deleteChar();
-                            } else if (token === "DELETE") {
-                                if (!this.isAtTail()) {
-                                    this.moveCursor(MOVE_KEYS.RIGHT);
+                    if (!this.state.vi_insertBuf.includes("MOVED")) {
+                        for (let i = 0; i < count - 1; i++) {
+                            for (const token of this.state.vi_insertBuf) {
+                                if (token === "TAB") {
+                                    this.indent();
+                                } else if (token === "ENTER") {
+                                    this.insertNewLine();
+                                } else if (token === "BACKSPACE") {
                                     this.deleteChar();
+                                } else if (token === "DELETE") {
+                                    if (!this.isAtTail()) {
+                                        this.moveCursor(MOVE_KEYS.RIGHT);
+                                        this.deleteChar();
+                                    }
+                                } else {
+                                    this.insertText(token);
                                 }
-                            } else {
-                                this.insertText(token);
                             }
                         }
                     }
-                    this.state.vi_insertBuf = [];
                     this.vi_moveCursor(MOVE_KEYS.LEFT);
+                    this.scrollWindow();
                     this.render();
                 })();
             } else {
-                for (let i = 0; i < count; i++) {
-                    fn();
-                }
+                for (let i = 0; i < count; i++) fn();
             }
-            return 0;
         }
-        return 2;
+        return 0;
     }
 
     private vi_goInsert(isAppend: boolean): void {
         this.state.vi_mode = "insert";
+        this.state.vi_insertBuf = [];
         if (isAppend && this.state.col !== this.currentLine.size) {
             this.moveCursor(MOVE_KEYS.RIGHT);
         }
     }
 
     private keyMap: Record<string, () => void> = {
-        // "ArrowLeft": () => this.moveCursor(MOVE_KEYS.LEFT),
-        // "ArrowRight": () => this.moveCursor(MOVE_KEYS.RIGHT),
-        // "ArrowUp": () => this.moveCursor(MOVE_KEYS.UP),
-        // "ArrowDown": () => this.moveCursor(MOVE_KEYS.DOWN),
+        "ArrowLeft": () => this.moveCursor(MOVE_KEYS.LEFT),
+        "ArrowRight": () => this.moveCursor(MOVE_KEYS.RIGHT),
+        "ArrowUp": () => this.moveCursor(MOVE_KEYS.UP),
+        "ArrowDown": () => this.moveCursor(MOVE_KEYS.DOWN),
         "Backspace": () => {
             this.deleteChar();
             this.state.vi_insertBuf.push("BACKSPACE");
@@ -294,6 +296,9 @@ export class Editor {
 
         if (action) {
             action();
+            if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(key)) {
+                this.state.vi_insertBuf.push("MOVED");
+            }
         } else {
             if (key.length > 1) return;
             this.insertText(key);
