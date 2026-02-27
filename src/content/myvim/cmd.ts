@@ -1,5 +1,5 @@
 export const NORMAL_CMDS = [
-    // ".",
+    ".",
     "i", "a",
     "I", "A",
     "h", "j", "k", "l",
@@ -21,12 +21,21 @@ export function isValidCmd(input: string): boolean {
 }
 
 const REPEATABLE_CMDS = [
-    "p", "P",
-    "dd", "x", "X",
+    "a", "A", "i", "I",
+    "o", "O",
 ] as const;
 
 export type RepeatableCmd = (typeof REPEATABLE_CMDS)[number];
 
 export function isRepeatableCmd(cmd: string): cmd is RepeatableCmd {
     return (REPEATABLE_CMDS as readonly string[]).includes(cmd);
+}
+
+const INSERTION_CMDS = [
+    "a", "A", "i", "I",
+    "o", "O",
+];
+
+export function isInsertionCmd(cmd: string): boolean {
+    return INSERTION_CMDS.includes(cmd);
 }

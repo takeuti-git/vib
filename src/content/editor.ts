@@ -5,7 +5,7 @@ import { Line, getLines } from "./line";
 import { isFunctionKey, MOVE_KEYS, type MoveKey } from "./keys";
 import { hideContainer, showContainer } from "./dom";
 import { LOGICAL_HALF_WIDTH, LOGICAL_FULL_WIDTH, calcLogicalWidth, logicalWidthToCol } from "./utils";
-import { isValidCmd, type NormalCmd } from "./myvim/cmd";
+import { isInsertionCmd, isRepeatableCmd, isValidCmd, type NormalCmd } from "./myvim/cmd";
 import { getFirstNonWhitespaceCol, vi_getCountMotion } from "./myvim/motion";
 
 export class Editor {
@@ -16,7 +16,7 @@ export class Editor {
     private readonly input: HTMLInputElement;
     private readonly renderer: Renderer;
 
-    private static readonly VI_MOVED = "\x01"; // 未使用の文字コードを移動検知のフラグに使う
+    // private static readonly VI_MOVED = "\x01"; // 未使用の文字コードを移動検知のフラグに使う
     private static readonly VI_ENTER = "\n";
     private static readonly VI_TAB = "\t";
     private static readonly VI_BACKSPACE = "\x08";
@@ -204,34 +204,31 @@ export class Editor {
     // ------------------------------
 
     private vi_normalCmdMap: Record<NormalCmd, () => void> = {
+        // repeat
+        ".": () => {
+            if (this.state.vi_lastCmd === "") return;
+            this.vi_processInputClone(this.state.vi_lastCmd);
+        },
+
+        // move
         "h": () => this.vi_moveCursor(MOVE_KEYS.LEFT),
         "j": () => this.vi_moveCursor(MOVE_KEYS.DOWN),
         "k": () => this.vi_moveCursor(MOVE_KEYS.UP),
         "l": () => this.vi_moveCursor(MOVE_KEYS.RIGHT),
-        "i": () => this.vi_goInsert(false),
-        "a": () => this.vi_goInsert(true),
-        "I": () => {
-            this.moveCursorToFirstNonWhitespace();
-            this.vi_goInsert(false);
-        },
-        "A": () => {
-            this.moveCursorToLast();
-            this.vi_goInsert(true);
-        },
         "0": () => this.moveCursorToFirst(),
         "_": () => this.moveCursorToFirstNonWhitespace(),
         "^": () => this.moveCursorToFirstNonWhitespace(),
         "$": () => this.moveCursorToLast(),
         "gg": () => this.moveCursorToBOF(),
         "G": () => this.moveCursorToEOF(),
-        "o": () => {
-            this.insertNewLineNext();
-            this.vi_goInsert(false);
-        },
-        "O": () => {
-            this.insertNewLineCurrent();
-            this.vi_goInsert(false);
-        },
+
+        // insert
+        "i": () => { /* ここでは処理しない*/ },
+        "a": () => { /* ここでは処理しない*/ },
+        "I": () => this.moveCursorToFirstNonWhitespace(),
+        "A": () => this.moveCursorToLast(),
+        "o": () => this.insertNewLineNext(),
+        "O": () => this.insertNewLineCurrent(),
     };
 
     private vi_processInput(input: string): 0 | 1 | 2 {
@@ -243,43 +240,30 @@ export class Editor {
         const fn = this.vi_normalCmdMap[motion as NormalCmd];
         if (!fn) return 2; // 入力中の文字列から始まるコマンドは存在するが完成していない
 
-        if (["a", "i", "A", "I", "o", "O"].includes(motion)) {
+        if (isInsertionCmd(motion)) {
             fn();
+            if (["a", "A"].includes(motion) && this.state.col !== this.currentLine.size) {
+                this.moveCursor(MOVE_KEYS.RIGHT);
+            }
+            this.vi_goInsert();
             (async () => {
                 await new Promise<void>(resolve => {
                     this.state.vi_insertResolve = resolve;
                 });
-                // this.state.vi_insertResolveがどこかで呼び出されるまで待つ
-                if (!this.state.vi_insertBuf.includes(Editor.VI_MOVED)) {
-                    if (count > 1 && ["o", "O"].includes(motion)) {
-                        this.state.vi_insertBuf.push(Editor.VI_ENTER);
-                        this.insertNewLine();
-                    }
-                    console.log(this.state.vi_insertBuf);
-                    for (let i = 0; i < count - 1; i++) {
-                        for (const token of this.state.vi_insertBuf) {
-                            if (token === Editor.VI_TAB) {
-                                this.indent();
-                            } else if (token === Editor.VI_ENTER) {
-                                this.insertNewLine();
-                            } else if (token === Editor.VI_BACKSPACE) {
-                                this.deleteChar();
-                            } else if (token === Editor.VI_DELETE) {
-                                if (!this.isAtTail()) {
-                                    this.moveCursor(MOVE_KEYS.RIGHT);
-                                    this.deleteChar();
-                                }
-                            } else {
-                                this.insertText(token);
-                            }
-                        }
-                    }
-                    if (count > 1 && ["o", "O"].includes(motion)) {
-                        this.deleteRow(this.state.row);
-                        this.moveCursor(MOVE_KEYS.UP);
-                        this.moveCursorToLast();
-                        this.moveCursor(MOVE_KEYS.RIGHT);
-                    }
+                // this.state.vi_insertResolveがどこかで呼び出されるまで以下を実行しない
+
+                if (count >= 2 && ["o", "O"].includes(motion)) {
+                    this.state.vi_insertBuf.push(Editor.VI_ENTER);
+                    this.insertNewLine();
+                }
+                for (let i = 0; i < count - 1; i++) {
+                    this.vi_insertBuffer(this.state.vi_insertBuf);
+                }
+                if (count >= 2 && ["o", "O"].includes(motion)) {
+                    this.deleteRow(this.state.row);
+                    this.moveCursor(MOVE_KEYS.UP);
+                    this.moveCursorToLast();
+                    this.moveCursor(MOVE_KEYS.RIGHT);
                 }
                 this.vi_moveCursor(MOVE_KEYS.LEFT);
                 this.scrollWindow();
@@ -288,33 +272,75 @@ export class Editor {
         } else {
             for (let i = 0; i < count; i++) fn();
         }
+        if (isRepeatableCmd(motion)) {
+            this.state.vi_lastCmd = input;
+        }
         return 0;
     }
 
-    private vi_goInsert(isAppend: boolean): void {
+    private vi_processInputClone(input: string): void {
+        const [count, motion] = vi_getCountMotion(input);
+        if (motion === null) return;
+
+        const fn = this.vi_normalCmdMap[motion as NormalCmd];
+        if (isInsertionCmd(motion)) {
+            fn();
+            if (["a", "A"].includes(motion) && this.state.col !== this.currentLine.size) {
+                this.moveCursor(MOVE_KEYS.RIGHT);
+            }
+            for (let i = 0; i < count; i++) {
+                this.vi_insertBuffer(this.state.vi_insertBuf);
+            }
+            if (count >= 2 && ["o", "O"].includes(motion)) {
+                this.deleteRow(this.state.row);
+                this.moveCursor(MOVE_KEYS.UP);
+                this.moveCursorToLast();
+            }
+            this.vi_moveCursor(MOVE_KEYS.LEFT);
+        } else {
+            for (let i = 0; i < count; i++) fn();
+        }
+    }
+
+    private vi_insertBuffer(buf: string[]): void {
+        for (const token of buf) {
+            if (token === Editor.VI_TAB) {
+                this.indent();
+            } else if (token === Editor.VI_ENTER) {
+                this.insertNewLine();
+            } else if (token === Editor.VI_BACKSPACE) {
+                this.deleteChar();
+            } else if (token === Editor.VI_DELETE) {
+                if (this.isAtTail()) return;
+                this.moveCursor(MOVE_KEYS.RIGHT);
+                this.deleteChar();
+            } else {
+                this.insertText(token);
+            }
+        }
+    }
+
+    private vi_goInsert(): void {
         this.state.vi_mode = "insert";
         this.state.vi_insertBuf = [];
-        if (isAppend && this.state.col !== this.currentLine.size) {
-            this.moveCursor(MOVE_KEYS.RIGHT);
-        }
     }
 
     private keyMap: Record<string, () => void> = {
         "ArrowLeft": () => {
             this.moveCursor(MOVE_KEYS.LEFT);
-            this.state.vi_insertBuf.push(Editor.VI_MOVED);
+            this.state.vi_insertBuf = [];
         },
         "ArrowRight": () => {
             this.moveCursor(MOVE_KEYS.RIGHT);
-            this.state.vi_insertBuf.push(Editor.VI_MOVED);
+            this.state.vi_insertBuf = [];
         },
         "ArrowUp": () => {
             this.moveCursor(MOVE_KEYS.UP);
-            this.state.vi_insertBuf.push(Editor.VI_MOVED);
+            this.state.vi_insertBuf = [];
         },
         "ArrowDown": () => {
             this.moveCursor(MOVE_KEYS.DOWN);
-            this.state.vi_insertBuf.push(Editor.VI_MOVED);
+            this.state.vi_insertBuf = [];
         },
         "Backspace": () => {
             this.deleteChar();
