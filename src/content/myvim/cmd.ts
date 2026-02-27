@@ -7,7 +7,7 @@ export const NORMAL_CMDS = [
     // "yy",
     // "p", "P",
     // "dd", "x", "X",
-    // "o", "O",
+    "o", "O",
     // "w", "b",
     // "W", "B",
     "gg", "G",

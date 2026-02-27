@@ -16,6 +16,12 @@ export class Editor {
     private readonly input: HTMLInputElement;
     private readonly renderer: Renderer;
 
+    private static readonly VI_MOVED = "\x01"; // 未使用の文字コードを移動検知のフラグに使う
+    private static readonly VI_ENTER = "\n";
+    private static readonly VI_TAB = "\t";
+    private static readonly VI_BACKSPACE = "\x08";
+    private static readonly VI_DELETE = "\x7F";
+
     constructor(
         config: EditorConfig,
         state: EditorState,
@@ -109,7 +115,11 @@ export class Editor {
                 this.scrollWindow();
                 this.render();
                 setDestElValue();
-                this.state.vi_insertBuf.push(this.input.value);
+
+                const value = this.input.value;
+                if (value !== "") {
+                    this.state.vi_insertBuf.push(value);
+                }
             }
             this.input.value = "";
             this.input.style.zIndex = "-1";
@@ -164,7 +174,7 @@ export class Editor {
 
             // processing
             if (this.state.vi_mode === "normal") {
-                if (key === "Shift") return;
+                if (key.length > 1) return;
                 this.state.vi_cmd += key;
                 if (this.state.vi_cmd.length > 6) {
                     this.render();
@@ -214,10 +224,18 @@ export class Editor {
         "$": () => this.moveCursorToLast(),
         "gg": () => this.moveCursorToBOF(),
         "G": () => this.moveCursorToEOF(),
+        "o": () => {
+            this.insertNewLineNext();
+            this.vi_goInsert(false);
+        },
+        "O": () => {
+            this.insertNewLineCurrent();
+            this.vi_goInsert(false);
+        },
     };
 
     private vi_processInput(input: string): 0 | 1 | 2 {
-        const [count, motion] = vi_getCountMotion(input);
+        let [count, motion] = vi_getCountMotion(input);
         if (motion === null) return 2; // まだcountまでしか入力がないとき
 
         if (!isValidCmd(motion)) return 1;
@@ -225,23 +243,28 @@ export class Editor {
         const fn = this.vi_normalCmdMap[motion as NormalCmd];
         if (!fn) return 2; // 入力中の文字列から始まるコマンドは存在するが完成していない
 
-        if (["a", "i", "A", "I"].includes(motion)) {
+        if (["a", "i", "A", "I", "o", "O"].includes(motion)) {
             fn();
             (async () => {
                 await new Promise<void>(resolve => {
                     this.state.vi_insertResolve = resolve;
                 });
                 // this.state.vi_insertResolveがどこかで呼び出されるまで待つ
-                if (!this.state.vi_insertBuf.includes("MOVED")) {
+                if (!this.state.vi_insertBuf.includes(Editor.VI_MOVED)) {
+                    if (count > 1 && ["o", "O"].includes(motion)) {
+                        this.state.vi_insertBuf.push(Editor.VI_ENTER);
+                        this.insertNewLine();
+                    }
+                    console.log(this.state.vi_insertBuf);
                     for (let i = 0; i < count - 1; i++) {
                         for (const token of this.state.vi_insertBuf) {
-                            if (token === "TAB") {
+                            if (token === Editor.VI_TAB) {
                                 this.indent();
-                            } else if (token === "ENTER") {
+                            } else if (token === Editor.VI_ENTER) {
                                 this.insertNewLine();
-                            } else if (token === "BACKSPACE") {
+                            } else if (token === Editor.VI_BACKSPACE) {
                                 this.deleteChar();
-                            } else if (token === "DELETE") {
+                            } else if (token === Editor.VI_DELETE) {
                                 if (!this.isAtTail()) {
                                     this.moveCursor(MOVE_KEYS.RIGHT);
                                     this.deleteChar();
@@ -250,6 +273,12 @@ export class Editor {
                                 this.insertText(token);
                             }
                         }
+                    }
+                    if (count > 1 && ["o", "O"].includes(motion)) {
+                        this.deleteRow(this.state.row);
+                        this.moveCursor(MOVE_KEYS.UP);
+                        this.moveCursorToLast();
+                        this.moveCursor(MOVE_KEYS.RIGHT);
                     }
                 }
                 this.vi_moveCursor(MOVE_KEYS.LEFT);
@@ -271,27 +300,39 @@ export class Editor {
     }
 
     private keyMap: Record<string, () => void> = {
-        "ArrowLeft": () => this.moveCursor(MOVE_KEYS.LEFT),
-        "ArrowRight": () => this.moveCursor(MOVE_KEYS.RIGHT),
-        "ArrowUp": () => this.moveCursor(MOVE_KEYS.UP),
-        "ArrowDown": () => this.moveCursor(MOVE_KEYS.DOWN),
+        "ArrowLeft": () => {
+            this.moveCursor(MOVE_KEYS.LEFT);
+            this.state.vi_insertBuf.push(Editor.VI_MOVED);
+        },
+        "ArrowRight": () => {
+            this.moveCursor(MOVE_KEYS.RIGHT);
+            this.state.vi_insertBuf.push(Editor.VI_MOVED);
+        },
+        "ArrowUp": () => {
+            this.moveCursor(MOVE_KEYS.UP);
+            this.state.vi_insertBuf.push(Editor.VI_MOVED);
+        },
+        "ArrowDown": () => {
+            this.moveCursor(MOVE_KEYS.DOWN);
+            this.state.vi_insertBuf.push(Editor.VI_MOVED);
+        },
         "Backspace": () => {
             this.deleteChar();
-            this.state.vi_insertBuf.push("BACKSPACE");
+            this.state.vi_insertBuf.push(Editor.VI_BACKSPACE);
         },
         "Delete": () => {
             if (this.isAtTail()) return;
             this.moveCursor(MOVE_KEYS.RIGHT);
             this.deleteChar();
-            this.state.vi_insertBuf.push("DELETE");
+            this.state.vi_insertBuf.push(Editor.VI_DELETE);
         },
         "Enter": () => {
             this.insertNewLine();
-            this.state.vi_insertBuf.push("ENTER");
+            this.state.vi_insertBuf.push(Editor.VI_ENTER);
         },
         "Tab": () => {
             this.indent();
-            this.state.vi_insertBuf.push("TAB");
+            this.state.vi_insertBuf.push(Editor.VI_TAB);
         },
     };
 
@@ -302,9 +343,6 @@ export class Editor {
 
         if (action) {
             action();
-            if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(key)) {
-                this.state.vi_insertBuf.push("MOVED");
-            }
         } else {
             if (key.length > 1) return;
             this.insertText(key);
@@ -438,6 +476,19 @@ export class Editor {
         this.state.col = 0;
         this.state.logicalWidth = 0;
         this.insertRow(this.state.row, textAfter);
+    }
+
+    private insertNewLineNext(): void {
+        this.insertRow(this.state.row + 1, "");
+        this.state.row += 1;
+        this.state.col = 0;
+        this.state.logicalWidth = 0;
+    }
+
+    private insertNewLineCurrent(): void {
+        this.insertRow(this.state.row, "");
+        this.state.col = 0;
+        this.state.logicalWidth = 0;
     }
 
     private insertText(text: string): void {
