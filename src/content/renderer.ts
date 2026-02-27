@@ -121,11 +121,23 @@ export class Renderer {
 
         const bottomY = y + this.halfLineHeight + ((statusBarHeight - 1) * lineHeight);
         {
-            const x = 0;
+            const x = 120;
             const vi_cmdText = state.vi_cmd;
             this.ctx.fillStyle = this.config.colors.statusBar.text;
             this.ctx.textAlign = "start";
-            this.ctx.fillText(vi_cmdText, x, bottomY);
+            if (vi_cmdText.length > 6) {
+                this.ctx.fillText("too long", x, bottomY);
+            } else {
+                this.ctx.fillText(vi_cmdText, x, bottomY);
+            }
+        }
+        {
+            const x = 0;
+            if (state.vi_mode === "normal") {
+                this.ctx.fillText("-- NORMAL --", x, bottomY);
+            } else if (state.vi_mode === "insert") {
+                this.ctx.fillText("-- INSERT --", x, bottomY);
+            }
         }
 
         const leftX = w; // ウィンドウの右端から左方向に描く

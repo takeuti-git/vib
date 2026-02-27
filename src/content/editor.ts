@@ -166,6 +166,11 @@ export class Editor {
             if (this.state.vi_mode === "normal") {
                 if (key === "Shift") return;
                 this.state.vi_cmd += key;
+                if (this.state.vi_cmd.length > 6) {
+                    this.render();
+                    this.state.vi_cmd = "";
+                    return;
+                }
                 const result = this.vi_processInput(this.state.vi_cmd);
                 if (result === 0 || result === 1) {
                     this.state.vi_cmd = "";
