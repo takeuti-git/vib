@@ -4,6 +4,7 @@ export const NORMAL_CMDS = [
     "I", "A",
     "h", "j", "k", "l",
     "0", "^", "_", "$",
+    "f", "F", "t", "T",
     // "yy",
     // "p", "P",
     // "dd", "x", "X",

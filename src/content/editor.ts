@@ -6,7 +6,7 @@ import { isFunctionKey, MOVE_KEYS, type MoveKey } from "./keys";
 import { hideContainer, showContainer } from "./dom";
 import { LOGICAL_HALF_WIDTH, LOGICAL_FULL_WIDTH, calcLogicalWidth, logicalWidthToCol } from "./utils";
 import { isInsertionCmd, isRepeatableCmd, isValidCmd, type NormalCmd } from "./myvim/cmd";
-import { getFirstNonWhitespaceCol, vi_getCountMotion } from "./myvim/motion";
+import { getCountForNextChar, getCountToNextChar, getFirstNonWhitespaceCol, vi_getCountMotion } from "./myvim/motion";
 
 export class Editor {
     private readonly config: EditorConfig;
@@ -228,6 +228,10 @@ export class Editor {
         "$": () => this.moveCursorToLast(),
         "gg": () => this.moveCursorToBOF(),
         "G": () => this.moveCursorToEOF(),
+        "f": () => {},
+        "F": () => {},
+        "t": () => {},
+        "T": () => {},
 
         // insert
         "i": () => { /* ここでは処理しない*/ },
@@ -241,6 +245,34 @@ export class Editor {
     private vi_processInput(input: string): 0 | 1 | 2 {
         let [count, motion] = vi_getCountMotion(input);
         if (motion === null) return 2; // まだcountまでしか入力がないとき
+
+        if (["f", "F", "t", "T"].includes(motion)) {
+            return 2;
+        }
+        else if (motion.startsWith("f")) {
+            const text = this.currentLine.text.slice(this.state.col + 1);
+            const moveAmount = getCountToNextChar(motion[1]!, text);
+            this.vi_moveCursor(MOVE_KEYS.RIGHT, moveAmount);
+            return 0;
+        }
+        else if (motion.startsWith("F")) {
+            const text = this.currentLine.text.slice(0, this.state.col);
+            const moveAmount = getCountToNextChar(motion[1]!, text, true);
+            this.vi_moveCursor(MOVE_KEYS.LEFT, moveAmount);
+            return 0;
+        }
+        else if (motion.startsWith("t")) {
+            const text = this.currentLine.text.slice(this.state.col + 1);
+            const moveAmount = getCountForNextChar(motion[1]!, text);
+            this.vi_moveCursor(MOVE_KEYS.RIGHT, moveAmount);
+            return 0;
+        }
+        else if (motion.startsWith("T")) {
+            const text = this.currentLine.text.slice(0, this.state.col);
+            const moveAmount = getCountForNextChar(motion[1]!, text, true);
+            this.vi_moveCursor(MOVE_KEYS.LEFT, moveAmount);
+            return 0;
+        }
 
         if (!isValidCmd(motion)) return 1;
 
@@ -463,31 +495,33 @@ export class Editor {
         }
     }
 
-    private vi_moveCursor(key: MoveKey): void {
-        switch (key) {
-            case MOVE_KEYS.LEFT: {
-                if (this.state.col !== 0) {
-                    this.moveCursorLeft();
+    private vi_moveCursor(key: MoveKey, count = 1): void {
+        for (let i = 0; i < count; i++) {
+            switch (key) {
+                case MOVE_KEYS.LEFT: {
+                    if (this.state.col !== 0) {
+                        this.moveCursorLeft();
+                    }
+                    break;
                 }
-                break;
-            }
-            case MOVE_KEYS.RIGHT: {
-                if (this.state.col < this.currentLine.size - 1) {
-                    this.moveCursorRight();
+                case MOVE_KEYS.RIGHT: {
+                    if (this.state.col < this.currentLine.size - 1) {
+                        this.moveCursorRight();
+                    }
+                    break;
                 }
-                break;
-            }
-            case MOVE_KEYS.UP: {
-                if (this.state.row !== 0) {
-                    this.moveCursorUp();
+                case MOVE_KEYS.UP: {
+                    if (this.state.row !== 0) {
+                        this.moveCursorUp();
+                    }
+                    break;
                 }
-                break;
-            }
-            case MOVE_KEYS.DOWN: {
-                if (this.state.row < this.state.lines.length - 1) {
-                    this.moveCursorDown();
+                case MOVE_KEYS.DOWN: {
+                    if (this.state.row < this.state.lines.length - 1) {
+                        this.moveCursorDown();
+                    }
+                    break;
                 }
-                break;
             }
         }
     }
