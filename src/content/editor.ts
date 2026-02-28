@@ -163,6 +163,7 @@ export class Editor {
                 return;
             }
 
+            this.input.value = "";
             if (key === "Escape" || (key === "[" && e.ctrlKey)) {
                 this.state.vi_mode = "normal";
                 this.state.vi_cmd = "";
@@ -177,13 +178,20 @@ export class Editor {
                 if (key.length > 1) return;
                 this.state.vi_cmd += key;
                 if (this.state.vi_cmd.length > 6) {
+                    this.state.vi_cmd = "too long";
                     this.render();
                     this.state.vi_cmd = "";
                     return;
                 }
                 const result = this.vi_processInput(this.state.vi_cmd);
-                if (result === 0 || result === 1) {
+                if (result === 0) {
                     this.state.vi_cmd = "";
+                }
+                if (result === 1) {
+                    this.state.vi_cmd = "unknown cmd";
+                    this.render();
+                    this.state.vi_cmd = "";
+                    return;
                 }
             }
             else if (this.state.vi_mode === "insert") {
@@ -194,7 +202,6 @@ export class Editor {
             // drawing
             this.render();
 
-            this.input.value = "";
             setDestElValue();
         });
     }

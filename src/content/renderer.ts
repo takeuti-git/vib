@@ -125,11 +125,7 @@ export class Renderer {
             const vi_cmdText = state.vi_cmd;
             this.ctx.fillStyle = this.config.colors.statusBar.text;
             this.ctx.textAlign = "start";
-            if (vi_cmdText.length > 6) {
-                this.ctx.fillText("too long", x, bottomY);
-            } else {
-                this.ctx.fillText(vi_cmdText, x, bottomY);
-            }
+            this.ctx.fillText(vi_cmdText, x, bottomY);
         }
         {
             const x = 0;
