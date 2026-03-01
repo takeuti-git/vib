@@ -177,6 +177,7 @@ export class Editor {
             if (this.state.vi_mode === "normal") {
                 if (key.length > 1) return;
                 this.state.vi_cmd += key;
+                console.log([this.state.vi_cmd]);
                 if (this.state.vi_cmd.length > 6) {
                     this.state.vi_cmd = "too long";
                     this.render();
@@ -240,12 +241,18 @@ export class Editor {
         "A": () => this.moveCursorToLast(),
         "o": () => this.insertNewLineNext(),
         "O": () => this.insertNewLineCurrent(),
+
+        // delete
+        "d": () => {},
     };
 
     private vi_processInput(input: string): 0 | 1 | 2 {
         let [count, motion] = vi_getCountMotion(input);
         if (motion === null) return 2; // まだcountまでしか入力がないとき
 
+        if (isRepeatableCmd(motion)) {
+            this.state.vi_lastCmd = input;
+        }
         if (["f", "F", "t", "T"].includes(motion)) {
             return 2;
         }
@@ -271,6 +278,22 @@ export class Editor {
             const text = this.currentLine.text.slice(0, this.state.col);
             const moveAmount = getCountForNextChar(motion[1]!, text, true);
             this.vi_moveCursor(MOVE_KEYS.LEFT, moveAmount);
+            return 0;
+        }
+
+        if (motion === "d") {
+            return 2;
+        }
+        else if (motion == "dd") {
+            for (let i = 0; i < count; i++) {
+                this.deleteRow(this.state.row);
+                if (this.state.lines.length <= 0) {
+                    this.insertRow(0, "");
+                }
+                if (this.state.row === this.state.lines.length - 0) {
+                    this.state.row--;
+                }
+            }
             return 0;
         }
 
@@ -310,9 +333,6 @@ export class Editor {
             })();
         } else {
             for (let i = 0; i < count; i++) fn();
-        }
-        if (isRepeatableCmd(motion)) {
-            this.state.vi_lastCmd = input;
         }
         return 0;
     }
