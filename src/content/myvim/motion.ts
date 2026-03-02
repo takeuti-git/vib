@@ -1,12 +1,6 @@
-const FIRST_NON_WHITESPACE = /\S/;
-const DIGIT = /^[0-9]$/;
+import { isDigit } from "./utils";
 
-function isDigit(text: string): boolean {
-    for (const ch of text) {
-        if (!DIGIT.test(ch)) return false;
-    }
-    return true;
-}
+const FIRST_NON_WHITESPACE = /\S/;
 
 export function vi_getCountMotion(input: string): [number, string | null] {
     if (input[0] === "0") {
