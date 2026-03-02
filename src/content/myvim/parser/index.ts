@@ -4,12 +4,12 @@ import { MotionType, type MotionContext } from "./motionType";
 import { ParseStatus, type CommandParseResult, type MotionParseResult, type ParserContext } from "./parseStatus";
 import { STANDALONE_MAP } from "./standalone";
 import { SUGAR_MAP } from "./sugar";
-import { isDigit } from "../utils";
+import { isDigitChar } from "../utils";
 
 /**
  * - status: [ok, pending, unknown]
  **/
-export function parseCommand(input: string[]): CommandParseResult {
+export function parseCommand(input: readonly string[]): CommandParseResult {
     let i = 0;
     const len = input.length;
 
@@ -19,7 +19,7 @@ export function parseCommand(input: string[]): CommandParseResult {
         eatDigits: () => {
             let s = "";
             if (ctx.read() === "0") return "0";
-            while (isDigit(ctx.read())) s += ctx.next();
+            while (isDigitChar(ctx.read())) s += ctx.next();
             return s;
         },
     };

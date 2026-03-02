@@ -1,11 +1,11 @@
-import { isDigit } from "./utils";
+import { isDigitChar } from "./utils";
 
 const FIRST_NON_WHITESPACE = /\S/;
 
 export function vi_getCountMotion(input: string): [number, string | null] {
     if (input[0] === "0") {
         return [1, "0"];
-    } else if (!isDigit(input[0] as string)) {
+    } else if (!isDigitChar(input[0] as string)) {
         return [1, input];
     }
 
@@ -17,7 +17,7 @@ export function vi_getCountMotion(input: string): [number, string | null] {
         const nextChar = input[i + 1]
         if (nextChar === undefined) break;
 
-        if (!isDigit(nextChar)) {
+        if (!isDigitChar(nextChar)) {
             motion = input.slice(i + 1);
             break;
         }
