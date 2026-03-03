@@ -642,6 +642,19 @@ export class Editor {
     private deleteRow(row: number): void {
         if (row < 0 || row >= this.state.lines.length) return;
         this.state.lines.splice(row, 1);
+        const len = this.state.lines.length;
+        if (len === 0) {
+            this.insertRow(0, "");
+            this.state.col = 0;
+            this.state.logicalWidth = 0;
+            return;
+        }
+        if (this.state.row === row && row !== 0) {
+            const prevLine = this.prevLine!;
+            this.recalcColWidth(prevLine);
+        } else {
+            this.recalcColWidth(this.currentLine);
+        }
     }
 
     private appendTextToLine(line: Line, text: string): void {
