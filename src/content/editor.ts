@@ -677,10 +677,7 @@ export class Editor {
         const widthBeforeMove = this.state.logicalWidth;
         const prevLine = this.prevLine as Line;
         this.state.row--;
-        const logicalWidth = Math.min(this.state.logicalWidth, calcLogicalWidth(prevLine.text));
-        const col = logicalWidthToCol(logicalWidth, prevLine.text);
-        this.state.col = col;
-        this.state.logicalWidth = calcLogicalWidth(prevLine.text.slice(0, col));
+        this.recalcColWidth(prevLine);
 
         this.alignCursorToLeft(widthBeforeMove);
     }
@@ -689,10 +686,7 @@ export class Editor {
         const widthBeforeMove = this.state.logicalWidth;
         const nextLine = this.nextLine as Line;
         this.state.row++;
-        const logicalWidth = Math.min(this.state.logicalWidth, calcLogicalWidth(nextLine.text));
-        const col = logicalWidthToCol(logicalWidth, nextLine.text);
-        this.state.col = col;
-        this.state.logicalWidth = calcLogicalWidth(nextLine.text.slice(0, col));
+        this.recalcColWidth(nextLine);
 
         this.alignCursorToLeft(widthBeforeMove);
     }
@@ -731,6 +725,13 @@ export class Editor {
         const col = logicalWidthToCol(logicalWidth, lastLine.text);
         this.state.col = col;
         this.state.logicalWidth = calcLogicalWidth(lastLine.text.slice(0, col));
+    }
+
+    private recalcColWidth(destLine: Line): void {
+        const logicalWidth = Math.min(this.state.logicalWidth, calcLogicalWidth(destLine.text));
+        const col = logicalWidthToCol(logicalWidth, destLine.text);
+        this.state.col = col;
+        this.state.logicalWidth = calcLogicalWidth(destLine.text.slice(0, col));
     }
 
     // ------------------------------
