@@ -5,8 +5,9 @@ import { Line, getLines } from "./line";
 import { isFunctionKey, MOVE_KEYS, type MoveKey } from "./keys";
 import { hideContainer, showContainer } from "./dom";
 import { LOGICAL_HALF_WIDTH, LOGICAL_FULL_WIDTH, calcLogicalWidth, logicalWidthToCol } from "./utils";
-import { isInsertionCmd, isRepeatableCmd, isValidCmd, type NormalCmd } from "./myvim/cmd";
-import { getCountForNextChar, getCountToNextChar, getFirstNonWhitespaceCol, vi_getCountMotion } from "./myvim/motion";
+import { getCountForNextChar, getCountToNextChar, getFirstNonWhitespaceCol } from "./myvim/motion";
+import { parseCommand } from "./myvim/parser";
+import type { InsertCommand, Motion } from "./myvim/parser/command";
 
 export class Editor {
     private readonly config: EditorConfig;
@@ -166,7 +167,7 @@ export class Editor {
             this.input.value = "";
             if (key === "Escape" || (key === "[" && e.ctrlKey)) {
                 this.state.vi_mode = "normal";
-                this.state.vi_cmd = "";
+                this.state.vi_cmd = [];
                 this.state.vi_insertResolve?.();
                 this.state.vi_insertResolve = null;
                 this.render();
@@ -176,32 +177,35 @@ export class Editor {
             // processing
             if (this.state.vi_mode === "normal") {
                 if (key.length > 1) return;
-                this.state.vi_cmd += key;
-                console.log([this.state.vi_cmd]);
+                const input = e.ctrlKey ? `<C-${key}>` : key;
+                this.state.vi_cmd.push(input);
                 if (this.state.vi_cmd.length > 6) {
-                    this.state.vi_cmd = "too long";
+                    this.state.vi_cmd = ["too long"];
                     this.render();
-                    this.state.vi_cmd = "";
+                    this.state.vi_cmd = [];
                     return;
                 }
                 const result = this.vi_processInput(this.state.vi_cmd);
+                this.scrollWindow();
+                this.render();
                 if (result === 0) {
-                    this.state.vi_cmd = "";
+                    this.state.vi_cmd = [];
                 }
                 if (result === 1) {
-                    this.state.vi_cmd = "unknown cmd";
+                    this.state.vi_cmd = ["unknown cmd"];
                     this.render();
-                    this.state.vi_cmd = "";
+                    this.state.vi_cmd = [];
                     return;
                 }
             }
             else if (this.state.vi_mode === "insert") {
                 this.processKeypress(e);
+                this.scrollWindow();
+                this.render();
             }
-            this.scrollWindow();
 
             // drawing
-            this.render();
+            // this.render();
 
             setDestElValue();
         });
@@ -211,117 +215,107 @@ export class Editor {
     // | processing basic inputs
     // ------------------------------
 
-    private vi_normalCmdMap: Record<NormalCmd, () => void> = {
-        // repeat
-        ".": () => {
-            if (this.state.vi_lastCmd === "") return;
-            this.vi_processInputClone(this.state.vi_lastCmd);
-        },
-
-        // move
+    // remaining = ["w","W","b","B","e","E",
+    //              "gg","G","H","L","%",
+    // @ts-expect-error
+    private motionMap: Record<Motion, () => void> = {
         "h": () => this.vi_moveCursor(MOVE_KEYS.LEFT),
+        "l": () => this.vi_moveCursor(MOVE_KEYS.RIGHT),
         "j": () => this.vi_moveCursor(MOVE_KEYS.DOWN),
         "k": () => this.vi_moveCursor(MOVE_KEYS.UP),
-        "l": () => this.vi_moveCursor(MOVE_KEYS.RIGHT),
         "0": () => this.moveCursorToFirst(),
         "_": () => this.moveCursorToFirstNonWhitespace(),
         "^": () => this.moveCursorToFirstNonWhitespace(),
         "$": () => this.moveCursorToLast(),
-        "gg": () => this.moveCursorToBOF(),
-        "G": () => this.moveCursorToEOF(),
-        "f": () => {},
-        "F": () => {},
-        "t": () => {},
-        "T": () => {},
-
-        // insert
-        "i": () => { /* ここでは処理しない*/ },
-        "a": () => { /* ここでは処理しない*/ },
-        "I": () => this.moveCursorToFirstNonWhitespace(),
-        "A": () => this.moveCursorToLast(),
-        "o": () => this.insertNewLineNext(),
-        "O": () => this.insertNewLineCurrent(),
-
-        // delete
-        "d": () => {},
     };
 
-    private vi_processInput(input: string): 0 | 1 | 2 {
-        let [count, motion] = vi_getCountMotion(input);
-        if (motion === null) return 2; // まだcountまでしか入力がないとき
+    private insertMap: Record<InsertCommand, () => void> = {
+        i: () => {},
+        a: () => {},
+        I: () => this.moveCursorToFirstNonWhitespace(),
+        A: () => this.moveCursorToLast(),
+        o: () => this.insertNewLineNext(),
+        O: () => this.insertNewLineCurrent(),
+    };
 
-        if (isRepeatableCmd(motion)) {
-            this.state.vi_lastCmd = input;
+    private vi_processInput(input: string[]): 0 | 1 | 2 {
+        let parseResult = parseCommand(input);
+        if (parseResult.status === "unknown") {
+            console.log("its unknown");
+            return 1;
         }
-        if (["f", "F", "t", "T"].includes(motion)) {
+        if (parseResult.status === "pending") {
+            console.log("its pending");
             return 2;
         }
-        else if (motion.startsWith("f")) {
-            const text = this.currentLine.text.slice(this.state.col + 1);
-            const moveAmount = getCountToNextChar(motion[1]!, text);
-            this.vi_moveCursor(MOVE_KEYS.RIGHT, moveAmount);
-            return 0;
-        }
-        else if (motion.startsWith("F")) {
-            const text = this.currentLine.text.slice(0, this.state.col);
-            const moveAmount = getCountToNextChar(motion[1]!, text, true);
-            this.vi_moveCursor(MOVE_KEYS.LEFT, moveAmount);
-            return 0;
-        }
-        else if (motion.startsWith("t")) {
-            const text = this.currentLine.text.slice(this.state.col + 1);
-            const moveAmount = getCountForNextChar(motion[1]!, text);
-            this.vi_moveCursor(MOVE_KEYS.RIGHT, moveAmount);
-            return 0;
-        }
-        else if (motion.startsWith("T")) {
-            const text = this.currentLine.text.slice(0, this.state.col);
-            const moveAmount = getCountForNextChar(motion[1]!, text, true);
-            this.vi_moveCursor(MOVE_KEYS.LEFT, moveAmount);
-            return 0;
+        if (parseResult.status === "ok") {
+            console.log("its ok");
         }
 
-        if (motion === "d") {
-            return 2;
-        }
-        else if (motion == "dd") {
-            for (let i = 0; i < count; i++) {
-                this.deleteRow(this.state.row);
-                if (this.state.lines.length <= 0) {
-                    this.insertRow(0, "");
-                }
-                if (this.state.row === this.state.lines.length - 0) {
-                    this.state.row--;
+        const data = parseResult.value;
+        const datatype = data.type;
+        const count = data.count === null ? 1 : data.count;
+
+        if (datatype === "motion") {
+            const motion = data.motion;
+            const motiontype = motion.type;
+            if (motiontype === "char") {
+                const fn = this.motionMap[motion.name];
+                for (let i = 0; i < count; i++) {
+                    if (!fn) {
+                        console.log("fn is not mapped yet");
+                        break;
+                    }
+                    fn();
                 }
             }
-            return 0;
+            else if (motiontype === "find") {
+                const { name, arg } = motion;
+                if (name === "f") {
+                    const text = this.currentLine.text.slice(this.state.col + 1);
+                    const moveAmount = getCountToNextChar(arg, text);
+                    this.vi_moveCursor(MOVE_KEYS.RIGHT, moveAmount);
+                }
+                else if (name === "F") {
+                    const text = this.currentLine.text.slice(0, this.state.col);
+                    const moveAmount = getCountToNextChar(arg, text, true);
+                    this.vi_moveCursor(MOVE_KEYS.LEFT, moveAmount);
+                }
+                else if (name === "t") {
+                    const text = this.currentLine.text.slice(this.state.col + 1);
+                    const moveAmount = getCountForNextChar(arg, text);
+                    this.vi_moveCursor(MOVE_KEYS.RIGHT, moveAmount);
+                }
+                else if (name === "T") {
+                    const text = this.currentLine.text.slice(0, this.state.col);
+                    const moveAmount = getCountForNextChar(arg, text, true);
+                    this.vi_moveCursor(MOVE_KEYS.LEFT, moveAmount);
+                }
+            }
         }
+        else if (datatype === "insert") {
+            const insKind = data.command;
+            this.insertMap[insKind]();
 
-        if (!isValidCmd(motion)) return 1;
-
-        const fn = this.vi_normalCmdMap[motion as NormalCmd];
-        if (!fn) return 2; // 入力中の文字列から始まるコマンドは存在するが完成していない
-
-        if (isInsertionCmd(motion)) {
-            fn();
-            if (["a", "A"].includes(motion) && this.state.col !== this.currentLine.size) {
+            if ((insKind === "a" || insKind === "A") && !this.isAtLineTail()) {
                 this.moveCursor(MOVE_KEYS.RIGHT);
             }
             this.vi_goInsert();
+
             (async () => {
                 await new Promise<void>(resolve => {
                     this.state.vi_insertResolve = resolve;
                 });
                 // this.state.vi_insertResolveがどこかで呼び出されるまで以下を実行しない
 
-                if (count >= 2 && ["o", "O"].includes(motion)) {
+                if (count >= 2 && ["o", "O"].includes(insKind)) {
                     this.state.vi_insertBuf.push(Editor.VI_ENTER);
                     this.insertNewLine();
                 }
                 for (let i = 0; i < count - 1; i++) {
                     this.vi_insertBuffer(this.state.vi_insertBuf);
                 }
-                if (count >= 2 && ["o", "O"].includes(motion)) {
+                if (count >= 2 && ["o", "O"].includes(insKind)) {
                     this.deleteRow(this.state.row);
                     this.moveCursor(MOVE_KEYS.UP);
                     this.moveCursorToLast();
@@ -331,35 +325,48 @@ export class Editor {
                 this.scrollWindow();
                 this.render();
             })();
-        } else {
-            for (let i = 0; i < count; i++) fn();
         }
+        else if (datatype === "operator") {
+            const ope = data.operator;
+            const isLine = data.motion.type === "linewise";
+            if (ope === "d") {
+                if (isLine) {
+                    for (let i = 0; i < count; i++) {
+                        this.deleteRow(this.state.row);
+                        if (this.state.row === this.state.lines.length) {
+                            this.state.row--;
+                        }
+                    }
+                }
+            }
+        }
+
         return 0;
     }
 
-    private vi_processInputClone(input: string): void {
-        const [count, motion] = vi_getCountMotion(input);
-        if (motion === null) return;
-
-        const fn = this.vi_normalCmdMap[motion as NormalCmd];
-        if (isInsertionCmd(motion)) {
-            fn();
-            if (["a", "A"].includes(motion) && this.state.col !== this.currentLine.size) {
-                this.moveCursor(MOVE_KEYS.RIGHT);
-            }
-            for (let i = 0; i < count; i++) {
-                this.vi_insertBuffer(this.state.vi_insertBuf);
-            }
-            if (count >= 2 && ["o", "O"].includes(motion)) {
-                this.deleteRow(this.state.row);
-                this.moveCursor(MOVE_KEYS.UP);
-                this.moveCursorToLast();
-            }
-            this.vi_moveCursor(MOVE_KEYS.LEFT);
-        } else {
-            for (let i = 0; i < count; i++) fn();
-        }
-    }
+    // private vi_processInputClone(input: string[]): void {
+    //     const [count, motion] = vi_getCountMotion(input.join(""));
+    //     if (motion === null) return;
+    //
+    //     const fn = this.vi_normalCmdMap[motion as NormalCmd];
+    //     if (isInsertionCmd(motion)) {
+    //         fn();
+    //         if (["a", "A"].includes(motion) && !this.isAtLineTail()) {
+    //             this.moveCursor(MOVE_KEYS.RIGHT);
+    //         }
+    //         for (let i = 0; i < count; i++) {
+    //             this.vi_insertBuffer(this.state.vi_insertBuf);
+    //         }
+    //         if (count >= 2 && ["o", "O"].includes(motion)) {
+    //             this.deleteRow(this.state.row);
+    //             this.moveCursor(MOVE_KEYS.UP);
+    //             this.moveCursorToLast();
+    //         }
+    //         this.vi_moveCursor(MOVE_KEYS.LEFT);
+    //     } else {
+    //         for (let i = 0; i < count; i++) fn();
+    //     }
+    // }
 
     private vi_insertBuffer(buf: string[]): void {
         for (const token of buf) {
@@ -370,7 +377,7 @@ export class Editor {
             } else if (token === Editor.VI_BACKSPACE) {
                 this.deleteChar();
             } else if (token === Editor.VI_DELETE) {
-                if (this.isAtTail()) return;
+                if (this.isAtVeryTail()) return;
                 this.moveCursor(MOVE_KEYS.RIGHT);
                 this.deleteChar();
             } else {
@@ -406,7 +413,7 @@ export class Editor {
             this.state.vi_insertBuf.push(Editor.VI_BACKSPACE);
         },
         "Delete": () => {
-            if (this.isAtTail()) return;
+            if (this.isAtVeryTail()) return;
             this.moveCursor(MOVE_KEYS.RIGHT);
             this.deleteChar();
             this.state.vi_insertBuf.push(Editor.VI_DELETE);
@@ -667,10 +674,14 @@ export class Editor {
         line.text = before + text + after;
     }
 
-    private isAtTail(): boolean {
+    private isAtLineTail(): boolean {
+        return this.state.col === this.currentLine.size;
+    }
+
+    private isAtVeryTail(): boolean {
         return (
             this.state.row === this.state.lines.length - 1 &&
-            this.state.col === this.currentLine.size
+            this.isAtLineTail()
         );
     }
 

@@ -10,7 +10,7 @@ const insertCommandSet: ReadonlySet<string> = new Set(insertCommands);
 const operators = ["d","c","y",">","<"] as const;
 const operatorSet: ReadonlySet<string> = new Set(operators);
 
-const motions = ["h","j","k","l","w","W","b","B","e","E","0","$","^",
+const motions = ["h","j","k","l","w","W","b","B","e","E","0","$","^","_",
                  "gg","G","H","L","%",
                 ] as const;
 const motionSet: ReadonlySet<string> = new Set(motions);

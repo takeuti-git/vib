@@ -125,7 +125,7 @@ export class Renderer {
             const vi_cmdText = state.vi_cmd;
             this.ctx.fillStyle = this.config.colors.statusBar.text;
             this.ctx.textAlign = "start";
-            this.ctx.fillText(vi_cmdText, x, bottomY);
+            this.ctx.fillText(vi_cmdText.join(""), x, bottomY);
         }
         {
             const x = 0;
