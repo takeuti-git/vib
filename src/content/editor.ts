@@ -8,6 +8,7 @@ import { LOGICAL_HALF_WIDTH, LOGICAL_FULL_WIDTH, calcLogicalWidth, logicalWidthT
 import { getCountForNextChar, getCountToNextChar, getFirstNonWhitespaceCol } from "./myvim/motion";
 import { parseCommand } from "./myvim/parser";
 import type { InsertCommand, Motion } from "./myvim/parser/command";
+import { readClipboard, writeClipboard } from "./clipboard";
 
 export class Editor {
     private readonly config: EditorConfig;
@@ -329,16 +330,57 @@ export class Editor {
         else if (datatype === "operator") {
             const ope = data.operator;
             const isLine = data.motion.type === "linewise";
+            const register = [];
             if (ope === "d") {
                 if (isLine) {
                     for (let i = 0; i < count; i++) {
+                        const targetRow = this.state.lines[this.state.row];
+                        if (!targetRow || (this.isAtVeryTail() && targetRow.size === 0)) break;
+                        register.push(targetRow.text);
                         this.deleteRow(this.state.row);
                         if (this.state.row === this.state.lines.length) {
                             this.state.row--;
                         }
                     }
+                    writeClipboard(register.join("\n"));
                 }
             }
+            else if (ope === "y") {
+                if (isLine) {
+                    for (let i = 0; i < count; i++) {
+                        const targetRow = this.state.lines[this.state.row + i];
+                        if (!targetRow) break;
+                        register.push(targetRow.text);
+                    }
+                    writeClipboard(register.join("\n"));
+                }
+            }
+        }
+        else if (datatype === "put") {
+            if (data.position === "before") {
+                this.insertNewLineCurrent();
+            } else {
+                this.insertNewLineNext();
+            }
+            readClipboard().then(text => {
+                if (text === null) return;
+                const lines = text.split("\n");
+
+                if (lines.length === 1 && count === 1) {
+                    this.currentLine.text = lines[0]!;
+                } else {
+                    for (let i = 0; i < count; i++) {
+                        for (const line of lines) {
+                            this.currentLine.text = line;
+                            this.insertNewLineNext();
+                        }
+                    }
+                    this.deleteRow(this.state.row);
+                    this.state.row--;
+                }
+                this.scrollWindow();
+                this.render();
+            });
         }
 
         return 0;
