@@ -6,15 +6,21 @@
   "author": "takeuti-git",
   "license": "MIT",
   "repository": {
-      "type": "git",
-      "url": "https://github.com/takeuti-git/vib"
+    "type": "git",
+    "url": "https://github.com/takeuti-git/vib"
   },
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build-watch": "vite build --watch",
     "preview": "vite preview"
   },
-  "keywords": ["chrome-extension", "typescript", "vim", "vite"],
+  "keywords": [
+    "chrome-extension",
+    "typescript",
+    "vim",
+    "vite"
+  ],
   "devDependencies": {
     "@crxjs/vite-plugin": "^2.3.0",
     "@types/chrome": "^0.1.36",
