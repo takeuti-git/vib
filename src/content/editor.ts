@@ -5,7 +5,7 @@ import { Line, getLines } from "./line";
 import { isFunctionKey, MOVE_KEYS, type MoveKey } from "./keys";
 import { hideContainer, showContainer } from "./dom";
 import { LOGICAL_HALF_WIDTH, LOGICAL_FULL_WIDTH, calcLogicalWidth, logicalWidthToCol } from "./utils";
-import { getCountForNextChar, getCountToNextChar, getFirstNonWhitespaceCol, getMotionRange } from "./myvim/motion";
+import { getCountToNextChar, getFirstNonWhitespaceCol, getMotionRange } from "./myvim/motion";
 import { parseCommand } from "./myvim/parser";
 import type { InsertCommand, Motion } from "./myvim/parser/command";
 import { readClipboard, writeClipboard } from "./clipboard";
@@ -274,22 +274,22 @@ export class Editor {
                 const { name, arg } = motion;
                 if (name === "f") {
                     const text = this.currentLine.text.slice(this.state.col + 1);
-                    const moveAmount = getCountToNextChar(arg, text);
+                    const moveAmount = getCountToNextChar(arg, text, { limit: count });
                     this.vi_moveCursor(MOVE_KEYS.RIGHT, moveAmount);
                 }
                 else if (name === "F") {
                     const text = this.currentLine.text.slice(0, this.state.col);
-                    const moveAmount = getCountToNextChar(arg, text, true);
+                    const moveAmount = getCountToNextChar(arg, text, { limit: count, reverse: true });
                     this.vi_moveCursor(MOVE_KEYS.LEFT, moveAmount);
                 }
                 else if (name === "t") {
                     const text = this.currentLine.text.slice(this.state.col + 1);
-                    const moveAmount = getCountForNextChar(arg, text);
+                    const moveAmount = getCountToNextChar(arg, text, { limit: count, stopBefore: true });
                     this.vi_moveCursor(MOVE_KEYS.RIGHT, moveAmount);
                 }
                 else if (name === "T") {
                     const text = this.currentLine.text.slice(0, this.state.col);
-                    const moveAmount = getCountForNextChar(arg, text, true);
+                    const moveAmount = getCountToNextChar(arg, text, { limit: count, reverse: true, stopBefore: true });
                     this.vi_moveCursor(MOVE_KEYS.LEFT, moveAmount);
                 }
             }
@@ -331,7 +331,10 @@ export class Editor {
             const ope = data.operator;
             const { lines } = this.state;
             const register: string[] = [];
-            const range = getMotionRange(this.state, parseResult.value)!;
+            const range = getMotionRange(this.state, parseResult.value);
+            if (!range) {
+                return 0;
+            }
             const isLinewise = data.motion.type === "linewise" || range.linewise;
             this.state.vi_yankLinewise = isLinewise;
 
@@ -354,6 +357,9 @@ export class Editor {
                 } else {
                     const text = this.currentLine.text;
                     const copied = text.slice(range.start.col, range.end.col + 1);
+                    if (this.state.col > range.start.col) {
+                        this.vi_moveCursor(MOVE_KEYS.LEFT, copied.length);
+                    }
                     register.push(copied);
                     this.currentLine.text = text.slice(0, range.start.col) + text.slice(range.end.col + 1);
                 }
@@ -367,6 +373,9 @@ export class Editor {
                 } else {
                     const text = this.currentLine.text;
                     const copied = text.slice(range.start.col, range.end.col + 1);
+                    if (this.state.col > range.start.col) {
+                        this.vi_moveCursor(MOVE_KEYS.LEFT, copied.length);
+                    }
                     register.push(copied);
                 }
                 writeClipboard(register.join("\n"));

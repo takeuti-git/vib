@@ -1,6 +1,12 @@
 import type { EditorState } from "../state";
 import { CommandType, type CommandContext } from "./parser/commandType";
 
+type FindOptions = {
+    limit: number;
+    reverse: boolean;
+    stopBefore: boolean;
+};
+
 const FIRST_NON_WHITESPACE = /\S/;
 
 /** 文字列の中で最初に登場する空白以外の文字の列番号を返す */
@@ -9,30 +15,38 @@ export function getFirstNonWhitespaceCol(text: string): number {
 }
 
 /** viのf motion: 対象の文字と同じ位置までの移動量を求める */
-export function getCountToNextChar(searchChar: string, text: string, reverse = false): number {
-    searchChar = searchChar[0] as string;
+export function getCountToNextChar(
+    searchChar: string,
+    text: string,
+    { limit = 1, reverse = false, stopBefore = false }: Partial<FindOptions> = {},
+): number {
+    if (searchChar.length !== 1) throw new Error("searchChar must be one character");
     let count = 0;
-    if (reverse) {
-        const reversed = text.split("").reverse().join("");
-        count = reversed.search(new RegExp(searchChar)) + 1;
-    }
-    else {
-        count = text.search(new RegExp(searchChar)) + 1;
-    }
-    return count;
-}
 
-export function getCountForNextChar(searchChar: string, text: string, reverse = false): number {
-    searchChar = searchChar[0] as string;
-    let count = 0;
     if (reverse) {
-        const reversed = text.split("").reverse().join("");
-        count = reversed.search(new RegExp(searchChar));
+        for (let i = text.length - 1; i >= 0; i--) {
+            count++;
+            if (searchChar === text[i]) {
+                limit--;
+                if (limit === 0) {
+                    if (stopBefore) count--;
+                    return count;
+                }
+            }
+        }
+    } else {
+        for (let i = 0; i < text.length; i++) {
+            count++;
+            if (searchChar === text[i]) {
+                limit--;
+                if (limit === 0) {
+                    if (stopBefore) count--;
+                    return count;
+                }
+            }
+        }
     }
-    else {
-        count = text.search(new RegExp(searchChar));
-    }
-    return count;
+    return 0;
 }
 
 type Point = {
@@ -50,9 +64,6 @@ export function getMotionRange(
     state: EditorState,
     ctx: CommandContext
 ): MotionRange | undefined {
-    // if (ctx.type !== CommandType.MOTION && ctx.type !== CommandType.OPERATOR) {
-    //     return undefined;
-    // }
     if (ctx.type !== CommandType.OPERATOR) {
         return undefined;
     }
@@ -78,6 +89,7 @@ export function getMotionRange(
             }
             else if (motion.name === "h") {
                 start.col = Math.max(0, start.col - count);
+                end.col--;
             }
             else if (motion.name === "j") {
                 linewise = true;
@@ -93,8 +105,38 @@ export function getMotionRange(
             end.row = Math.min(end.row + count - 1, maxRow);
             break;
         }
-        // case "find":
-        // case "textobj":
+        case "find": {
+            if (motion.name === "f") {
+                const text = currLine.text.slice(col + 1);
+                const distance = getCountToNextChar(motion.arg, text, { limit: count });
+                if (distance === 0) return undefined;
+                end.col += distance;
+            }
+            else if (motion.name === "F") {
+                const text = currLine.text.slice(0, col);
+                const distance = getCountToNextChar(motion.arg, text, { limit: count, reverse: true });
+                if (distance === 0) return undefined;
+                start.col -= distance;
+                end.col--;
+            }
+            else if (motion.name === "t") {
+                const text = currLine.text.slice(col + 1);
+                const distance = getCountToNextChar(motion.arg, text, { limit: count, stopBefore: true });
+                if (distance === 0) return undefined;
+                end.col += distance;
+            }
+            else if (motion.name === "T") {
+                const text = currLine.text.slice(0, col);
+                const distance = getCountToNextChar(motion.arg, text, { limit: count, reverse: true, stopBefore: true });
+                if (distance === 0) return undefined;
+                start.col -= distance;
+                end.col--;
+            }
+            break;
+        }
+        case "textobj": {
+            break;
+        }
     }
 
     return { start, end, linewise };
