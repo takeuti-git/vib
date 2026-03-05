@@ -14,6 +14,7 @@ export type EditorState = {
     vi_lastCmd: string[];
     vi_insertBuf: string[];
     vi_insertResolve: (() => void) | null;
+    vi_yankLinewise: boolean;
 };
 
 export function createEditorState(): EditorState {
@@ -33,6 +34,7 @@ export function createEditorState(): EditorState {
         vi_lastCmd: [],
         vi_insertBuf: [""],
         vi_insertResolve: null,
+        vi_yankLinewise: false,
     };
 }
 

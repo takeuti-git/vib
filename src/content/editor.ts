@@ -329,19 +329,21 @@ export class Editor {
         }
         else if (datatype === "operator") {
             const ope = data.operator;
-            const isLinewise = data.motion.type === "linewise";
             const { lines } = this.state;
             const register: string[] = [];
             const range = getMotionRange(this.state, parseResult.value)!;
+            const isLinewise = data.motion.type === "linewise" || range.linewise;
+            this.state.vi_yankLinewise = isLinewise;
+
             if (ope === "d") {
-                if (range.linewise || isLinewise) {
+                if (isLinewise) {
                     lines.slice(range.start.row, range.end.row + 1).forEach(l => {
                         register.push(l.text);
                     });
                     const delCount = range.end.row - range.start.row + 1;
                     lines.splice(range.start.row, delCount);
                     if (this.state.row > range.start.row) {
-                        this.state.row = Math.max(0, this.state.row - delCount + 1);
+                        this.state.row = range.start.row;
                     }
                     if (this.state.row > lines.length - 1) {
                         this.state.row = Math.max(0, lines.length - 1);
@@ -358,7 +360,7 @@ export class Editor {
                 writeClipboard(register.join("\n"));
             }
             else if (ope === "y") {
-                if (range.linewise || isLinewise) {
+                if (isLinewise) {
                     lines.slice(range.start.row, range.end.row + 1).forEach(l => {
                         register.push(l.text);
                     });
@@ -371,18 +373,18 @@ export class Editor {
             }
         }
         else if (datatype === "put") {
-            if (data.position === "before") {
-                this.insertNewLineCurrent();
-            } else {
-                this.insertNewLineNext();
-            }
+            const isBefore = data.position === "before";
             readClipboard().then(text => {
                 if (text === null) return;
-                const lines = text.split("\n");
 
-                if (lines.length === 1 && count === 1) {
-                    this.currentLine.text = lines[0]!;
-                } else {
+                if (this.state.vi_yankLinewise) {
+                    const lines = text.split("\n");
+                    if (isBefore) {
+                        this.insertNewLineCurrent();
+                    } else {
+                        this.insertNewLineNext();
+                    }
+
                     for (let i = 0; i < count; i++) {
                         for (const line of lines) {
                             this.currentLine.text = line;
@@ -391,6 +393,14 @@ export class Editor {
                     }
                     this.deleteRow(this.state.row);
                     this.state.row--;
+                } else {
+                    const line = this.currentLine;
+                    const col = this.state.col;
+                    const delta = isBefore ? 0 : 1;
+                    const before = line.text.slice(0, col + delta);
+                    const after = line.text.slice(col + delta);
+                    this.currentLine.text = before + text + after;
+                    this.vi_moveCursor(MOVE_KEYS.RIGHT, text.length);
                 }
                 this.scrollWindow();
                 this.render();
