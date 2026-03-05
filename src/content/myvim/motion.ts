@@ -61,6 +61,7 @@ export function getMotionRange(
     const count = outerCount * innerCount;
 
     const { row, col, lines } = state;
+    const maxRow = lines.length - 1;
     const currLine = lines[row];
     if (!currLine) throw new Error("currLine is undefined");
 
@@ -80,16 +81,18 @@ export function getMotionRange(
             }
             else if (motion.name === "j") {
                 linewise = true;
-                end.row = Math.min(end.row + count, lines.length - 1);
+                end.row = Math.min(end.row + count, maxRow);
             }
             else if (motion.name === "l") {
                 end.col = Math.min(end.col + count - 1, currLine.size - 1);
             }
             break;
         }
-        // case "linewise": {
-        //     break;
-        // }
+        case "linewise": {
+            linewise = true;
+            end.row = Math.min(end.row + count - 1, maxRow);
+            break;
+        }
         // case "find":
         // case "textobj":
     }
