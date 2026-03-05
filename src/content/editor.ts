@@ -5,7 +5,7 @@ import { Line, getLines } from "./line";
 import { isFunctionKey, MOVE_KEYS, type MoveKey } from "./keys";
 import { hideContainer, showContainer } from "./dom";
 import { LOGICAL_HALF_WIDTH, LOGICAL_FULL_WIDTH, calcLogicalWidth, logicalWidthToCol } from "./utils";
-import { getCountForNextChar, getCountToNextChar, getFirstNonWhitespaceCol } from "./myvim/motion";
+import { getCountForNextChar, getCountToNextChar, getFirstNonWhitespaceCol, getMotionRange } from "./myvim/motion";
 import { parseCommand } from "./myvim/parser";
 import type { InsertCommand, Motion } from "./myvim/parser/command";
 import { readClipboard, writeClipboard } from "./clipboard";
@@ -329,31 +329,45 @@ export class Editor {
         }
         else if (datatype === "operator") {
             const ope = data.operator;
-            const isLine = data.motion.type === "linewise";
-            const register = [];
+            const isLinewise = data.motion.type === "linewise";
+            const { lines } = this.state;
+            const register: string[] = [];
+            const range = getMotionRange(this.state, parseResult.value)!;
             if (ope === "d") {
-                if (isLine) {
-                    for (let i = 0; i < count; i++) {
-                        const targetRow = this.state.lines[this.state.row];
-                        if (!targetRow || (this.isAtVeryTail() && targetRow.size === 0)) break;
-                        register.push(targetRow.text);
-                        this.deleteRow(this.state.row);
-                        if (this.state.row === this.state.lines.length) {
-                            this.state.row--;
-                        }
+                if (range.linewise || isLinewise) {
+                    lines.slice(range.start.row, range.end.row + 1).forEach(l => {
+                        register.push(l.text);
+                    });
+                    const delCount = range.end.row - range.start.row + 1;
+                    lines.splice(range.start.row, delCount);
+                    if (this.state.row > range.start.row) {
+                        this.state.row = Math.max(0, this.state.row - delCount + 1);
                     }
-                    writeClipboard(register.join("\n"));
+                    if (this.state.row > lines.length - 1) {
+                        this.state.row = Math.max(0, lines.length - 1);
+                    }
+                    if (lines.length <= 0) {
+                        this.insertRow(0, "");
+                    }
+                } else {
+                    const text = this.currentLine.text;
+                    const copied = text.slice(range.start.col, range.end.col + 1);
+                    register.push(copied);
+                    this.currentLine.text = text.slice(0, range.start.col) + text.slice(range.end.col + 1);
                 }
+                writeClipboard(register.join("\n"));
             }
             else if (ope === "y") {
-                if (isLine) {
-                    for (let i = 0; i < count; i++) {
-                        const targetRow = this.state.lines[this.state.row + i];
-                        if (!targetRow) break;
-                        register.push(targetRow.text);
-                    }
-                    writeClipboard(register.join("\n"));
+                if (range.linewise || isLinewise) {
+                    lines.slice(range.start.row, range.end.row + 1).forEach(l => {
+                        register.push(l.text);
+                    });
+                } else {
+                    const text = this.currentLine.text;
+                    const copied = text.slice(range.start.col, range.end.col + 1);
+                    register.push(copied);
                 }
+                writeClipboard(register.join("\n"));
             }
         }
         else if (datatype === "put") {
