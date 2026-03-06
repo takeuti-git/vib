@@ -46,7 +46,7 @@ export function getCountToNextChar(
             }
         }
     }
-    return 0;
+    return -1;
 }
 
 type Point = {
@@ -59,6 +59,12 @@ type MotionRange = {
     end: Point;
     linewise: boolean;
 };
+
+type AtLeastTwoArray<T> = [T, T, ...T[]];
+
+function isAtLeastTwoArray<T>(array: T[]): array is AtLeastTwoArray<T> {
+    return array.length >= 2;
+}
 
 export function getMotionRange(
     state: EditorState,
@@ -109,32 +115,88 @@ export function getMotionRange(
             if (motion.name === "f") {
                 const text = currLine.text.slice(col + 1);
                 const distance = getCountToNextChar(motion.arg, text, { limit: count });
-                if (distance === 0) return undefined;
+                if (distance === -1) return undefined;
                 end.col += distance;
             }
             else if (motion.name === "F") {
                 const text = currLine.text.slice(0, col);
                 const distance = getCountToNextChar(motion.arg, text, { limit: count, reverse: true });
-                if (distance === 0) return undefined;
+                if (distance === -1) return undefined;
                 start.col -= distance;
                 end.col--;
             }
             else if (motion.name === "t") {
                 const text = currLine.text.slice(col + 1);
                 const distance = getCountToNextChar(motion.arg, text, { limit: count, stopBefore: true });
-                if (distance === 0) return undefined;
+                if (distance === -1) return undefined;
                 end.col += distance;
             }
             else if (motion.name === "T") {
                 const text = currLine.text.slice(0, col);
                 const distance = getCountToNextChar(motion.arg, text, { limit: count, reverse: true, stopBefore: true });
-                if (distance === 0) return undefined;
+                if (distance === -1) return undefined;
                 start.col -= distance;
                 end.col--;
             }
             break;
         }
         case "textobj": {
+            const target = (
+                motion.name === ")" ? "("
+                : motion.name === "}" ? "{"
+                : motion.name === "]" ? "["
+                : motion.name === ">" ? "<"
+                : motion.name
+            );
+            if (target === "\"" || target === "'" || target === "`") {
+                const text = currLine.text;
+                const filtered: number[] = Array.from(text).map((ch, i) => {
+                    return ch === target ? i : -1;
+                }).filter(e => {
+                    return e !== -1;
+                });
+
+                if (!isAtLeastTwoArray(filtered)) {
+                    return undefined;
+                }
+
+                const idx = filtered.indexOf(col);
+
+                if (col > Math.max(...filtered)) {
+                    // カーソルより右側に有効なペアが存在しないとき
+                    return undefined;
+                }
+                else if (col < Math.min(...filtered)) {
+                    // カーソルが行の先頭にいるとき
+                    start.col = filtered[0];
+                    end.col = filtered[1];
+                }
+                else if (idx === -1) {
+                    // カーソルがペアに挟まれているとき
+                    for (let i = 0; i < filtered.length; i++) {
+                        if (filtered[i]! > col) {
+                            start.col = filtered[i - 1] as number;
+                            end.col = filtered[i] as number;
+                            break;
+                        }
+                    }
+                }
+                else if (idx % 2 === 0) {
+                    // カーソルがペアの前側に重なっているとき
+                    start.col = col;
+                    end.col = filtered[idx + 1] as number;
+                }
+                else if (idx % 2 !== 0) {
+                    // ペアの後ろ側に重なっているとき
+                    start.col = filtered[idx - 1] as number;
+                    end.col = col;
+                }
+
+                if (motion.inner) {
+                    start.col++;
+                    end.col--;
+                }
+            }
             break;
         }
     }

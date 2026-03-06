@@ -357,8 +357,12 @@ export class Editor {
                 } else {
                     const text = this.currentLine.text;
                     const copied = text.slice(range.start.col, range.end.col + 1);
+                    const distance = Math.abs(this.state.col - range.start.col);
                     if (this.state.col > range.start.col) {
-                        this.vi_moveCursor(MOVE_KEYS.LEFT, copied.length);
+                        for (let i = 0; i < distance; i++) this.moveCursorLeft();
+                    }
+                    else if (range.start.col > this.state.col) {
+                        for (let i = 0; i < distance; i++) this.moveCursorRight();
                     }
                     register.push(copied);
                     this.currentLine.text = text.slice(0, range.start.col) + text.slice(range.end.col + 1);
