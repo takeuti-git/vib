@@ -157,12 +157,20 @@ export function getMotionRange(
                 });
 
                 if (!isAtLeastTwoArray(filtered)) {
+                    // 要素数が2未満のとき
                     return undefined;
                 }
 
                 const idx = filtered.indexOf(col);
+                const isLast = idx === filtered.length - 1;
+                const isLeftSide = idx % 2 === 0;
+                const isRightSide = idx % 2 !== 0;
 
-                if (col > Math.max(...filtered)) {
+                if (isLast && isLeftSide) {
+                    // カーソルがある位置が最後のtargetで、ペアの左側にいるとき
+                    return undefined;
+                }
+                else if (col > Math.max(...filtered)) {
                     // カーソルより右側に有効なペアが存在しないとき
                     return undefined;
                 }
@@ -181,13 +189,13 @@ export function getMotionRange(
                         }
                     }
                 }
-                else if (idx % 2 === 0) {
+                else if (isLeftSide) {
                     // カーソルがペアの前側に重なっているとき
                     start.col = col;
                     end.col = filtered[idx + 1] as number;
                 }
-                else if (idx % 2 !== 0) {
-                    // ペアの後ろ側に重なっているとき
+                else if (isRightSide) {
+                    // カーソルがペアの後側に重なっているとき
                     start.col = filtered[idx - 1] as number;
                     end.col = col;
                 }
