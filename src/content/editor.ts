@@ -338,17 +338,21 @@ export class Editor {
             const isLinewise = data.motion.type === "linewise" || range.linewise;
             this.state.vi_yankLinewise = isLinewise;
 
-            if (ope === "d") {
+            if (ope === "d" || ope === "c") {
                 if (isLinewise) {
                     lines.slice(range.start.row, range.end.row + 1).forEach(l => {
                         register.push(l.text);
                     });
                     const delCount = range.end.row - range.start.row + 1;
                     lines.splice(range.start.row, delCount);
-                    if (this.state.row > range.start.row) {
+
+                    if (ope === "c") {
+                        this.insertNewLineCurrent();
+                    }
+                    else if (this.state.row > range.start.row) {
                         this.state.row = range.start.row;
                     }
-                    if (this.state.row > lines.length - 1) {
+                    else if (this.state.row > lines.length - 1) {
                         this.state.row = Math.max(0, lines.length - 1);
                     }
                     if (lines.length <= 0) {
@@ -366,6 +370,9 @@ export class Editor {
                     }
                     register.push(copied);
                     this.currentLine.text = text.slice(0, range.start.col) + text.slice(range.end.col + 1);
+                }
+                if (ope === "c") {
+                    this.vi_goInsert();
                 }
                 writeClipboard(register.join("\n"));
             }
