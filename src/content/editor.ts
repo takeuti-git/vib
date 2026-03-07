@@ -3,7 +3,7 @@ import type { Renderer } from "./renderer";
 import { type EditorState, resetState } from "./state";
 import { Line, getLines } from "./line";
 import { isFunctionKey, MOVE_KEYS, type MoveKey } from "./keys";
-import { hideContainer, showContainer } from "./dom";
+import { hideElement, showElement } from "./dom";
 import { LOGICAL_HALF_WIDTH, LOGICAL_FULL_WIDTH, calcLogicalWidth, logicalWidthToCol } from "./utils";
 import { getCountToNextChar, getFirstNonWhitespaceCol, getMotionRange } from "./myvim/motion";
 import { parseCommand } from "./myvim/parser";
@@ -67,7 +67,7 @@ export class Editor {
                     (activeEl instanceof HTMLInputElement) ||
                     (activeEl instanceof HTMLTextAreaElement)
                 ) {
-                    showContainer(this.container);
+                    showElement(this.container);
 
                     destEl = activeEl;
                     this.input.focus();
@@ -81,9 +81,9 @@ export class Editor {
 
             if (e.altKey && e.code === "KeyQ") {
                 if (this.container.style.visibility === "hidden") {
-                    showContainer(this.container);
+                    showElement(this.container);
                 } else {
-                    hideContainer(this.container);
+                    hideElement(this.container);
                 }
             }
         });
@@ -312,15 +312,19 @@ export class Editor {
                 if (count >= 2 && ["o", "O"].includes(insKind)) {
                     this.state.vi_insertBuf.push(Editor.VI_ENTER);
                     this.insertNewLine();
-                }
-                for (let i = 0; i < count - 1; i++) {
-                    this.vi_insertBuffer(this.state.vi_insertBuf);
-                }
-                if (count >= 2 && ["o", "O"].includes(insKind)) {
+
+                    for (let i = 0; i < count - 1; i++) {
+                        this.vi_insertBuffer(this.state.vi_insertBuf);
+                    }
+
                     this.deleteRow(this.state.row);
                     this.moveCursor(MOVE_KEYS.UP);
                     this.moveCursorToLast();
                     this.moveCursor(MOVE_KEYS.RIGHT);
+                } else {
+                    for (let i = 0; i < count - 1; i++) {
+                        this.vi_insertBuffer(this.state.vi_insertBuf);
+                    }
                 }
                 this.vi_moveCursor(MOVE_KEYS.LEFT);
                 this.scrollWindow();
@@ -328,17 +332,17 @@ export class Editor {
             })();
         }
         else if (datatype === "operator") {
-            const ope = data.operator;
-            const { lines } = this.state;
-            const register: string[] = [];
             const range = getMotionRange(this.state, parseResult.value);
             if (!range) {
                 return 0;
             }
+            const { operator } = data;
+            const { lines } = this.state;
+            const register: string[] = [];
             const isLinewise = data.motion.type === "linewise" || range.linewise;
             this.state.vi_yankLinewise = isLinewise;
 
-            if (ope === "d" || ope === "c") {
+            if (operator === "d" || operator === "c") {
                 if (isLinewise) {
                     lines.slice(range.start.row, range.end.row + 1).forEach(l => {
                         register.push(l.text);
@@ -346,7 +350,7 @@ export class Editor {
                     const delCount = range.end.row - range.start.row + 1;
                     lines.splice(range.start.row, delCount);
 
-                    if (ope === "c") {
+                    if (operator === "c") {
                         this.insertNewLineCurrent();
                     }
                     else if (this.state.row > range.start.row) {
@@ -371,12 +375,12 @@ export class Editor {
                     register.push(copied);
                     this.currentLine.text = text.slice(0, range.start.col) + text.slice(range.end.col + 1);
                 }
-                if (ope === "c") {
+                if (operator === "c") {
                     this.vi_goInsert();
                 }
                 writeClipboard(register.join("\n"));
             }
-            else if (ope === "y") {
+            else if (operator === "y") {
                 if (isLinewise) {
                     lines.slice(range.start.row, range.end.row + 1).forEach(l => {
                         register.push(l.text);
