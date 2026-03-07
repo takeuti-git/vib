@@ -1,5 +1,6 @@
 import type { EditorState } from "../state";
 import { CommandType, type CommandContext } from "./parser/commandType";
+import { isSymbol, isWhitespace } from "./symbols";
 
 type FindOptions = {
     limit: number;
@@ -141,6 +142,7 @@ export function getMotionRange(
             break;
         }
         case "textobj": {
+            const text = currLine.text;
             const target = (
                 motion.name === ")" ? "("
                 : motion.name === "}" ? "{"
@@ -149,7 +151,6 @@ export function getMotionRange(
                 : motion.name
             );
             if (target === "\"" || target === "'" || target === "`") {
-                const text = currLine.text;
                 const filtered: number[] = Array.from(text).map((ch, i) => {
                     return ch === target ? i : -1;
                 }).filter(e => {
@@ -203,6 +204,29 @@ export function getMotionRange(
                 if (motion.inner) {
                     start.col++;
                     end.col--;
+                }
+            }
+            else if (target === "w") {
+                const currChar = text.slice(col, col + 1);
+                const isOnSymbol = isSymbol(currChar);
+                const isOnWhitespace = isWhitespace(currChar);
+
+                const checkFunc: (ch: string) => boolean =
+                    isOnSymbol ? isSymbol
+                    : isOnWhitespace ? isWhitespace
+                    : (ch: string) => !isSymbol(ch) && !isWhitespace(ch);
+
+                for (let i = col + 1; i < text.length; i++) {
+                    // カーソルから右方向に探索
+                    const ch = text[i] as string;
+                    if (!checkFunc(ch)) break;
+                    end.col++;
+                }
+                for (let i = col - 1; i >= 0; i--) {
+                    // カーソルから左方向に探索
+                    const ch = text[i] as string;
+                    if (!checkFunc(ch)) break;
+                    start.col--;
                 }
             }
             break;
