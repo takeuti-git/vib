@@ -105,6 +105,17 @@ export function getMotionRange(
             else if (motion.name === "l") {
                 end.col = Math.min(end.col + count - 1, currLine.size - 1);
             }
+            else if (motion.name === "^" || motion.name === "_") {
+                start.col = getFirstNonWhitespaceCol(currLine.text);
+                end.col = Math.max(0, end.col - 1);
+            }
+            else if (motion.name === "$") {
+                end.col = currLine.text.length - 1;
+            }
+            else if (motion.name === "0") {
+                start.col = 0;
+                end.col = Math.max(0, end.col - 1);
+            }
             break;
         }
         case "linewise": {
