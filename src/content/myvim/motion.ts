@@ -229,6 +229,25 @@ export function getMotionRange(
                     start.col--;
                 }
             }
+            else if (target === "W") {
+                const currChar = text.slice(col, col + 1);
+                const isOnWhitespace = isWhitespace(currChar);
+
+                const checkFunc: (ch: string) => boolean =
+                    isOnWhitespace ? isWhitespace
+                    : (ch: string) => !isWhitespace(ch);
+
+                for (let i = col + 1; i < text.length; i++) {
+                    const ch = text[i] as string;
+                    if (!checkFunc(ch)) break;
+                    end.col++;
+                }
+                for (let i = col - 1; i >= 0; i--) {
+                    const ch = text[i] as string;
+                    if (!checkFunc(ch)) break;
+                    start.col--;
+                }
+            }
             break;
         }
     }
