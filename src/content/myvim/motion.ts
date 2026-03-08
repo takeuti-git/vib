@@ -116,6 +116,14 @@ export function getMotionRange(
                 start.col = 0;
                 end.col = Math.max(0, end.col - 1);
             }
+            else if (motion.name === "gg") {
+                linewise = true;
+                start.row = 0;
+            }
+            else if (motion.name === "G") {
+                linewise = true;
+                end.row = state.lines.length - 1;
+            }
             break;
         }
         case "linewise": {

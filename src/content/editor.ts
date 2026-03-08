@@ -357,16 +357,18 @@ export class Editor {
                     const delCount = range.end.row - range.start.row + 1;
                     lines.splice(range.start.row, delCount);
 
+                    const row = Math.min(range.start.row, lines.length - 1);
+                    this.state.row = Math.max(0, row);
+
                     if (operator === "c") {
-                        this.insertNewLineCurrent();
+                        if (range.start.row > this.state.row) {
+                            this.insertNewLineNext();
+                        } else {
+                            this.insertNewLineCurrent();
+                        }
                     }
-                    else if (this.state.row > range.start.row) {
-                        this.state.row = range.start.row;
-                    }
-                    else if (this.state.row > lines.length - 1) {
-                        this.state.row = Math.max(0, lines.length - 1);
-                    }
-                    if (lines.length <= 0) {
+                    else if (lines.length <= 0) {
+                        // 全ての行が削除された場合のfallback
                         this.insertRow(0, "");
                     }
                 } else {
