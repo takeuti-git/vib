@@ -446,6 +446,23 @@ export class Editor {
                 this.deleteRow(this.state.row + 1);
             }
         }
+        else if (datatype === "replace") {
+            const kind = data.mode.kind;
+            if (kind === "single") {
+                const arg = data.mode.char;
+                const linetext = this.currentLine.text;
+                const text = linetext.slice(this.state.col);
+                if (count > text.length) return 0; 
+
+                const before = linetext.slice(0, this.state.col);
+                const after = text.slice(count);
+                const replaecd = before + arg.repeat(count) + after;
+                for (let i = 0; i < count - 1; i++) this.moveCursorRight();
+                this.currentLine.text = replaecd;
+            }
+            // else if (kind === "continuous") {
+            // }
+        }
 
         return 0;
     }
