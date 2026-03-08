@@ -94,14 +94,22 @@ export class Renderer {
     private drawCursor(state: EditorState): void {
         const currLine = state.lines[state.row] as Line;
         const text = currLine.text;
+        const lineheight = this.lineHeight;
 
-        const x = ((state.logicalWidth - state.logicaloff) * this.halfFontSize)
-                   + this.lineNumberMargin;
-        const y = (state.row - state.rowoff) * this.lineHeight;
-        const w = (state.vi_mode === "normal")
+        const isNormal = state.vi_mode === "normal";
+        const isReplace = state.vi_mode === "replace";
+
+        const x = ((state.logicalWidth - state.logicaloff) * this.halfFontSize) + this.lineNumberMargin;
+        const baseY = (state.row - state.rowoff) * lineheight;
+        const y = (isReplace)
+            ? baseY + lineheight
+            : baseY;
+        const w = (isNormal || isReplace)
             ? this.calcWidth(text[state.col] ?? " ")
             : 0;
-        const h = this.lineHeight;
+        const h = (isReplace)
+            ? 0
+            : lineheight;
         this.ctx.fillStyle = this.config.colors.cursor.body;
         this.ctx.strokeStyle = this.config.colors.cursor.outline;
         this.ctx.fillRect(x, y, w, h);
