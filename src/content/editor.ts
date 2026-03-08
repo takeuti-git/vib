@@ -233,6 +233,8 @@ export class Editor {
         "_": () => this.moveCursorToFirstNonWhitespace(),
         "^": () => this.moveCursorToFirstNonWhitespace(),
         "$": () => this.moveCursorToLast(),
+        "gg": () => this.moveCursorToBOF(),
+        "G": () => this.moveCursorToEOF(),
     };
 
     private insertMap: Record<InsertCommand, () => void> = {
@@ -872,19 +874,13 @@ export class Editor {
     private moveCursorToBOF(): void {
         this.state.row = 0;
         const firstLine = this.currentLine;
-        const logicalWidth = Math.min(this.state.logicalWidth, calcLogicalWidth(firstLine.text));
-        const col = logicalWidthToCol(logicalWidth, firstLine.text);
-        this.state.col = col;
-        this.state.logicalWidth = calcLogicalWidth(firstLine.text.slice(0, col));
+        this.recalcColWidth(firstLine);
     }
 
     private moveCursorToEOF(): void {
         this.state.row = this.state.lines.length - 1;
         const lastLine = this.currentLine;
-        const logicalWidth = Math.min(this.state.logicalWidth, calcLogicalWidth(lastLine.text));
-        const col = logicalWidthToCol(logicalWidth, lastLine.text);
-        this.state.col = col;
-        this.state.logicalWidth = calcLogicalWidth(lastLine.text.slice(0, col));
+        this.recalcColWidth(lastLine);
     }
 
     private recalcColWidth(destLine: Line): void {
