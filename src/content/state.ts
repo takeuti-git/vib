@@ -9,7 +9,7 @@ export type EditorState = {
     logicaloff: number;
     lines: Line[];
 
-    vi_mode: "normal" | "insert";
+    vi_mode: "normal" | "insert" | "replace";
     vi_cmd: string[];
     vi_lastCmd: string[];
     vi_insertBuf: string[];

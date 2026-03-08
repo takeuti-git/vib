@@ -133,6 +133,8 @@ export class Renderer {
                 this.ctx.fillText("-- NORMAL --", x, bottomY);
             } else if (state.vi_mode === "insert") {
                 this.ctx.fillText("-- INSERT --", x, bottomY);
+            } else if (state.vi_mode === "replace") {
+                this.ctx.fillText("-- REPLACE --", x, bottomY);
             }
         }
 

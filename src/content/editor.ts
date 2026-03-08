@@ -204,6 +204,11 @@ export class Editor {
                 this.scrollWindow();
                 this.render();
             }
+            else if (this.state.vi_mode === "replace") {
+                this.processKeypress(e, { replace: true });
+                this.scrollWindow();
+                this.render();
+            }
 
             // drawing
             // this.render();
@@ -460,8 +465,10 @@ export class Editor {
                 for (let i = 0; i < count - 1; i++) this.moveCursorRight();
                 this.currentLine.text = replaecd;
             }
-            // else if (kind === "continuous") {
-            // }
+            else if (kind === "continuous") {
+                console.log("continuous replacing");
+                this.state.vi_mode = "replace"
+            }
         }
 
         return 0;
@@ -551,7 +558,7 @@ export class Editor {
         },
     };
 
-    private processKeypress(e: KeyboardEvent): void {
+    private processKeypress(e: KeyboardEvent, { replace = false } = {}): void {
         const key = e.key;
 
         const action = this.keyMap[key];
@@ -560,7 +567,7 @@ export class Editor {
             action();
         } else {
             if (key.length > 1) return;
-            this.insertText(key);
+            this.insertText(key, { replace });
             this.state.vi_insertBuf.push(key);
         }
     }
@@ -708,10 +715,16 @@ export class Editor {
         this.state.logicalWidth = 0;
     }
 
-    private insertText(text: string): void {
+    private insertText(text: string, { replace = false } = {}): void {
         const currLine = this.currentLine;
-        if (this.state.col >= currLine.size) {
+        if (replace) {
+            const before = currLine.text.slice(0, this.state.col);
+            const after = currLine.text.slice(this.state.col + 1);
+            currLine.text = before + text + after;
+
+        } else if (this.state.col >= currLine.size) {
             this.appendTextToLine(currLine, text);
+
         } else {
             this.insertTextInLine(currLine, text);
         }
