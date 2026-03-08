@@ -434,6 +434,18 @@ export class Editor {
                 this.render();
             });
         }
+        else if (datatype === "join") {
+            for (let i = 0; i < count; i++) {
+                const nextLine = this.nextLine;
+                if (!nextLine) break;
+                this.appendTextToLine(this.currentLine, " ");
+                this.moveCursorToLast();
+
+                const appending = nextLine.text.trimStart();
+                this.appendTextToLine(this.currentLine, appending);
+                this.deleteRow(this.state.row + 1);
+            }
+        }
 
         return 0;
     }
