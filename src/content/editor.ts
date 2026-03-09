@@ -235,6 +235,14 @@ export class Editor {
         "$": () => this.moveCursorToLast(),
         "gg": () => this.moveCursorToBOF(),
         "G": () => this.moveCursorToEOF(),
+        "-": () => {
+            this.vi_moveCursor(MOVE_KEYS.UP);
+            this.moveCursorToFirstNonWhitespace();
+        },
+        "+": () => {
+            this.vi_moveCursor(MOVE_KEYS.DOWN);
+            this.moveCursorToFirstNonWhitespace();
+        },
     };
 
     private insertMap: Record<InsertCommand, () => void> = {

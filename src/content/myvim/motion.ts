@@ -90,7 +90,7 @@ export function getMotionRange(
 
     switch (motion.type) {
         case "char": {
-            if (motion.name === "k") {
+            if (motion.name === "k" || motion.name === "-") {
                 linewise = true;
                 start.row = Math.max(0, start.row - count);
             }
@@ -98,7 +98,7 @@ export function getMotionRange(
                 start.col = Math.max(0, start.col - count);
                 end.col--;
             }
-            else if (motion.name === "j") {
+            else if (motion.name === "j" || motion.name === "+") {
                 linewise = true;
                 end.row = Math.min(end.row + count, maxRow);
             }
