@@ -28,5 +28,9 @@ export const SUGAR_MAP: Record<Sugar, DesugaredContext> = {
         operator: "c",
         motion: { type: MotionType.CHAR, name: "$" }
     },
+    Y: {
+        operator: "y",
+        motion: { type: MotionType.CHAR, name: "$" }
+    },
 };
 

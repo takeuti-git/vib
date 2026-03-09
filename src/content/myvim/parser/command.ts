@@ -15,7 +15,7 @@ const motions = ["h","j","k","l","w","W","b","B","e","E","0","$","^","_",
                 ] as const;
 const motionSet: ReadonlySet<string> = new Set(motions);
 
-const sugars = ["s", "S", "x", "X", "D", "C"] as const;
+const sugars = ["s", "S", "x", "X", "D", "C", "Y"] as const;
 const sugarSet: ReadonlySet<string> = new Set(sugars);
 
 const standalones = ["J", "p", "P", "r", "R", "u", "<C-r>"] as const;
