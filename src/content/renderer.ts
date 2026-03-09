@@ -66,27 +66,30 @@ export class Renderer {
     private drawLines(state: EditorState): void {
         const px = this.lineNumberMargin;
 
-        const isLineNumberOff = this.config.lineNumbers === "off";
+        const isLineNumberOn = this.config.lineNumbers !== "off";
         const isRelative = this.config.lineNumbers === "relative";
         for (let y = 0; y < this.config.screenrows - this.config.statusBarHeight; y++) {
             const targetRow = y + state.rowoff;
             const py = y * this.lineHeight + this.halfLineHeight;
 
             const line = state.lines[targetRow];
-            if (!line) return;
+            if (!line) {
+                this.drawNonLine(py);
+                continue;
+            }
 
             this.drawLineText(state, px, py, line.text);
 
-            if (isLineNumberOff) continue;
+            if (!isLineNumberOn) continue;
 
             const isCurrentRow = state.row === targetRow;
             const absoluteRowNumber = targetRow + 1;
 
-            const rowDisplayNumber = (isRelative)
-                ? (isCurrentRow)
+            const rowDisplayNumber = ((isRelative)
+                ? ((isCurrentRow)
                     ? absoluteRowNumber
-                    : Math.abs(state.row - targetRow)
-                : absoluteRowNumber
+                    : Math.abs(state.row - targetRow))
+                : absoluteRowNumber);
             this.drawLineNumber(state, px, py, targetRow, rowDisplayNumber);
         }
     }
@@ -151,6 +154,7 @@ export class Renderer {
         this.ctx.fillStyle = this.config.colors.statusBar.text;
         this.ctx.textAlign = "right";
         this.ctx.fillText(rowcol, leftX, bottomY);
+        this.ctx.textAlign = "start"; // 元に戻す
     }
 
     private adjustLineNumberMargin() {
@@ -174,6 +178,7 @@ export class Renderer {
         this.ctx.textAlign = "right";
         // 行番号の右側に空白1つ分開ける: x - halfFontsize
         this.ctx.fillText(lineNum.toString(), x - this.halfFontSize, y);
+        this.ctx.textAlign = "start"; // 元に戻す
     }
 
     private drawLineText(
@@ -206,6 +211,11 @@ export class Renderer {
             }
             cursorX += this.calcWidth(ch);
         });
+    }
+
+    private drawNonLine(y: number) {
+        this.ctx.fillStyle = this.config.colors.lineNumber.normal;
+        this.ctx.fillText("~", 0, y);
     }
 
     private drawChar(x: number, y: number, ch: string): void {
