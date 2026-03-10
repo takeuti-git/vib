@@ -104,6 +104,49 @@ export function getDistanceWordForward(state: EditorState): number {
     return distance;
 }
 
+export function getDistanceWordBackward(state: EditorState): number {
+    let distance = 0;
+    const prevLine = state.lines[state.row - 1];
+    const prevLineText = prevLine ? prevLine.text : "";
+    const currLine = state.lines[state.row];
+    if (!currLine) throw new Error("currLine is undefined");
+    const currLineText = currLine.text.slice(0, state.col);
+    const searching = prevLineText + " " + currLineText;
+
+    if (isWhitespace(searching)) {
+        return 0;
+    }
+
+    const trimmed = searching.trimEnd();
+    const lastChar = trimmed.slice(-1);
+    const pauseAt: "normal" | "symbol" =
+        isSymbol(lastChar) ? "symbol" : "normal";
+
+    for (let i = searching.length - 1; i >= 0; i--) {
+        distance++;
+        const currChar = searching[i] as string;
+
+        if (isWhitespace(currChar)) {
+            // 空白文字を完全に無視して、distanceだけ増やす
+            continue;
+        }
+
+        const prevChar = searching[i - 1] as string; // undefinedの可能性,影響なし
+
+        if (isWhitespace(prevChar)) {
+            break;
+        }
+
+        if (pauseAt === "symbol" && !isSymbol(prevChar)) {
+            break;
+        }
+        else if (pauseAt === "normal" && isSymbol(prevChar)) {
+            break;
+        }
+    }
+    return distance;
+}
+
 type Point = {
     row: number;
     col: number;
@@ -174,6 +217,10 @@ export function getMotionRange(
             }
             else if (motion.name === "w") {
                 end.col += getDistanceWordForward(state) - 1;
+            }
+            else if (motion.name === "b") {
+                start.col = Math.max(0, start.col - getDistanceWordBackward(state));
+                end.col--;
             }
             break;
         }
