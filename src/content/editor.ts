@@ -5,7 +5,7 @@ import { Line, getLines } from "./line";
 import { isFunctionKey, MOVE_KEYS, type MoveKey } from "./keys";
 import { hideElement, showElement } from "./dom";
 import { LOGICAL_HALF_WIDTH, LOGICAL_FULL_WIDTH, calcLogicalWidth, logicalWidthToCol } from "./utils";
-import { getCountToNextChar, getFirstNonWhitespaceCol, getMotionRange } from "./myvim/motion";
+import { getCountToNextChar, getFirstNonWhitespaceCol, getMotionRange, getDistanceWordForward } from "./myvim/motion";
 import { parseCommand } from "./myvim/parser";
 import type { InsertCommand, Motion } from "./myvim/parser/command";
 import { readClipboard, writeClipboard } from "./clipboard";
@@ -221,7 +221,7 @@ export class Editor {
     // | processing basic inputs
     // ------------------------------
 
-    // remaining = ["w","W","b","B","e","E",
+    // remaining = ["W","b","B","e","E",
     //              "gg","G","H","L","%",
     // @ts-expect-error
     private motionMap: Record<Motion, () => void> = {
@@ -242,6 +242,10 @@ export class Editor {
         "+": () => {
             this.vi_moveCursor(MOVE_KEYS.DOWN);
             this.moveCursorToFirstNonWhitespace();
+        },
+        "w": () => {
+            const distance = getDistanceWordForward(this.state);
+            for (let i = 0; i < distance; i++) this.moveCursor(MOVE_KEYS.RIGHT);
         },
     };
 

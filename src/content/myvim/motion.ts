@@ -2,6 +2,12 @@ import type { EditorState } from "../state";
 import { CommandType, type CommandContext } from "./parser/commandType";
 import { isSymbol, isWhitespace } from "./symbols";
 
+type AtLeastTwoArray<T> = [T, T, ...T[]];
+
+function isAtLeastTwoArray<T>(array: T[]): array is AtLeastTwoArray<T> {
+    return array.length >= 2;
+}
+
 type FindOptions = {
     limit: number;
     reverse: boolean;
@@ -50,6 +56,54 @@ export function getCountToNextChar(
     return -1;
 }
 
+export function getDistanceWordForward(state: EditorState): number {
+    let distance = 0;
+    const currLine = state.lines[state.row];
+    if (!currLine) throw new Error("currLine is undefined");
+    const currLineText = currLine.text.slice(state.col);
+    const nextLine = state.lines[state.row + 1];
+    const nextLineText = nextLine ? nextLine.text : "";
+    const searching = currLineText + " " + nextLineText;
+
+    if (isWhitespace(searching)) {
+        // カーソルから次の行の中で文字が1つもないとき
+        return 1;
+    }
+
+    const isFirstSymbol = isSymbol(searching[0] as string);
+
+    for (let i = 0; i < searching.length; i++) {
+        const currChar = searching[i] as string;
+        if (isWhitespace(currChar)) {
+            // 空白が現れたら次の空白ではない文字まで移動する
+            const sliced = searching.slice(i);
+            for (let j = 0; j < sliced.length; j++) {
+                if (!isWhitespace(sliced[j] as string)) {
+                    break;
+                }
+                distance++;
+            }
+            break;
+        }
+        if (isFirstSymbol) {
+            // 検索開始地点が記号の時
+            if (!isSymbol(currChar)) {
+                // 記号ではない文字に到達したらbreak
+                break;
+            }
+        } else {
+            // 検索開始地点が記号ではない時
+            if (isSymbol(currChar)) {
+                // 記号文字に到達したらbreak
+                break;
+            }
+        }
+        distance++;
+    }
+
+    return distance;
+}
+
 type Point = {
     row: number;
     col: number;
@@ -60,12 +114,6 @@ type MotionRange = {
     end: Point;
     linewise: boolean;
 };
-
-type AtLeastTwoArray<T> = [T, T, ...T[]];
-
-function isAtLeastTwoArray<T>(array: T[]): array is AtLeastTwoArray<T> {
-    return array.length >= 2;
-}
 
 export function getMotionRange(
     state: EditorState,
@@ -123,6 +171,9 @@ export function getMotionRange(
             else if (motion.name === "G") {
                 linewise = true;
                 end.row = state.lines.length - 1;
+            }
+            else if (motion.name === "w") {
+                end.col += getDistanceWordForward(state) - 1;
             }
             break;
         }
@@ -182,11 +233,11 @@ export function getMotionRange(
                 }
 
                 const idx = filtered.indexOf(col);
-                const isLast = idx === filtered.length - 1;
-                const isLeftSide = idx % 2 === 0;
-                const isRightSide = idx % 2 !== 0;
+                const isOnLast = idx === filtered.length - 1;
+                const isOnLeftSide = idx % 2 === 0;
+                const isOnRightSide = idx % 2 !== 0;
 
-                if (isLast && isLeftSide) {
+                if (isOnLast && isOnLeftSide) {
                     // カーソルがある位置が最後のtargetで、ペアの左側にいるとき
                     return undefined;
                 }
@@ -209,15 +260,13 @@ export function getMotionRange(
                         }
                     }
                 }
-                else if (isLeftSide) {
+                else if (isOnLeftSide) {
                     // カーソルがペアの前側に重なっているとき
-                    start.col = col;
                     end.col = filtered[idx + 1] as number;
                 }
-                else if (isRightSide) {
+                else if (isOnRightSide) {
                     // カーソルがペアの後側に重なっているとき
                     start.col = filtered[idx - 1] as number;
-                    end.col = col;
                 }
 
                 if (motion.inner) {
