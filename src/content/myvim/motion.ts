@@ -104,6 +104,28 @@ export function getDistanceWordForward(state: EditorState): number {
     return distance;
 }
 
+export function getDistanceWORDForward(state: EditorState): number {
+    let distance = 0;
+    const currLine = state.lines[state.row];
+    if (!currLine) throw new Error("currLine is undefined");
+    const currLineText = currLine.text.slice(state.col);
+    const nextLine = state.lines[state.row + 1];
+    const nextLineText = nextLine ? nextLine.text : "";
+    const searching = currLineText + " " + nextLineText;
+
+    for (let i = 0; i < searching.length; i++) {
+        const currChar = searching[i] as string;
+        const prevChar = searching[i - 1] as string;
+
+        if (isWhitespace(prevChar) && !isWhitespace(currChar)) {
+            // 空白と空白以外の分かれ目ならループを終了
+            break;
+        }
+        distance++;
+    }
+    return distance;
+}
+
 export function getDistanceWordBackward(state: EditorState): number {
     let distance = 0;
     const prevLine = state.lines[state.row - 1];
@@ -141,6 +163,27 @@ export function getDistanceWordBackward(state: EditorState): number {
             break;
         }
         else if (pauseAt === "normal" && isSymbol(prevChar)) {
+            break;
+        }
+    }
+    return distance;
+}
+
+export function getDistanceWORDBackward(state: EditorState): number {
+    let distance = 0;
+    const currLine = state.lines[state.row];
+    if (!currLine) throw new Error("currLine is undefined");
+    const currLineText = currLine.text.slice(0, state.col);
+    const prevLine = state.lines[state.row - 1];
+    const prevLineText = prevLine ? prevLine.text : "";
+    const searching = prevLineText + " " + currLineText;
+
+    for (let i = searching.length - 1; i >= 0; i--) {
+        distance++;
+        const currChar = searching[i] as string;
+        const prevChar = searching[i - 1] as string; // undefinedの可能性,影響なし
+
+        if (isWhitespace(prevChar) && !isWhitespace(currChar)) {
             break;
         }
     }
@@ -218,8 +261,15 @@ export function getMotionRange(
             else if (motion.name === "w") {
                 end.col += getDistanceWordForward(state) - 1;
             }
+            else if (motion.name === "W") {
+                end.col += getDistanceWORDForward(state) - 1;
+            }
             else if (motion.name === "b") {
                 start.col = Math.max(0, start.col - getDistanceWordBackward(state));
+                end.col--;
+            }
+            else if (motion.name === "B") {
+                start.col = Math.max(0, start.col - getDistanceWORDBackward(state));
                 end.col--;
             }
             break;
