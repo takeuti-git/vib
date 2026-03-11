@@ -99,18 +99,19 @@ export class Renderer {
         const text = currLine.text;
         const lineheight = this.lineHeight;
 
-        const isNormal = state.vi_mode === "normal";
-        const isReplace = state.vi_mode === "replace";
+        // const isFull = state.vi_cursor === "full";
+        const isUnder = state.vi_cursor === "under";
+        const isVertical = state.vi_cursor === "vertical";
 
         const x = ((state.logicalWidth - state.logicaloff) * this.halfFontSize) + this.lineNumberMargin;
         const baseY = (state.row - state.rowoff) * lineheight;
-        const y = (isReplace)
+        const y = (isUnder)
             ? baseY + lineheight
             : baseY;
-        const w = (isNormal || isReplace)
-            ? this.calcWidth(text[state.col] ?? " ")
-            : 0;
-        const h = (isReplace)
+        const w = (isVertical)
+            ? 0
+            : this.calcWidth(text[state.col] ?? " ");
+        const h = (isUnder)
             ? 0
             : lineheight;
         this.ctx.fillStyle = this.config.colors.cursor.body;

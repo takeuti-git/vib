@@ -168,6 +168,7 @@ export class Editor {
             this.input.value = "";
             if (key === "Escape" || (key === "[" && e.ctrlKey)) {
                 this.state.vi_mode = "normal";
+                this.state.vi_cursor = "full";
                 this.state.vi_cmd = [];
                 this.state.vi_insertResolve?.();
                 this.state.vi_insertResolve = null;
@@ -495,8 +496,9 @@ export class Editor {
                 this.currentLine.text = replaecd;
             }
             else if (kind === "continuous") {
-                console.log("continuous replacing");
+                // 置き換え処理はsetupListenersで行う
                 this.state.vi_mode = "replace"
+                this.state.vi_cursor = "under";
             }
         }
 
@@ -547,6 +549,7 @@ export class Editor {
 
     private vi_goInsert(): void {
         this.state.vi_mode = "insert";
+        this.state.vi_cursor = "vertical";
         this.state.vi_insertBuf = [];
     }
 

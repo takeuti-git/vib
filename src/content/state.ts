@@ -15,6 +15,7 @@ export type EditorState = {
     vi_insertBuf: string[];
     vi_insertResolve: (() => void) | null;
     vi_yankLinewise: boolean;
+    vi_cursor: "full" | "under" | "vertical";
 };
 
 export function createEditorState(): EditorState {
@@ -35,6 +36,7 @@ export function createEditorState(): EditorState {
         vi_insertBuf: [""],
         vi_insertResolve: null,
         vi_yankLinewise: false,
+        vi_cursor: "full",
     };
 }
 
