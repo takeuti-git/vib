@@ -181,21 +181,22 @@ export class Editor {
                 if (key.length > 1) return;
                 const input = e.ctrlKey ? `<C-${key}>` : key;
                 this.state.vi_cmd.push(input);
+
                 if (this.state.vi_cmd.length > 6) {
-                    this.state.vi_cmd = ["too long"];
-                    this.render();
+                    this.setStatusMsg("too long");
                     this.state.vi_cmd = [];
                     return;
                 }
+
                 const result = this.vi_processInput(this.state.vi_cmd);
                 this.scrollWindow();
                 this.render();
+
                 if (result === 0) {
                     this.state.vi_cmd = [];
                 }
-                if (result === 1) {
-                    this.state.vi_cmd = ["unknown cmd"];
-                    this.render();
+                else if (result === 1) {
+                    this.setStatusMsg("unknown cmd");
                     this.state.vi_cmd = [];
                     return;
                 }
@@ -211,9 +212,6 @@ export class Editor {
                 this.render();
             }
 
-            // drawing
-            // this.render();
-
             setDestElValue();
         });
     }
@@ -222,8 +220,7 @@ export class Editor {
     // | processing basic inputs
     // ------------------------------
 
-    // remaining = ["W","b","B","e","E",
-    //              "gg","G","H","L","%",
+    // remaining = ["e","E","H","L","%",]
     // @ts-expect-error
     private motionMap: Record<Motion, () => void> = {
         "h": () => this.vi_moveCursor(MOVE_KEYS.LEFT),
@@ -926,5 +923,9 @@ export class Editor {
 
     private render(): void {
         this.renderer.render(this.state);
+    }
+
+    private setStatusMsg(text: string): void {
+        this.renderer.setStatusMsg(this.state, text);
     }
 }

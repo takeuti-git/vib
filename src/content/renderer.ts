@@ -13,6 +13,8 @@ type SquareContext = {
     connectRight: boolean;
 };
 
+const STATUS_MSG_X = 120;
+
 export class Renderer {
     private readonly config: EditorConfig;
     private readonly canvas: HTMLCanvasElement;
@@ -41,7 +43,7 @@ export class Renderer {
         this.canvas.width = Math.floor(width * dpr);
         this.canvas.height = Math.floor(height * dpr);
 
-        // ctx.setTransformはプロパティをリセットする
+        // ctx.setTransformはプロパティをリセットするため、font等を再設定する
         this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
         this.ctx.font = `${this.config.baseFontSize}px "${this.config.fontFamily}", monospace`;
         this.ctx.textBaseline = "middle";
@@ -51,8 +53,12 @@ export class Renderer {
         this.clear();
         this.drawLines(state);
         this.drawCursor(state);
-        this.drawStatusBar(state);
+        this.drawStatusBar(state, state.vi_cmd.join(""));
         this.adjustLineNumberMargin();
+    }
+
+    public setStatusMsg(state: EditorState, text: string) {
+        this.drawStatusBar(state, text);
     }
 
     // ------------------------------
@@ -99,7 +105,6 @@ export class Renderer {
         const text = currLine.text;
         const lineheight = this.lineHeight;
 
-        // const isFull = state.vi_cursor === "full";
         const isUnder = state.vi_cursor === "under";
         const isVertical = state.vi_cursor === "vertical";
 
@@ -120,7 +125,22 @@ export class Renderer {
         this.ctx.strokeRect(x, y, w, h);
     }
 
-    private drawStatusBar(state: EditorState): void {
+    private drawStatusBar(state: EditorState, text: string): void {
+        this.drawStatusBarBg();
+
+        const vi_mode = "-- " + state.vi_mode.toUpperCase() + " --";
+        this.drawStatusBarText(0, vi_mode);
+
+        this.drawStatusBarText(STATUS_MSG_X, text);
+
+        this.drawStatusBarRC(state.row, state.col);
+    }
+
+    private get bottomTextY(): number {
+        return (this.config.screenrows - 1) * this.lineHeight + this.halfLineHeight;
+    }
+
+    private drawStatusBarBg(): void {
         const lineHeight = this.lineHeight;
         const statusBarHeight = this.config.statusBarHeight;
         const y = (this.config.screenrows - statusBarHeight)
@@ -130,31 +150,21 @@ export class Renderer {
         this.ctx.fillStyle = this.config.colors.statusBar.bg;
         // 背景の矩形を描く
         this.ctx.fillRect(0, y, w, h);
+    }
 
-        const bottomY = y + this.halfLineHeight + ((statusBarHeight - 1) * lineHeight);
-        {
-            const x = 120;
-            const vi_cmdText = state.vi_cmd;
-            this.ctx.fillStyle = this.config.colors.statusBar.text;
-            this.ctx.textAlign = "start";
-            this.ctx.fillText(vi_cmdText.join(""), x, bottomY);
-        }
-        {
-            const x = 0;
-            if (state.vi_mode === "normal") {
-                this.ctx.fillText("-- NORMAL --", x, bottomY);
-            } else if (state.vi_mode === "insert") {
-                this.ctx.fillText("-- INSERT --", x, bottomY);
-            } else if (state.vi_mode === "replace") {
-                this.ctx.fillText("-- REPLACE --", x, bottomY);
-            }
-        }
+    private drawStatusBarText(x: number, text: string): void {
+        this.ctx.fillStyle = this.config.colors.statusBar.text;
+        this.ctx.textAlign = "start";
+        this.ctx.fillText(text, x, this.bottomTextY);
+    }
 
-        const leftX = w; // ウィンドウの右端から左方向に描く
-        const rowcol = `${state.row + 1},${state.col + 1}`;
+    /** draw row/col in the status bar */
+    private drawStatusBarRC(row: number, col: number): void {
         this.ctx.fillStyle = this.config.colors.statusBar.text;
         this.ctx.textAlign = "right";
-        this.ctx.fillText(rowcol, leftX, bottomY);
+        const x = this.config.screencols * this.halfFontSize;
+        const rc = `${row + 1},${col + 1}`;
+        this.ctx.fillText(rc, x, this.bottomTextY);
         this.ctx.textAlign = "start"; // 元に戻す
     }
 
