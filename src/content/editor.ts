@@ -247,7 +247,6 @@ export class Editor {
         },
         "W": () => {
             const distance = getDistanceWORDForward(this.state);
-            console.log({ distance });
             for (let i = 0; i < distance; i++) this.moveCursor(MOVE_KEYS.RIGHT);
         },
         "b": () => {
@@ -261,14 +260,19 @@ export class Editor {
     };
 
     private insertMap: Record<InsertCommand, () => void> = {
-        i: () => {},
-        a: () => {},
+        i: () => {/* ここでは何もしない */},
+        a: () => {/* ここでは何もしない */},
         I: () => this.moveCursorToFirstNonWhitespace(),
         A: () => this.moveCursorToLast(),
         o: () => this.insertNewLineNext(),
         O: () => this.insertNewLineCurrent(),
     };
 
+    /**
+     * - 0: complete
+     * - 1: doesn't exists
+     * - 2: exists but incomplete
+     * */
     private vi_processInput(input: string[]): 0 | 1 | 2 {
         let parseResult = parseCommand(input);
         if (parseResult.status === "unknown") {
@@ -292,13 +296,11 @@ export class Editor {
             const motiontype = motion.type;
             if (motiontype === "char") {
                 const fn = this.motionMap[motion.name];
-                for (let i = 0; i < count; i++) {
-                    if (!fn) {
-                        console.log("fn is not mapped yet");
-                        break;
-                    }
-                    fn();
+                if (!fn) {
+                    console.log(motion.name + " is not mapped yet");
+                    return 0;
                 }
+                for (let i = 0; i < count; i++) fn();
             }
             else if (motiontype === "find") {
                 const { name, arg } = motion;
@@ -368,14 +370,14 @@ export class Editor {
             }
             const { operator } = data;
             const { lines } = this.state;
-            const register: string[] = [];
+            const clipboardBuf: string[] = [];
             const isLinewise = data.motion.type === "linewise" || range.linewise;
             this.state.vi_yankLinewise = isLinewise;
 
             if (operator === "d" || operator === "c") {
                 if (isLinewise) {
                     lines.slice(range.start.row, range.end.row + 1).forEach(l => {
-                        register.push(l.text);
+                        clipboardBuf.push(l.text);
                     });
                     const delCount = range.end.row - range.start.row + 1;
                     lines.splice(range.start.row, delCount);
@@ -404,18 +406,18 @@ export class Editor {
                     else if (range.start.col > this.state.col) {
                         for (let i = 0; i < distance; i++) this.moveCursorRight();
                     }
-                    register.push(copied);
+                    clipboardBuf.push(copied);
                     this.currentLine.text = text.slice(0, range.start.col) + text.slice(range.end.col + 1);
                 }
                 if (operator === "c") {
                     this.vi_goInsert();
                 }
-                writeClipboard(register.join("\n"));
+                writeClipboard(clipboardBuf.join("\n"));
             }
             else if (operator === "y") {
                 if (isLinewise) {
                     lines.slice(range.start.row, range.end.row + 1).forEach(l => {
-                        register.push(l.text);
+                        clipboardBuf.push(l.text);
                     });
                 } else {
                     const text = this.currentLine.text;
@@ -427,9 +429,9 @@ export class Editor {
                     else if (range.start.col > this.state.col) {
                         for (let i = 0; i < distance; i++) this.moveCursorRight();
                     }
-                    register.push(copied);
+                    clipboardBuf.push(copied);
                 }
-                writeClipboard(register.join("\n"));
+                writeClipboard(clipboardBuf.join("\n"));
             }
         }
         else if (datatype === "put") {
@@ -484,17 +486,19 @@ export class Editor {
                 const arg = data.mode.char;
                 const linetext = this.currentLine.text;
                 const text = linetext.slice(this.state.col);
-                if (count > text.length) return 0; 
+
+                // countが右側の文字数より多いなら実行しない
+                if (count > text.length) return 0;
 
                 const before = linetext.slice(0, this.state.col);
                 const after = text.slice(count);
                 const replaecd = before + arg.repeat(count) + after;
-                for (let i = 0; i < count - 1; i++) this.moveCursorRight();
                 this.currentLine.text = replaecd;
+                for (let i = 0; i < count - 1; i++) this.moveCursorRight();
             }
             else if (kind === "continuous") {
                 // 置き換え処理はsetupListenersで行う
-                this.state.vi_mode = "replace"
+                this.state.vi_mode = "replace";
                 this.state.vi_cursor = "under";
             }
         }
