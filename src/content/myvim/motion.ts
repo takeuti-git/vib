@@ -190,6 +190,93 @@ export function getDistanceWORDBackward(state: EditorState): number {
     return distance;
 }
 
+/** 単語の末尾まで移動する */
+export function getDistanceWordTail(state: EditorState): number {
+    let distance = 0;
+    const currLine = state.lines[state.row];
+    if (!currLine) {
+        console.error("currLine is undefined");
+        return 0;
+    }
+    const cursorNextChar = currLine.text[state.col + 1] ?? " ";
+
+    // unknown: 次の文字が空白のため、どこで止まるか分からない状態
+    // symbol : 次の文字がsymbolのため、symbolが終わるまで移動
+    // normal : 次の文字がnormalのため、normalが終わるまで移動
+
+    let stopAt: "unknown" | "symbol" | "normal" = (
+        isWhitespace(cursorNextChar) ? "unknown" :
+        isSymbol(cursorNextChar) ? "symbol" :
+        "normal"
+    );
+
+    let row = state.row;
+    let globalCol = state.col;
+
+    if (stopAt === "unknown") {
+        for (; row < state.lines.length; row++) {
+            const line = state.lines[row];
+            if (!line) {
+                console.error("line is undefined");
+                return 0;
+            }
+
+            let col = state.row === row ? state.col + 1 : 0; // 実行時の行でないなら行頭から探索
+            let doStop = false;
+
+            while (col < line.text.length) {
+                const ch = line.text[col] as string;
+                col++;
+                distance++;
+                if (isWhitespace(ch)) continue; // 空白でないまで飛ばす
+
+                // ここに到達した時点でchPtrは連続した空白の先にいる
+                // 空白を超えてから最初に現れた文字を見て、どの区切りで止まるか決定
+                if (isSymbol(ch)) {
+                    stopAt = "symbol";
+                } else {
+                    stopAt = "normal";
+                }
+
+                doStop = true;
+                globalCol = col - 1; // 行の何文字目で止まったか保持する
+                break;
+            }
+
+            if (doStop) break;
+            distance++; // 改行分の移動量を加算
+        }
+    }
+
+    const targetLine = state.lines[row];
+    if (!targetLine) {
+        return row; // targetLine is undefined; fastforward to EOF.
+    }
+
+    let stopCondition: (ch: string) => boolean;
+
+    switch (stopAt) {
+        case "symbol":
+            stopCondition = (ch) => !isSymbol(ch);
+            break;
+        case "normal":
+            stopCondition = (ch) => isSymbol(ch) || isWhitespace(ch);
+            break;
+
+        case "unknown": // fallthrough
+        default:
+            throw new Error("invalid stopAt: " + stopAt);
+    }
+
+    for (; globalCol < targetLine.text.length; globalCol++) {
+        const nextCh = targetLine.text[globalCol + 1] ?? " ";
+        if (stopCondition(nextCh)) break;
+        distance++;
+    }
+
+    return distance;
+}
+
 type Point = {
     row: number;
     col: number;
