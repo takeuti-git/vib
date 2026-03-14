@@ -210,18 +210,18 @@ export function getDistanceWordTail(state: EditorState): number {
         "normal"
     );
 
-    let row = state.row;
-    let globalCol = state.col;
+    let rowPtr = state.row;
+    let colPtr = state.col;
 
     if (stopAt === "unknown") {
-        for (; row < state.lines.length; row++) {
-            const line = state.lines[row];
+        for (; rowPtr < state.lines.length; rowPtr++) {
+            const line = state.lines[rowPtr];
             if (!line) {
                 console.error("line is undefined");
                 return 0;
             }
 
-            let col = state.row === row ? state.col + 1 : 0; // 実行時の行でないなら行頭から探索
+            let col = state.row === rowPtr ? state.col + 1 : 0; // 実行時の行でないなら行頭から探索
             let doStop = false;
 
             while (col < line.text.length) {
@@ -230,7 +230,7 @@ export function getDistanceWordTail(state: EditorState): number {
                 distance++;
                 if (isWhitespace(ch)) continue; // 空白でないまで飛ばす
 
-                // ここに到達した時点でchPtrは連続した空白の先にいる
+                // ここに到達した時点で連続した空白の先にいる
                 // 空白を超えてから最初に現れた文字を見て、どの区切りで止まるか決定
                 if (isSymbol(ch)) {
                     stopAt = "symbol";
@@ -239,7 +239,7 @@ export function getDistanceWordTail(state: EditorState): number {
                 }
 
                 doStop = true;
-                globalCol = col - 1; // 行の何文字目で止まったか保持する
+                colPtr = col - 1; // 行の何文字目で止まったか保持する
                 break;
             }
 
@@ -248,9 +248,9 @@ export function getDistanceWordTail(state: EditorState): number {
         }
     }
 
-    const targetLine = state.lines[row];
+    const targetLine = state.lines[rowPtr];
     if (!targetLine) {
-        return row; // targetLine is undefined; fastforward to EOF.
+        return rowPtr - state.row; // targetLine is EOF; fastforward
     }
 
     let stopCondition: (ch: string) => boolean;
@@ -268,9 +268,69 @@ export function getDistanceWordTail(state: EditorState): number {
             throw new Error("invalid stopAt: " + stopAt);
     }
 
-    for (; globalCol < targetLine.text.length; globalCol++) {
-        const nextCh = targetLine.text[globalCol + 1] ?? " ";
+    for (let i = colPtr; i < targetLine.text.length; i++) {
+        const nextCh = targetLine.text[i + 1] ?? " ";
         if (stopCondition(nextCh)) break;
+        distance++;
+    }
+
+    return distance;
+}
+
+export function getDistanceWORDTail(state: EditorState): number {
+    let distance = 0;
+    const currLine = state.lines[state.row];
+    if (!currLine) {
+        console.error("currLine is undefined");
+        return 0;
+    }
+    const cursorNextChar = currLine.text[state.col + 1] ?? " ";
+
+    let stopAt: "unknown" | "other" = (
+        isWhitespace(cursorNextChar) ? "unknown" :
+        "other"
+    );
+
+    let rowPtr = state.row;
+    let colPtr = state.col;
+
+    if (stopAt === "unknown") {
+        for (; rowPtr < state.lines.length; rowPtr++) {
+            const line = state.lines[rowPtr];
+            if (!line) {
+                console.error("line is undefined");
+                return 0;
+            }
+
+            let col = state.row === rowPtr ? state.col + 1 : 0; // 実行時の行でないなら行頭から探索
+            let doStop = false;
+
+            while (col < line.text.length) {
+                const ch = line.text[col] as string;
+                col++;
+                distance++;
+                if (isWhitespace(ch)) continue; // 空白でないまで飛ばす
+
+                // ここに到達した時点で連続した空白の先にいる
+
+                doStop = true;
+                colPtr = col - 1; // 行の何文字目で止まったか保持する
+                break;
+            }
+
+            if (doStop) break;
+            distance++; // 改行分の移動量を加算
+        }
+    }
+
+    const targetLine = state.lines[rowPtr];
+    if (!targetLine) {
+        return rowPtr - state.row; // targetLine is EOF; fastforward
+    }
+
+    for (let i = colPtr; i < targetLine.text.length; i++) {
+        const nextCh = targetLine.text[i + 1] ?? " ";
+        if (isWhitespace(nextCh)) break;
         distance++;
     }
 
