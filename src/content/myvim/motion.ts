@@ -56,6 +56,12 @@ export function getCountToNextChar(
     return -1;
 }
 
+type HorizontalMotion = {
+    distance: number;
+    destRow: number;
+    destCol: number;
+};
+
 export function getDistanceWordForward(state: EditorState): number {
     let distance = 0;
     const currLine = state.lines[state.row];
@@ -191,12 +197,11 @@ export function getDistanceWORDBackward(state: EditorState): number {
 }
 
 /** 単語の末尾まで移動する */
-export function getDistanceWordTail(state: EditorState): number {
+export function getDistanceWordTail(state: EditorState): HorizontalMotion {
     let distance = 0;
     const currLine = state.lines[state.row];
     if (!currLine) {
-        console.error("currLine is undefined");
-        return 0;
+        throw new Error("currLine is undefined");
     }
     const cursorNextChar = currLine.text[state.col + 1] ?? " ";
 
@@ -217,8 +222,7 @@ export function getDistanceWordTail(state: EditorState): number {
         for (; rowPtr < state.lines.length; rowPtr++) {
             const line = state.lines[rowPtr];
             if (!line) {
-                console.error("line is undefined");
-                return 0;
+                throw new Error("line is undefined");
             }
 
             let col = state.row === rowPtr ? state.col + 1 : 0; // 実行時の行でないなら行頭から探索
@@ -250,7 +254,9 @@ export function getDistanceWordTail(state: EditorState): number {
 
     const targetLine = state.lines[rowPtr];
     if (!targetLine) {
-        return rowPtr - state.row; // targetLine is EOF; fastforward
+        // targetLine is EOF; fastforward
+        const distance = rowPtr - state.row;
+        return { distance, destRow: state.lines.length - 1, destCol: colPtr }; 
     }
 
     let stopCondition: (ch: string) => boolean;
@@ -272,17 +278,17 @@ export function getDistanceWordTail(state: EditorState): number {
         const nextCh = targetLine.text[i + 1] ?? " ";
         if (stopCondition(nextCh)) break;
         distance++;
+        colPtr++;
     }
 
-    return distance;
+    return { distance, destRow: rowPtr, destCol: colPtr };
 }
 
-export function getDistanceWORDTail(state: EditorState): number {
+export function getDistanceWORDTail(state: EditorState): HorizontalMotion {
     let distance = 0;
     const currLine = state.lines[state.row];
     if (!currLine) {
-        console.error("currLine is undefined");
-        return 0;
+        throw new Error("currLine is undefined");
     }
     const cursorNextChar = currLine.text[state.col + 1] ?? " ";
 
@@ -298,8 +304,7 @@ export function getDistanceWORDTail(state: EditorState): number {
         for (; rowPtr < state.lines.length; rowPtr++) {
             const line = state.lines[rowPtr];
             if (!line) {
-                console.error("line is undefined");
-                return 0;
+                throw new Error("line is undefined");
             }
 
             let col = state.row === rowPtr ? state.col + 1 : 0; // 実行時の行でないなら行頭から探索
@@ -325,16 +330,19 @@ export function getDistanceWORDTail(state: EditorState): number {
 
     const targetLine = state.lines[rowPtr];
     if (!targetLine) {
-        return rowPtr - state.row; // targetLine is EOF; fastforward
+        // targetLine is EOF; fastforward
+        const distance = rowPtr - state.row;
+        return { distance, destRow: state.lines.length - 1, destCol: colPtr };
     }
 
     for (let i = colPtr; i < targetLine.text.length; i++) {
         const nextCh = targetLine.text[i + 1] ?? " ";
         if (isWhitespace(nextCh)) break;
         distance++;
+        colPtr++;
     }
 
-    return distance;
+    return { distance, destRow: rowPtr, destCol: colPtr };
 }
 
 type Point = {
@@ -418,6 +426,16 @@ export function getMotionRange(
             else if (motion.name === "B") {
                 start.col = Math.max(0, start.col - getDistanceWORDBackward(state));
                 end.col--;
+            }
+            else if (motion.name === "e") {
+                const { destRow, destCol } = getDistanceWordTail(state);
+                end.row = destRow;
+                end.col = destCol;
+            }
+            else if (motion.name === "E") {
+                const { destRow, destCol } = getDistanceWORDTail(state);
+                end.row = destRow;
+                end.col = destCol;
             }
             break;
         }

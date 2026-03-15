@@ -258,11 +258,11 @@ export class Editor {
             for (let i = 0; i < distance; i++) this.moveCursor(MOVE_KEYS.LEFT);
         },
         "e": () => {
-            const distance = getDistanceWordTail(this.state);
+            const { distance } = getDistanceWordTail(this.state);
             for (let i = 0; i < distance; i++) this.moveCursor(MOVE_KEYS.RIGHT);
         },
         "E": () => {
-            const distance = getDistanceWORDTail(this.state);
+            const { distance } = getDistanceWORDTail(this.state);
             for (let i = 0; i < distance; i++) this.moveCursor(MOVE_KEYS.RIGHT);
         },
     };
@@ -405,17 +405,51 @@ export class Editor {
                         this.insertRow(0, "");
                     }
                 } else {
-                    const text = this.currentLine.text;
-                    const copied = text.slice(range.start.col, range.end.col + 1);
-                    const distance = Math.abs(this.state.col - range.start.col);
-                    if (this.state.col > range.start.col) {
-                        for (let i = 0; i < distance; i++) this.moveCursorLeft();
+                    if (range.start.row === range.end.row) {
+                        // 同一行内の操作
+                        const text = this.currentLine.text;
+                        const copied = text.slice(range.start.col, range.end.col + 1);
+                        const distance = Math.abs(this.state.col - range.start.col);
+                        if (this.state.col > range.start.col) {
+                            for (let i = 0; i < distance; i++) this.moveCursorLeft();
+                        }
+                        else if (range.start.col > this.state.col) {
+                            for (let i = 0; i < distance; i++) this.moveCursorRight();
+                        }
+                        clipboardBuf.push(copied);
+                        this.currentLine.text = text.slice(0, range.start.col) + text.slice(range.end.col + 1);
+                    } else {
+                        // 複数行の操作
+                        const startRow = this.state.lines[range.start.row];
+                        if (!startRow) throw new Error("startRow is undefined");
+                        const endRow = this.state.lines[range.end.row];
+                        if (!endRow) throw new Error("endRow is undefined");
+
+                        // あらかじめ取得できる文字列
+                        const startRowText = startRow.text.slice(0, range.start.col);
+                        const endRowText = endRow.text.slice(range.end.col + 1);
+                        const joinedText = startRowText + endRowText;
+
+                        // 開始行のスライスヤンク
+                        clipboardBuf.push(startRow.text.slice(range.start.col));
+
+                        for (let i = range.start.row + 1; i <= range.end.row; i++) {
+                            // start,end間の行単位のヤンクと削除
+                            const line = this.state.lines[i];
+                            if (!line) throw new Error("line is undefined");
+
+                            if (i === range.end.row) {
+                                // 終了行のスライスヤンク
+                                clipboardBuf.push(line.text.slice(0, range.end.col + 1));
+                            } else {
+                                clipboardBuf.push(line.text);
+                            }
+                            // spliceによりiがずれるので同じ位置を削除する
+                            this.deleteRow(range.start.row + 1);
+                        }
+
+                        this.currentLine.text = joinedText;
                     }
-                    else if (range.start.col > this.state.col) {
-                        for (let i = 0; i < distance; i++) this.moveCursorRight();
-                    }
-                    clipboardBuf.push(copied);
-                    this.currentLine.text = text.slice(0, range.start.col) + text.slice(range.end.col + 1);
                 }
                 if (operator === "c") {
                     this.vi_goInsert();
@@ -428,16 +462,38 @@ export class Editor {
                         clipboardBuf.push(l.text);
                     });
                 } else {
-                    const text = this.currentLine.text;
-                    const copied = text.slice(range.start.col, range.end.col + 1);
-                    const distance = Math.abs(this.state.col - range.start.col);
-                    if (this.state.col > range.start.col) {
-                        for (let i = 0; i < distance; i++) this.moveCursorLeft();
+                    if (range.start.row === range.end.row) {
+                        // 単一行の操作
+                        const text = this.currentLine.text;
+                        const copied = text.slice(range.start.col, range.end.col + 1);
+                        const distance = Math.abs(this.state.col - range.start.col);
+                        if (this.state.col > range.start.col) {
+                            for (let i = 0; i < distance; i++) this.moveCursorLeft();
+                        }
+                        else if (range.start.col > this.state.col) {
+                            for (let i = 0; i < distance; i++) this.moveCursorRight();
+                        }
+                        clipboardBuf.push(copied);
+                    } else {
+                        // 複数行の操作
+                        const startRow = this.state.lines[range.start.row];
+                        if (!startRow) throw new Error("startRow is undefined");
+                        const endRow = this.state.lines[range.end.row];
+                        if (!endRow) throw new Error("endRow is undefined");
+
+                        // 開始行のスライスヤンク
+                        clipboardBuf.push(startRow.text.slice(range.start.col));
+
+                        for (let i = range.start.row + 1; i < range.end.row; i++) {
+                            // start/endを含まない,あいだの行単位のヤンク
+                            const line = this.state.lines[i];
+                            if (!line) throw new Error("line is undefined");
+                            clipboardBuf.push(line.text);
+                        }
+
+                        // 終了行のスライスヤンク
+                        clipboardBuf.push(endRow.text.slice(0, range.end.col + 1));
                     }
-                    else if (range.start.col > this.state.col) {
-                        for (let i = 0; i < distance; i++) this.moveCursorRight();
-                    }
-                    clipboardBuf.push(copied);
                 }
                 writeClipboard(clipboardBuf.join("\n"));
             }
@@ -447,8 +503,8 @@ export class Editor {
             readClipboard().then(text => {
                 if (text === null) return;
 
+                const lines = text.split("\n");
                 if (this.state.vi_yankLinewise) {
-                    const lines = text.split("\n");
                     if (isBefore) {
                         this.insertNewLineCurrent();
                     } else {
@@ -461,16 +517,42 @@ export class Editor {
                             this.insertNewLineNext();
                         }
                     }
-                    this.deleteRow(this.state.row);
+                    this.deleteRow(this.state.row); // ループで増えすぎた行を削除
                     this.state.row--;
                 } else {
-                    const line = this.currentLine;
-                    const col = this.state.col;
-                    const delta = isBefore ? 0 : 1;
-                    const before = line.text.slice(0, col + delta);
-                    const after = line.text.slice(col + delta);
-                    this.currentLine.text = before + text + after;
-                    this.vi_moveCursor(MOVE_KEYS.RIGHT, text.length);
+                    const delta = isBefore ? 0 : 1; // p/Pの1文字分のずれ
+                    const currLine = this.currentLine;
+                    const currCol = this.state.col;
+                    if (lines.length === 1) {
+                        // 改行が含まれない文字列をペーストする
+                        const before = currLine.text.slice(0, currCol + delta);
+                        const after = currLine.text.slice(currCol + delta);
+                        currLine.text = before + text + after;
+                        this.vi_moveCursor(MOVE_KEYS.RIGHT, text.length);
+                    } else {
+                        // 改行を含む文字列をペーストする
+                        const firstClipText = lines[0] as string;
+                        const lastClipText = lines[lines.length - 1] as string;
+
+                        const currLineTail = currLine.text.slice(currCol + delta);
+
+                        // 最初と最後の行の文字列は先に処理
+                        currLine.text = currLine.text.slice(0, currCol + delta) + firstClipText;
+                        const lastLineText = lastClipText + currLineTail;
+                        this.insertRow(this.state.row + 1, lastLineText);
+                        this.vi_moveCursor(MOVE_KEYS.RIGHT, delta); // 仕様上,1文字だけ動くことがある
+
+                        const newLineCount = lines.length - 1;
+                        if (newLineCount >= 2) {
+                            // クリップボードに改行が2回以上あるとき、完全新規行に文字列を代入
+                            for (let i = 0; i < newLineCount - 1; i++) {
+                                const row = this.state.row + 1 + i;
+                                const text = lines[i + 1];
+                                if (text === undefined) throw new Error("clipboard text is undefined");
+                                this.insertRow(row, text);
+                            }
+                        }
+                    }
                 }
                 this.scrollWindow();
                 this.render();
