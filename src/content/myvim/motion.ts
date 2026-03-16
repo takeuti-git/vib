@@ -132,6 +132,57 @@ export function getDistanceWORDForward(state: EditorState): number {
     return distance;
 }
 
+export function moveWORDForward(state: EditorState): HorizontalMotion {
+    let distance = 0;
+    const currLine = state.lines[state.row];
+    if (!currLine) {
+        throw new Error("currLine is undefined");
+    }
+
+    let rowPtr = state.row;
+    let colPtr = state.col;
+
+    let doStop = false;
+
+    for (; rowPtr < state.lines.length; rowPtr++) {
+        const line = state.lines[rowPtr];
+        if (!line) throw new Error("line is undefined");
+
+        if (line.text === "") {
+            const nextLine = state.lines[rowPtr + 1];
+            if (nextLine && nextLine.text === "") {
+                distance++;
+                break;
+           }
+        }
+
+        let col = state.row === rowPtr ? state.col + 1 : 0; // 実行時の行でないなら行頭から探索
+
+        while (col < line.size) {
+            const ch = line.text[col] as string;
+            const prevCh = line.text[col - 1] ?? " "; // 0文字目より前は空白として扱う
+            const isSpace = isWhitespace(ch);
+            const isPrevSpace = isWhitespace(prevCh);
+
+            col++;
+            distance++;
+
+            if (isSpace) continue;
+
+            if (isPrevSpace && !isSpace) {
+                doStop = true;
+                colPtr = col - 1;
+                break;
+            }
+        }
+
+        if (doStop) break;
+        distance++; // 改行分の移動量を加算
+    }
+
+    return { distance, destRow: rowPtr, destCol: colPtr };
+}
+
 export function getDistanceWordBackward(state: EditorState): number {
     let distance = 0;
     const prevLine = state.lines[state.row - 1];
