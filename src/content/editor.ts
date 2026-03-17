@@ -5,7 +5,7 @@ import { Line, getLines } from "./line";
 import { isFunctionKey, MOVE_KEYS, type MoveKey } from "./keys";
 import { hideElement, showElement } from "./dom";
 import { LOGICAL_HALF_WIDTH, LOGICAL_FULL_WIDTH, calcLogicalWidth, logicalWidthToCol } from "./utils";
-import { getCountToNextChar, getFirstNonWhitespaceCol, getMotionRange, getDistanceWordForward, getDistanceWordBackward, getDistanceWORDForward, getDistanceWORDBackward, getDistanceWordTail, getDistanceWORDTail, moveWORDBackword, moveWORDForward } from "./myvim/motion";
+import { getCountToNextChar, getFirstNonWhitespaceCol, getMotionRange, getDistanceWordForward, getDistanceWordBackward, getDistanceWORDBackward, getDistanceWordTail, getDistanceWORDTail, moveWORDForward } from "./myvim/motion";
 import { parseCommand } from "./myvim/parser";
 import type { InsertCommand, Motion } from "./myvim/parser/command";
 import { readClipboard, writeClipboard } from "./clipboard";

@@ -110,7 +110,7 @@ export function getDistanceWordForward(state: EditorState): number {
     return distance;
 }
 
-export function getDistanceWORDForward(state: EditorState): number {
+function getDistanceWORDForward(state: EditorState): number {
     let distance = 0;
     const currLine = state.lines[state.row];
     if (!currLine) throw new Error("currLine is undefined");
@@ -149,33 +149,32 @@ export function moveWORDForward(state: EditorState): HorizontalMotion {
         if (!line) throw new Error("line is undefined");
 
         if (line.text === "") {
-            const nextLine = state.lines[rowPtr + 1];
-            if (nextLine && nextLine.text === "") {
-                distance++;
+            distance++;
+
+            if (rowPtr !== state.row) {
                 break;
-           }
+            }
+
+            const nextLn = state.lines[rowPtr + 1];
+            if (nextLn && nextLn.text === "") {
+                break;
+            }
+            distance--;
+            continue;
         }
 
         let col = state.row === rowPtr ? state.col + 1 : 0; // 実行時の行でないなら行頭から探索
 
-        while (col < line.size) {
-            const ch = line.text[col] as string;
+        for (; col < line.size; col++) {
+            const currCh = line.text[col] as string;
             const prevCh = line.text[col - 1] ?? " "; // 0文字目より前は空白として扱う
-            const isSpace = isWhitespace(ch);
-            const isPrevSpace = isWhitespace(prevCh);
-
-            col++;
             distance++;
-
-            if (isSpace) continue;
-
-            if (isPrevSpace && !isSpace) {
+            if (isWhitespace(prevCh) && !isWhitespace(currCh)) {
                 doStop = true;
-                colPtr = col - 1;
+                colPtr = col;
                 break;
             }
         }
-
         if (doStop) break;
         distance++; // 改行分の移動量を加算
     }
