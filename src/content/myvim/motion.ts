@@ -110,6 +110,74 @@ export function getDistanceWordForward(state: EditorState): number {
     return distance;
 }
 
+export function moveWordForward(state: EditorState): HorizontalMotion {
+    let distance = 0;
+    const currLine = state.lines[state.row];
+    if (!currLine) {
+        throw new Error("currLine is undefined");
+    }
+
+    let rowPtr = state.row;
+    let colPtr = state.col;
+
+    let doStop = false;
+
+    const startCh = currLine.text[state.col] ?? " ";
+    // any: 空白以外の文字なら止まる. symbol:
+    let moveTo: "any" | "symbol" | "normal" =
+        isWhitespace(startCh) ? "any"
+        : isSymbol(startCh) ? "normal"
+        : "symbol";
+
+    for (; rowPtr < state.lines.length; rowPtr++) {
+        const line = state.lines[rowPtr];
+        if (!line) throw new Error("line is undefined");
+
+        if (line.text === "") {
+            distance++;
+
+            if (rowPtr !== state.row) {
+                break;
+            }
+
+            const nextLn = state.lines[rowPtr + 1];
+            if (nextLn && nextLn.text === "") {
+                break;
+            }
+            distance--;
+            continue;
+        }
+
+        let col = state.row === rowPtr ? state.col + 1 : 0; // 実行時の行でないなら行頭から探索
+
+        for (; col < line.size; col++) {
+            const currCh = line.text[col] ?? " ";
+            const isSpace = isWhitespace(currCh);
+            if (isSpace) moveTo = "any";
+            distance++;
+
+            if (
+                (moveTo === "any" && !isSpace) ||
+                (moveTo === "normal" && !isSymbol(currCh) && !isSpace) ||
+                (moveTo === "symbol" && isSymbol(currCh))
+            ) {
+                doStop = true;
+                break;
+            }
+        }
+
+        if (doStop) {
+            colPtr = col;
+            break;
+        }
+        distance++; // 改行分の移動量を加算
+
+        moveTo = "any"; // 改行してからは空白以外の文字で必ず止まる
+    }
+
+    return { distance, destRow: rowPtr, destCol: colPtr };
+}
+
 function getDistanceWORDForward(state: EditorState): number {
     let distance = 0;
     const currLine = state.lines[state.row];
@@ -171,11 +239,13 @@ export function moveWORDForward(state: EditorState): HorizontalMotion {
             distance++;
             if (isWhitespace(prevCh) && !isWhitespace(currCh)) {
                 doStop = true;
-                colPtr = col;
                 break;
             }
         }
-        if (doStop) break;
+        if (doStop) {
+            colPtr = col;
+            break;
+        }
         distance++; // 改行分の移動量を加算
     }
 
@@ -464,12 +534,14 @@ export function getMotionRange(
                 end.row = state.lines.length - 1;
             }
             else if (motion.name === "w") {
+                // w/W motionは絶対に複数行を対象範囲にしない
                 end.col += getDistanceWordForward(state) - 1;
             }
             else if (motion.name === "W") {
                 end.col += getDistanceWORDForward(state) - 1;
             }
             else if (motion.name === "b") {
+                // b/B motionは複数行にまたがることがある
                 start.col = Math.max(0, start.col - getDistanceWordBackward(state));
                 end.col--;
             }
@@ -478,6 +550,7 @@ export function getMotionRange(
                 end.col--;
             }
             else if (motion.name === "e") {
+                // e/E motionは複数行にまたがることがある
                 const { destRow, destCol } = getDistanceWordTail(state);
                 end.row = destRow;
                 end.col = destCol;
