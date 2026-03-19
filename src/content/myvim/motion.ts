@@ -168,68 +168,113 @@ export function moveForward(state: EditorState, seperator: "word" | "WORD"): Hor
     return { distance: ctx.distance, destRow: ctx.row, destCol: ctx.col };
 }
 
-export function getDistanceWordBackward(state: EditorState): number {
-    let distance = 0;
-    const prevLine = state.lines[state.row - 1];
-    const prevLineText = prevLine ? prevLine.text : "";
+type BackwardMovingCtx = MovingCtx & {
+    stopAt: "unknown" | "any" | "normal" | "symbol";
+};
+
+export function moveBackward(state: EditorState, seperator: "word" | "WORD"): HorizontalMotion {
     const currLine = state.lines[state.row];
     if (!currLine) throw new Error("currLine is undefined");
-    const currLineText = currLine.text.slice(0, state.col);
-    const searching = prevLineText + " " + currLineText;
 
-    if (isWhitespace(searching)) {
-        return 0;
+    const ctx: BackwardMovingCtx = {
+        distance: 0,
+        line: currLine,
+        row: state.row,
+        col: state.col,
+        doStop: false,
+        stopAt: "unknown",
+    };
+
+    const prevChar = currLine.text[state.col - 1] ?? " ";
+
+    if (seperator === "WORD") {
+        ctx.stopAt = (
+            isWhitespace(prevChar) ? "unknown" :
+            "any"
+        );
+    } else {
+        ctx.stopAt = (
+            isWhitespace(prevChar) ? "unknown" :
+            isSymbol(prevChar) ? "symbol" :
+            "normal"
+        );
     }
 
-    const trimmed = searching.trimEnd();
-    const lastChar = trimmed.slice(-1);
-    const pauseAt: "normal" | "symbol" =
-        isSymbol(lastChar) ? "symbol" : "normal";
+    const startRow = state.row;
 
-    for (let i = searching.length - 1; i >= 0; i--) {
-        distance++;
-        const currChar = searching[i] as string;
+    if (ctx.stopAt === "unknown") {
+        for (; ctx.row >= 0; ctx.row--) {
+            const line = state.lines[ctx.row];
+            if (!line) throw new Error("line is undefined");
 
-        if (isWhitespace(currChar)) {
-            // 空白文字を完全に無視して、distanceだけ増やす
-            continue;
-        }
+            if (line.text === "") {
+                if (ctx.row !== startRow) {
+                    // 移動先が何もない行ならそこで止まる
+                    break;
+                }
 
-        const prevChar = searching[i - 1] as string; // undefinedの可能性,影響なし
+                ctx.distance++;
+                const prevLn = state.lines[ctx.row - 1];
+                if (prevLn && prevLn.text === "") {
+                    break;
+                }
+                continue;
+            }
 
-        if (isWhitespace(prevChar)) {
-            break;
-        }
+            ctx.col = (ctx.row === startRow) ? state.col - 1 : line.size - 1;
 
-        if (pauseAt === "symbol" && !isSymbol(prevChar)) {
-            break;
-        }
-        else if (pauseAt === "normal" && isSymbol(prevChar)) {
-            break;
-        }
-    }
-    return distance;
-}
+            for (; ctx.col >= 0; ctx.col--) {
+                ctx.distance++;
+                const ch = line.text[ctx.col] as string;
+                if (isWhitespace(ch)) continue;
 
-export function getDistanceWORDBackward(state: EditorState): number {
-    let distance = 0;
-    const currLine = state.lines[state.row];
-    if (!currLine) throw new Error("currLine is undefined");
-    const currLineText = currLine.text.slice(0, state.col);
-    const prevLine = state.lines[state.row - 1];
-    const prevLineText = prevLine ? prevLine.text : "";
-    const searching = prevLineText + " " + currLineText;
+                if (seperator === "word") {
+                    // 連続した空白を抜けてから最初に現れた文字に応じて停止位置を決定
+                    if (isSymbol(ch)) {
+                        ctx.stopAt = "symbol";
+                    } else {
+                        ctx.stopAt = "normal";
+                    }
+                }
+                ctx.doStop = true;
+                break;
+            }
 
-    for (let i = searching.length - 1; i >= 0; i--) {
-        distance++;
-        const currChar = searching[i] as string;
-        const prevChar = searching[i - 1] as string; // undefinedの可能性,影響なし
-
-        if (isWhitespace(prevChar) && !isWhitespace(currChar)) {
-            break;
+            if (ctx.doStop) break;
+            ctx.distance++;
         }
     }
-    return distance;
+
+    const targetLine = state.lines[ctx.row];
+    if (!targetLine) {
+        const distance = state.col;
+        return { distance, destRow: state.lines.length - 1, destCol: 0 }; 
+    }
+
+    let stopCondition: (currCh: string, prevCh: string) => boolean;
+    if (seperator === "WORD") {
+        stopCondition = (currCh, prevCh) => isWhitespace(prevCh) && !isWhitespace(currCh);
+
+    } else if (ctx.stopAt === "normal") {
+        stopCondition = (_, prevCh) => isWhitespace(prevCh) || isSymbol(prevCh);
+
+    } else if (ctx.stopAt === "symbol") {
+        stopCondition = (_, prevCh) => isWhitespace(prevCh) || !isSymbol(prevCh);
+
+    } else {
+        stopCondition = () => false;
+    }
+
+    if (targetLine.size >= 1) {
+        for (; ctx.col >= 0; ctx.col--) {
+            const ch = targetLine.text[ctx.col] as string;
+            const prevCh = targetLine.text[ctx.col - 1] ?? " ";
+            if (stopCondition(ch, prevCh)) break;
+            ctx.distance++;
+        }
+    }
+
+    return { distance: ctx.distance, destRow: ctx.row, destCol: ctx.col };
 }
 
 type TailMovingCtx = MovingCtx & {
@@ -410,11 +455,15 @@ export function getMotionRange(
             }
             else if (motion.name === "b") {
                 // b/B motionは複数行にまたがることがある
-                start.col = Math.max(0, start.col - getDistanceWordBackward(state));
+                const { destRow, destCol } = moveBackward(state, "word");
+                start.row = destRow;
+                start.col = destCol;
                 end.col--;
             }
             else if (motion.name === "B") {
-                start.col = Math.max(0, start.col - getDistanceWORDBackward(state));
+                const { destRow, destCol } = moveBackward(state, "WORD");
+                start.row = destRow;
+                start.col = destCol;
                 end.col--;
             }
             else if (motion.name === "e") {
