@@ -5,7 +5,7 @@ import { Line, getLines } from "./line";
 import { isFunctionKey, MOVE_KEYS, type MoveKey } from "./keys";
 import { hideElement, showElement } from "./dom";
 import { LOGICAL_HALF_WIDTH, LOGICAL_FULL_WIDTH, calcLogicalWidth, logicalWidthToCol } from "./utils";
-import { getCountToNextChar, getFirstNonWhitespaceCol, getMotionRange, getDistanceWordBackward, getDistanceWORDBackward, getDistanceWordTail, getDistanceWORDTail, moveForward } from "./myvim/motion";
+import { getCountToNextChar, getFirstNonWhitespaceCol, getMotionRange, getDistanceWordBackward, getDistanceWORDBackward, moveForward, moveTail } from "./myvim/motion";
 import { parseCommand } from "./myvim/parser";
 import type { InsertCommand, Motion } from "./myvim/parser/command";
 import { readClipboard, writeClipboard } from "./clipboard";
@@ -258,11 +258,11 @@ export class Editor {
             for (let i = 0; i < distance; i++) this.moveCursor(MOVE_KEYS.LEFT);
         },
         "e": () => {
-            const { distance } = getDistanceWordTail(this.state);
+            const { distance } = moveTail(this.state, "word");
             for (let i = 0; i < distance; i++) this.moveCursor(MOVE_KEYS.RIGHT);
         },
         "E": () => {
-            const { distance } = getDistanceWORDTail(this.state);
+            const { distance } = moveTail(this.state, "WORD");
             for (let i = 0; i < distance; i++) this.moveCursor(MOVE_KEYS.RIGHT);
         },
     };

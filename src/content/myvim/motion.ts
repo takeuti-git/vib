@@ -63,86 +63,19 @@ type HorizontalMotion = {
     destCol: number;
 };
 
-function getDistanceWordForward(state: EditorState): number {
-    let distance = 0;
-    const currLine = state.lines[state.row];
-    if (!currLine) throw new Error("currLine is undefined");
-    const currLineText = currLine.text.slice(state.col);
-    const nextLine = state.lines[state.row + 1];
-    const nextLineText = nextLine ? nextLine.text : "";
-    const searching = currLineText + " " + nextLineText;
-
-    if (isWhitespace(searching)) {
-        // カーソルから次の行の中で文字が1つもないとき
-        return 1;
-    }
-
-    const isFirstSymbol = isSymbol(searching[0] as string);
-
-    for (let i = 0; i < searching.length; i++) {
-        const currChar = searching[i] as string;
-        if (isWhitespace(currChar)) {
-            // 空白が現れたら次の空白ではない文字まで移動する
-            const sliced = searching.slice(i);
-            for (let j = 0; j < sliced.length; j++) {
-                if (!isWhitespace(sliced[j] as string)) {
-                    break;
-                }
-                distance++;
-            }
-            break;
-        }
-        if (isFirstSymbol) {
-            // 検索開始地点が記号の時
-            if (!isSymbol(currChar)) {
-                // 記号ではない文字に到達したらbreak
-                break;
-            }
-        } else {
-            // 検索開始地点が記号ではない時
-            if (isSymbol(currChar)) {
-                // 記号文字に到達したらbreak
-                break;
-            }
-        }
-        distance++;
-    }
-
-    return distance;
-}
-
-function getDistanceWORDForward(state: EditorState): number {
-    let distance = 0;
-    const currLine = state.lines[state.row];
-    if (!currLine) throw new Error("currLine is undefined");
-    const currLineText = currLine.text.slice(state.col);
-    const nextLine = state.lines[state.row + 1];
-    const nextLineText = nextLine ? nextLine.text : "";
-    const searching = currLineText + " " + nextLineText;
-
-    for (let i = 0; i < searching.length; i++) {
-        const currChar = searching[i] as string;
-        const prevChar = searching[i - 1] as string;
-
-        if (isWhitespace(prevChar) && !isWhitespace(currChar)) {
-            // 空白と空白以外の分かれ目ならループを終了
-            break;
-        }
-        distance++;
-    }
-    return distance;
-}
-
-type ForwardMotionCtx = {
+type MovingCtx = {
     distance: number;
     line: Line;
     row: number;
     col: number;
     doStop: boolean;
-    moveToNext: "any" | "normal" | "symbol";
 };
 
-function wordHelper(ctx: ForwardMotionCtx): void {
+type ForwardMovingCtx = MovingCtx & {
+    moveToNext: "any" | "normal" | "symbol";
+}
+
+function wordHelper(ctx: ForwardMovingCtx): void {
     for (; ctx.col < ctx.line.size; ctx.col++) {
         const currCh = ctx.line.text[ctx.col] ?? " ";
         const isSpace = isWhitespace(currCh);
@@ -162,7 +95,7 @@ function wordHelper(ctx: ForwardMotionCtx): void {
     ctx.moveToNext = "any"; // 改行後に必ずanyに設定
 }
 
-function WORDHelper(ctx: ForwardMotionCtx): void {
+function WORDHelper(ctx: ForwardMovingCtx): void {
     for (; ctx.col < ctx.line.size; ctx.col++) {
         const currCh = ctx.line.text[ctx.col] as string;
         const prevCh = ctx.line.text[ctx.col - 1] ?? " "; // 0文字目より前は空白として扱う
@@ -183,7 +116,7 @@ export function moveForward(state: EditorState, seperator: "word" | "WORD"): Hor
     const startRow = state.row;
     const startCol = state.col;
 
-    const ctx: ForwardMotionCtx = {
+    const ctx: ForwardMovingCtx = {
         distance: 0,
         line: currLine,
         row: state.row,
@@ -211,17 +144,16 @@ export function moveForward(state: EditorState, seperator: "word" | "WORD"): Hor
         ctx.line = line;
 
         if (line.text === "") {
-            ctx.distance++;
-
             if (ctx.row !== startRow) {
+                ctx.distance++;
                 break;
             }
 
             const nextLn = state.lines[ctx.row + 1];
             if (nextLn && nextLn.text === "") {
+                ctx.distance++;
                 break;
             }
-            ctx.distance--;
             continue;
         }
 
@@ -300,153 +232,101 @@ export function getDistanceWORDBackward(state: EditorState): number {
     return distance;
 }
 
+type TailMovingCtx = MovingCtx & {
+    stopAt: "unknown" | "any" | "normal" | "symbol";
+};
+
 /** 単語の末尾まで移動する */
-export function getDistanceWordTail(state: EditorState): HorizontalMotion {
-    let distance = 0;
+export function moveTail(state: EditorState, seperator: "word" | "WORD"): HorizontalMotion {
     const currLine = state.lines[state.row];
-    if (!currLine) {
-        throw new Error("currLine is undefined");
+    if (!currLine) throw new Error("currLine is undefined");
+
+    const nextChar = currLine.text[state.col + 1] ?? " ";
+
+    const ctx: TailMovingCtx = {
+        distance: 0,
+        line: currLine,
+        row: state.row,
+        col: state.col,
+        doStop: false,
+        stopAt: "unknown",
+    };
+
+    if (seperator === "WORD") {
+        ctx.stopAt = (
+            isWhitespace(nextChar) ? "unknown" :
+            "any"
+        );
+    } else {
+        ctx.stopAt = (
+            isWhitespace(nextChar) ? "unknown" :
+            isSymbol(nextChar) ? "symbol" :
+            "normal"
+        );
     }
-    const cursorNextChar = currLine.text[state.col + 1] ?? " ";
 
-    // unknown: 次の文字が空白のため、どこで止まるか分からない状態
-    // symbol : 次の文字がsymbolのため、symbolが終わるまで移動
-    // normal : 次の文字がnormalのため、normalが終わるまで移動
+    const startRow = state.row;
+    const startCol = state.col;
 
-    let stopAt: "unknown" | "symbol" | "normal" = (
-        isWhitespace(cursorNextChar) ? "unknown" :
-        isSymbol(cursorNextChar) ? "symbol" :
-        "normal"
-    );
+    if (ctx.stopAt === "unknown") {
+        // 行を跨いで空白でない文字の先頭まで移動する
+        for (; ctx.row < state.lines.length; ctx.row++) {
+            const line = state.lines[ctx.row];
+            if (!line) throw new Error("line is undefined");
 
-    let rowPtr = state.row;
-    let colPtr = state.col;
+            ctx.col = (ctx.row === startRow) ? startCol + 1 : 0;
 
-    if (stopAt === "unknown") {
-        for (; rowPtr < state.lines.length; rowPtr++) {
-            const line = state.lines[rowPtr];
-            if (!line) {
-                throw new Error("line is undefined");
-            }
+            for (; ctx.col < line.size; ctx.col++) {
+                const ch = line.text[ctx.col] as string;
+                ctx.distance++;
+                if (isWhitespace(ch)) continue;
 
-            let col = state.row === rowPtr ? state.col + 1 : 0; // 実行時の行でないなら行頭から探索
-            let doStop = false;
-
-            while (col < line.text.length) {
-                const ch = line.text[col] as string;
-                col++;
-                distance++;
-                if (isWhitespace(ch)) continue; // 空白でないまで飛ばす
-
-                // ここに到達した時点で連続した空白の先にいる
-                // 空白を超えてから最初に現れた文字を見て、どの区切りで止まるか決定
-                if (isSymbol(ch)) {
-                    stopAt = "symbol";
-                } else {
-                    stopAt = "normal";
+                if (seperator === "word") {
+                    // 連続した空白を抜けてから最初に現れた文字に応じて、停止位置を決定
+                    if (isSymbol(ch)) {
+                        ctx.stopAt = "symbol";
+                    } else {
+                        ctx.stopAt = "normal";
+                    }
                 }
-
-                doStop = true;
-                colPtr = col - 1; // 行の何文字目で止まったか保持する
+                ctx.doStop = true;
                 break;
             }
-
-            if (doStop) break;
-            distance++; // 改行分の移動量を加算
+            if (ctx.doStop) break;
+            ctx.distance++; // 改行分を加算
         }
     }
 
-    const targetLine = state.lines[rowPtr];
+    const targetLine = state.lines[ctx.row];
     if (!targetLine) {
         // targetLine is EOF; fastforward
-        const distance = rowPtr - state.row;
-        return { distance, destRow: state.lines.length - 1, destCol: colPtr }; 
+        const distance = ctx.row - state.row;
+        return { distance, destRow: state.lines.length - 1, destCol: ctx.col }; 
     }
 
     let stopCondition: (ch: string) => boolean;
 
-    switch (stopAt) {
-        case "symbol":
-            stopCondition = (ch) => !isSymbol(ch);
-            break;
-        case "normal":
-            stopCondition = (ch) => isSymbol(ch) || isWhitespace(ch);
-            break;
+    // 停止する条件を決定する
+    if (seperator === "WORD") {
+        stopCondition = isWhitespace; // WORD移動では空白のみを考慮する
 
-        case "unknown": // fallthrough
-        default:
-            throw new Error("invalid stopAt: " + stopAt);
+    } else if (ctx.stopAt === "symbol") {
+        stopCondition = (ch) => !isSymbol(ch);
+
+    } else if (ctx.stopAt === "normal") {
+        stopCondition = (ch) => isSymbol(ch) || isWhitespace(ch);
+
+    } else {
+        throw new Error("invalid stopAt: " + ctx.stopAt);
     }
 
-    for (let i = colPtr; i < targetLine.text.length; i++) {
-        const nextCh = targetLine.text[i + 1] ?? " ";
+    for (; ctx.col < targetLine.size; ctx.col++) {
+        const nextCh = targetLine.text[ctx.col + 1] ?? " ";
         if (stopCondition(nextCh)) break;
-        distance++;
-        colPtr++;
+        ctx.distance++;
     }
 
-    return { distance, destRow: rowPtr, destCol: colPtr };
-}
-
-export function getDistanceWORDTail(state: EditorState): HorizontalMotion {
-    let distance = 0;
-    const currLine = state.lines[state.row];
-    if (!currLine) {
-        throw new Error("currLine is undefined");
-    }
-    const cursorNextChar = currLine.text[state.col + 1] ?? " ";
-
-    let stopAt: "unknown" | "other" = (
-        isWhitespace(cursorNextChar) ? "unknown" :
-        "other"
-    );
-
-    let rowPtr = state.row;
-    let colPtr = state.col;
-
-    if (stopAt === "unknown") {
-        for (; rowPtr < state.lines.length; rowPtr++) {
-            const line = state.lines[rowPtr];
-            if (!line) {
-                throw new Error("line is undefined");
-            }
-
-            let col = state.row === rowPtr ? state.col + 1 : 0; // 実行時の行でないなら行頭から探索
-            let doStop = false;
-
-            while (col < line.text.length) {
-                const ch = line.text[col] as string;
-                col++;
-                distance++;
-                if (isWhitespace(ch)) continue; // 空白でないまで飛ばす
-
-                // ここに到達した時点で連続した空白の先にいる
-
-                doStop = true;
-                colPtr = col - 1; // 行の何文字目で止まったか保持する
-                break;
-            }
-
-            if (doStop) break;
-            distance++; // 改行分の移動量を加算
-        }
-    }
-
-    const targetLine = state.lines[rowPtr];
-    if (!targetLine) {
-        // targetLine is EOF; fastforward
-        const distance = rowPtr - state.row;
-        return { distance, destRow: state.lines.length - 1, destCol: colPtr };
-    }
-
-    for (let i = colPtr; i < targetLine.text.length; i++) {
-        const nextCh = targetLine.text[i + 1] ?? " ";
-        if (isWhitespace(nextCh)) break;
-        distance++;
-        colPtr++;
-    }
-
-    return { distance, destRow: rowPtr, destCol: colPtr };
+    return { distance: ctx.distance, destRow: ctx.row, destCol: ctx.col };
 }
 
 type Point = {
@@ -519,10 +399,14 @@ export function getMotionRange(
             }
             else if (motion.name === "w") {
                 // w/W motionは絶対に複数行を対象範囲にしない
-                end.col += getDistanceWordForward(state) - 1;
+                const { distance } = moveForward(state, "word");
+                const destCol = end.col + distance - 1; // 到達文字は含めないため1を引く
+                end.col = Math.min(currLine.size - 1, destCol); // 行を超えないように
             }
             else if (motion.name === "W") {
-                end.col += getDistanceWORDForward(state) - 1;
+                const { distance } = moveForward(state, "WORD");
+                const destCol = end.col + distance - 1;
+                end.col = Math.min(currLine.size - 1, destCol);
             }
             else if (motion.name === "b") {
                 // b/B motionは複数行にまたがることがある
@@ -535,12 +419,12 @@ export function getMotionRange(
             }
             else if (motion.name === "e") {
                 // e/E motionは複数行にまたがることがある
-                const { destRow, destCol } = getDistanceWordTail(state);
+                const { destRow, destCol } = moveTail(state, "word");
                 end.row = destRow;
                 end.col = destCol;
             }
             else if (motion.name === "E") {
-                const { destRow, destCol } = getDistanceWORDTail(state);
+                const { destRow, destCol } = moveTail(state, "WORD");
                 end.row = destRow;
                 end.col = destCol;
             }
