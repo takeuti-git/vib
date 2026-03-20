@@ -248,7 +248,7 @@ export function moveBackward(state: EditorState, seperator: "word" | "WORD"): Ho
     const targetLine = state.lines[ctx.row];
     if (!targetLine) {
         const distance = state.col;
-        return { distance, destRow: state.lines.length - 1, destCol: 0 }; 
+        return { distance, destRow: 0, destCol: 0 };
     }
 
     let stopCondition: (currCh: string, prevCh: string) => boolean;
@@ -454,17 +454,39 @@ export function getMotionRange(
                 end.col = Math.min(currLine.size - 1, destCol);
             }
             else if (motion.name === "b") {
+                if (state.col === 0 && state.row === 0) {
+                    return undefined;
+                }
                 // b/B motionは複数行にまたがることがある
                 const { destRow, destCol } = moveBackward(state, "word");
                 start.row = destRow;
                 start.col = destCol;
-                end.col--;
+                if (state.col === 0) {
+                    end.row = destRow;
+                    const prevLn = state.lines[end.row];
+                    if (prevLn) {
+                        end.col = prevLn.size - 1;
+                    }
+                } else {
+                    end.col--; // colが1以上のため安全に下げられる
+                }
             }
             else if (motion.name === "B") {
+                if (state.col === 0 && state.row === 0) {
+                    return undefined;
+                }
                 const { destRow, destCol } = moveBackward(state, "WORD");
                 start.row = destRow;
                 start.col = destCol;
-                end.col--;
+                if (state.col === 0) {
+                    end.row = destRow;
+                    const prevLn = state.lines[end.row];
+                    if (prevLn) {
+                        end.col = prevLn.size - 1;
+                    }
+                } else {
+                    end.col--; // colが1以上のため安全に下げられる
+                }
             }
             else if (motion.name === "e") {
                 // e/E motionは複数行にまたがることがある

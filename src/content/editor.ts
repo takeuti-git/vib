@@ -407,6 +407,17 @@ export class Editor {
                         this.insertRow(0, "");
                     }
                 } else {
+                    // カーソル位置を対象範囲の先頭に移動する
+                    while (this.state.row > range.start.row) {
+                        this.moveCursorUp();
+                    }
+                    while (this.state.col < range.start.col) {
+                        this.moveCursor(MOVE_KEYS.RIGHT);
+                    }
+                    while (this.state.col > range.start.col) {
+                        this.moveCursor(MOVE_KEYS.LEFT);
+                    }
+
                     if (range.start.row === range.end.row) {
                         // 同一行内の操作
                         const text = this.currentLine.text;
@@ -435,18 +446,20 @@ export class Editor {
                         // 開始行のスライスヤンク
                         clipboardBuf.push(startRow.text.slice(range.start.col));
 
-                        for (let i = range.start.row + 1; i <= range.end.row; i++) {
-                            // start,end間の行単位のヤンクと削除
+                        // ヤンク用ループ
+                        for (let i = range.start.row + 1; i < range.end.row; i++) {
+                            // 完全行のみを対象にしたループ
                             const line = this.state.lines[i];
-                            if (!line) throw new Error("line is undefined");
+                            if (!line) throw new Error("line for yank is undefined");
+                            clipboardBuf.push(line.text);
+                        }
 
-                            if (i === range.end.row) {
-                                // 終了行のスライスヤンク
-                                clipboardBuf.push(line.text.slice(0, range.end.col + 1));
-                            } else {
-                                clipboardBuf.push(line.text);
-                            }
-                            // spliceによりiがずれるので同じ位置を削除する
+                        // 最終行のスライスヤンク
+                        clipboardBuf.push(endRow.text.slice(0, range.end.col + 1));
+
+                        // 行単位で削除
+                        const delCount = range.end.row - range.start.row;
+                        for (let i = 0; i < delCount; i++) {
                             this.deleteRow(range.start.row + 1);
                         }
 
@@ -464,6 +477,17 @@ export class Editor {
                         clipboardBuf.push(l.text);
                     });
                 } else {
+                    // カーソル位置を対象範囲の先頭に移動する
+                    while (this.state.row > range.start.row) {
+                        this.moveCursorUp();
+                    }
+                    while (this.state.col < range.start.col) {
+                        this.moveCursor(MOVE_KEYS.RIGHT);
+                    }
+                    while (this.state.col > range.start.col) {
+                        this.moveCursor(MOVE_KEYS.LEFT);
+                    }
+
                     if (range.start.row === range.end.row) {
                         // 単一行の操作
                         const text = this.currentLine.text;
