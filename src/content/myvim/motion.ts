@@ -442,23 +442,18 @@ export function getMotionRange(
                 linewise = true;
                 end.row = state.lines.length - 1;
             }
-            else if (motion.name === "w") {
+            else if (motion.name === "w" || motion.name === "W") {
                 // w/W motionは絶対に複数行を対象範囲にしない
-                const { distance } = moveForward(state, "word");
+                const sep = motion.name === "w" ? "word" : "WORD";
+                const { distance } = moveForward(state, sep);
                 const destCol = end.col + distance - 1; // 到達文字は含めないため1を引く
                 end.col = Math.min(currLine.size - 1, destCol); // 行を超えないように
             }
-            else if (motion.name === "W") {
-                const { distance } = moveForward(state, "WORD");
-                const destCol = end.col + distance - 1;
-                end.col = Math.min(currLine.size - 1, destCol);
-            }
-            else if (motion.name === "b") {
-                if (state.col === 0 && state.row === 0) {
-                    return undefined;
-                }
+            else if (motion.name === "b" || motion.name === "B") {
+                if (state.col === 0 && state.row === 0) return undefined;
                 // b/B motionは複数行にまたがることがある
-                const { destRow, destCol } = moveBackward(state, "word");
+                const sep = motion.name === "b" ? "word" : "WORD";
+                const { destRow, destCol } = moveBackward(state, sep);
                 start.row = destRow;
                 start.col = destCol;
                 if (state.col === 0) {
@@ -471,31 +466,10 @@ export function getMotionRange(
                     end.col--; // colが1以上のため安全に下げられる
                 }
             }
-            else if (motion.name === "B") {
-                if (state.col === 0 && state.row === 0) {
-                    return undefined;
-                }
-                const { destRow, destCol } = moveBackward(state, "WORD");
-                start.row = destRow;
-                start.col = destCol;
-                if (state.col === 0) {
-                    end.row = destRow;
-                    const prevLn = state.lines[end.row];
-                    if (prevLn) {
-                        end.col = prevLn.size - 1;
-                    }
-                } else {
-                    end.col--; // colが1以上のため安全に下げられる
-                }
-            }
-            else if (motion.name === "e") {
+            else if (motion.name === "e" || motion.name === "E") {
                 // e/E motionは複数行にまたがることがある
-                const { destRow, destCol } = moveTail(state, "word");
-                end.row = destRow;
-                end.col = destCol;
-            }
-            else if (motion.name === "E") {
-                const { destRow, destCol } = moveTail(state, "WORD");
+                const sep = motion.name === "e" ? "word" : "WORD";
+                const { destRow, destCol } = moveTail(state, sep);
                 end.row = destRow;
                 end.col = destCol;
             }
