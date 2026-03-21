@@ -143,14 +143,14 @@ export function moveForward(state: EditorState, seperator: "word" | "WORD"): Hor
         if (!line) throw new Error("line is undefined");
         ctx.line = line;
 
-        if (line.text === "") {
+        if (line.isEmpty()) {
             if (ctx.row !== startRow) {
                 ctx.distance++;
                 break;
             }
 
             const nextLn = state.lines[ctx.row + 1];
-            if (nextLn && nextLn.text === "") {
+            if (nextLn && nextLn.isEmpty()) {
                 ctx.distance++;
                 break;
             }
@@ -207,7 +207,7 @@ export function moveBackward(state: EditorState, seperator: "word" | "WORD"): Ho
             const line = state.lines[ctx.row];
             if (!line) throw new Error("line is undefined");
 
-            if (line.text === "") {
+            if (line.isEmpty()) {
                 if (ctx.row !== startRow) {
                     // 移動先が何もない行ならそこで止まる
                     break;
@@ -215,7 +215,7 @@ export function moveBackward(state: EditorState, seperator: "word" | "WORD"): Ho
 
                 ctx.distance++;
                 const prevLn = state.lines[ctx.row - 1];
-                if (prevLn && prevLn.text === "") {
+                if (prevLn && prevLn.isEmpty()) {
                     break;
                 }
                 continue;
