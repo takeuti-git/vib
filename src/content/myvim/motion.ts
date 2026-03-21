@@ -245,6 +245,9 @@ export function moveBackward(state: EditorState, separator: "word" | "WORD"): Ho
         }
     }
 
+    ctx.row = Math.max(0, ctx.row);
+    ctx.col = Math.max(0, ctx.col);
+
     const targetLine = state.lines[ctx.row];
     if (!targetLine) {
         const distance = state.col;
@@ -457,10 +460,10 @@ export function getMotionRange(
                 start.row = destRow;
                 start.col = destCol;
                 if (state.col === 0) {
-                    end.row = destRow;
+                    end.row = Math.max(0, end.row - 1);
                     const prevLn = state.lines[end.row];
                     if (prevLn) {
-                        end.col = prevLn.size - 1;
+                        end.col = Math.max(0, prevLn.size - 1);
                     }
                 } else {
                     end.col--; // colが1以上のため安全に下げられる
@@ -616,6 +619,16 @@ export function getMotionRange(
             }
             break;
         }
+    }
+
+    if (
+        start.row === -1 ||
+        start.col === -1 ||
+        end.row === -1 ||
+        end.col === -1
+    ) {
+        console.log(start, end);
+        throw new Error("unexpected negative value")
     }
 
     return { start, end, linewise };
