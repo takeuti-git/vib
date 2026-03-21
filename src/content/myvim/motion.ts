@@ -107,7 +107,7 @@ function WORDHelper(ctx: ForwardMovingCtx): void {
     }
 }
 
-export function moveForward(state: EditorState, seperator: "word" | "WORD"): HorizontalMotion {
+export function moveForward(state: EditorState, separator: "word" | "WORD"): HorizontalMotion {
     const currLine = state.lines[state.row];
     if (!currLine) {
         throw new Error("currLine is undefined");
@@ -125,7 +125,7 @@ export function moveForward(state: EditorState, seperator: "word" | "WORD"): Hor
         moveToNext: "any",
     };
 
-    if (seperator === "word") {
+    if (separator === "word") {
         const startCh = currLine.text[startCol] ?? " ";
         ctx.moveToNext =
             isWhitespace(startCh) ? "any"
@@ -134,7 +134,7 @@ export function moveForward(state: EditorState, seperator: "word" | "WORD"): Hor
     }
 
     const searchHorizontally =
-        seperator === "word"
+        separator === "word"
         ? wordHelper
         : WORDHelper;
 
@@ -159,7 +159,7 @@ export function moveForward(state: EditorState, seperator: "word" | "WORD"): Hor
 
         ctx.col = (ctx.row === startRow) ? startCol + 1 : 0; // 実行時の行でないなら行頭から探索
 
-        searchHorizontally(ctx); // seperatorごとに異なる行内の探索処理を抽象化
+        searchHorizontally(ctx); // separatorごとに異なる行内の探索処理を抽象化
 
         if (ctx.doStop) break;
         ctx.distance++; // 改行分の移動量を加算
@@ -172,7 +172,7 @@ type BackwardMovingCtx = MovingCtx & {
     stopAt: "unknown" | "any" | "normal" | "symbol";
 };
 
-export function moveBackward(state: EditorState, seperator: "word" | "WORD"): HorizontalMotion {
+export function moveBackward(state: EditorState, separator: "word" | "WORD"): HorizontalMotion {
     const currLine = state.lines[state.row];
     if (!currLine) throw new Error("currLine is undefined");
 
@@ -187,7 +187,7 @@ export function moveBackward(state: EditorState, seperator: "word" | "WORD"): Ho
 
     const prevChar = currLine.text[state.col - 1] ?? " ";
 
-    if (seperator === "WORD") {
+    if (separator === "WORD") {
         ctx.stopAt = (
             isWhitespace(prevChar) ? "unknown" :
             "any"
@@ -228,7 +228,7 @@ export function moveBackward(state: EditorState, seperator: "word" | "WORD"): Ho
                 const ch = line.text[ctx.col] as string;
                 if (isWhitespace(ch)) continue;
 
-                if (seperator === "word") {
+                if (separator === "word") {
                     // 連続した空白を抜けてから最初に現れた文字に応じて停止位置を決定
                     if (isSymbol(ch)) {
                         ctx.stopAt = "symbol";
@@ -252,7 +252,7 @@ export function moveBackward(state: EditorState, seperator: "word" | "WORD"): Ho
     }
 
     let stopCondition: (currCh: string, prevCh: string) => boolean;
-    if (seperator === "WORD") {
+    if (separator === "WORD") {
         stopCondition = (currCh, prevCh) => isWhitespace(prevCh) && !isWhitespace(currCh);
 
     } else if (ctx.stopAt === "normal") {
@@ -282,7 +282,7 @@ type TailMovingCtx = MovingCtx & {
 };
 
 /** 単語の末尾まで移動する */
-export function moveTail(state: EditorState, seperator: "word" | "WORD"): HorizontalMotion {
+export function moveTail(state: EditorState, separator: "word" | "WORD"): HorizontalMotion {
     const currLine = state.lines[state.row];
     if (!currLine) throw new Error("currLine is undefined");
 
@@ -297,7 +297,7 @@ export function moveTail(state: EditorState, seperator: "word" | "WORD"): Horizo
         stopAt: "unknown",
     };
 
-    if (seperator === "WORD") {
+    if (separator === "WORD") {
         ctx.stopAt = (
             isWhitespace(nextChar) ? "unknown" :
             "any"
@@ -326,7 +326,7 @@ export function moveTail(state: EditorState, seperator: "word" | "WORD"): Horizo
                 ctx.distance++;
                 if (isWhitespace(ch)) continue;
 
-                if (seperator === "word") {
+                if (separator === "word") {
                     // 連続した空白を抜けてから最初に現れた文字に応じて、停止位置を決定
                     if (isSymbol(ch)) {
                         ctx.stopAt = "symbol";
@@ -352,7 +352,7 @@ export function moveTail(state: EditorState, seperator: "word" | "WORD"): Horizo
     let stopCondition: (ch: string) => boolean;
 
     // 停止する条件を決定する
-    if (seperator === "WORD") {
+    if (separator === "WORD") {
         stopCondition = isWhitespace; // WORD移動では空白のみを考慮する
 
     } else if (ctx.stopAt === "symbol") {
