@@ -617,6 +617,46 @@ export function getMotionRange(
                     start.col--;
                 }
             }
+            else if (target === "[") {
+                const currCh = currLine.text[col] ?? " ";
+
+                if (currCh === "[") {
+                    console.log("already on [", row, col);
+                    const forward = searchPairCharForward(state, "]", "[", true);
+                    if (!forward) return undefined;
+                    end.row = forward.row;
+                    end.col = forward.col;
+
+                } else if (currCh === "]") {
+                    console.log("already on ]", row, col);
+                    const backward = searchPairCharBackward(state, "[", "]", true);
+                    if (!backward) return undefined;
+                    start.row = backward.row;
+                    start.col = backward.col;
+                } else {
+                    const backward = searchPairCharBackward(state, "[", "]");
+                    if (!backward) return undefined;
+                    const forward = searchPairCharForward(state, "]", "[");
+                    if (!forward) return undefined;
+                    start.row = backward.row;
+                    end.row = forward.row;
+                    end.col = forward.col;
+                    start.col = backward.col;
+                }
+                if (motion.inner) {
+                    start.col++;
+                    end.col--;
+                    // 溢れるなら
+                    if (start.col === lines[start.row]!.size) {
+                        start.row++;
+                        start.col = 0;
+                    }
+                    if (end.col === -1) {
+                        end.row--;
+                        end.col = lines[end.row]!.size - 1;
+                    }
+                }
+            }
             break;
         }
     }
@@ -632,4 +672,92 @@ export function getMotionRange(
     }
 
     return { start, end, linewise };
+}
+
+function searchPairCharForward(state: EditorState, targetCh: string, pairCh: string, offset = false): Point | undefined {
+    if (targetCh.length >= 2) throw new Error("targetCh must be a char");
+    if (pairCh.length >= 2) throw new Error("pairCh must be a char");
+    let { row, col } = state;
+    const linesLen = state.lines.length;
+    const startRow = state.row;
+    let doStop = false;
+    let depth = 0;
+
+    for (; row < linesLen; row++) {
+        const line = state.lines[row];
+        if (!line) throw new Error("line is undefined");
+        if (line.isEmpty()) continue;
+        const lineSize = line.size;
+
+        if (row !== startRow) col = 0;
+        else if (offset) col++;
+
+        for (; col < lineSize; col++) {
+            const ch = line.text[col];
+            if (!ch) throw new Error("ch is undefined");
+
+            if (ch === targetCh) {
+                if (depth === 0) {
+                    console.log(`${targetCh} found`, row, col);
+                    doStop = true;
+                    break;
+                } else {
+                    depth--;
+                }
+            }
+            else if (ch === pairCh) {
+                depth++;
+            }
+        }
+        if (doStop) break;
+    }
+
+    if (!doStop) {
+        console.log(`${targetCh} not found in forward`);
+        return undefined;
+    }
+    return { row, col };
+}
+
+function searchPairCharBackward(state: EditorState, targetCh: string, pairCh: string, offset = false): Point | undefined {
+    if (targetCh.length >= 2) throw new Error("targetCh must be a char");
+    if (pairCh.length >= 2) throw new Error("pairCh must be a char");
+    let { row, col } = state;
+    const startRow = state.row;
+    let doStop = false;
+    let depth = 0;
+
+    for (; row >= 0; row--) {
+        const line = state.lines[row];
+        if (!line) throw new Error("line is undefined");
+        if (line.isEmpty()) continue
+
+        if (row !== startRow) col = line.size - 1;
+        else if (offset) col--;
+
+        for (; col >= 0; col--) {
+            const ch = line.text[col];
+            if (!ch) throw new Error(`ch is undefined. "${ch}"`);
+
+            if (ch === targetCh) {
+                if (depth === 0) {
+                    console.log(`${targetCh} found`, row, col);
+                    doStop = true;
+                    break;
+                } else {
+                    depth--;
+                }
+            }
+            else if (ch === pairCh) {
+                depth++;
+            }
+        }
+        if (doStop) break;
+    }
+    if (!doStop) {
+        console.log(`${targetCh} not found in backward`);
+        return undefined;
+    }
+
+    return { row, col };
 }
