@@ -51,15 +51,28 @@ export class Editor {
         this.setupListeners();
     }
 
+    private destElement: HTMLInputElement | HTMLTextAreaElement | null = null;
+
+    private setDestElementValue(): void {
+        if (!this.destElement) {
+            console.error("destElement is null");
+            return;
+        }
+        this.destElement.value = this.state.lines.map(l => l.text).join("\n");
+        // 入力イベントを発火させる:
+        // githubでは入力時にsessionStorageを操作することでPreviewを表示している
+        this.destElement.dispatchEvent(new InputEvent("input", {
+            bubbles: true,
+            cancelable: true,
+        }));
+    }
+
     private setupListeners(): void {
-        let destEl: HTMLInputElement | HTMLTextAreaElement | null = null;
-        const setDestElValue = () => {
-            if (!destEl) return;
-            destEl.value = this.state.lines.map(l => l.text).join("\n");
-        };
+        let setDestElValueTimer: number = 0;
 
         document.addEventListener("keydown", (e) => {
             if (e.altKey && e.code === "KeyV") {
+                e.preventDefault();
                 const activeEl = document.activeElement;
                 if (activeEl === this.input) return;
 
@@ -69,7 +82,7 @@ export class Editor {
                 ) {
                     showElement(this.container);
 
-                    destEl = activeEl;
+                    this.destElement = activeEl;
                     this.input.focus();
 
                     resetState(this.state);
@@ -116,7 +129,7 @@ export class Editor {
                 this.insertText(this.input.value);
                 this.scrollWindow();
                 this.render();
-                setDestElValue();
+                this.setDestElementValue();
 
                 const value = this.input.value;
                 if (value !== "") {
@@ -144,8 +157,9 @@ export class Editor {
 
         this.input.addEventListener("keydown", (e) => {
             const key = e.key
-            if (isFunctionKey(key)) return;
+            if (isFunctionKey(key)) return; // fnキーは通常通り動作させるため早期リターン
             e.preventDefault();
+            e.stopImmediatePropagation(); // サイト側のkeydownイベントを発火させない
             if (e.isComposing) return;
 
             if (e.shiftKey) {
@@ -158,9 +172,9 @@ export class Editor {
             }
 
             if (e.altKey && e.code === "KeyV") {
-                if (destEl) {
-                    destEl.focus();
-                    e.stopPropagation();
+                if (this.destElement) {
+                    this.setDestElementValue();
+                    this.destElement.focus();
                 }
                 return;
             }
@@ -212,7 +226,10 @@ export class Editor {
                 this.render();
             }
 
-            setDestElValue();
+            if (setDestElValueTimer) {
+                clearTimeout(setDestElValueTimer);
+            }
+            setDestElValueTimer = setTimeout(this.setDestElementValue.bind(this), 300);
         });
     }
 
@@ -371,6 +388,7 @@ export class Editor {
                 this.vi_moveCursor(MOVE_KEYS.LEFT);
                 this.scrollWindow();
                 this.render();
+                this.setDestElementValue();
             })();
         }
         else if (datatype === "operator") {
