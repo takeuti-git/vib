@@ -50,4 +50,9 @@ export function resetState(state: EditorState): void {
     state.lines = [];
     state.vi_mode = "normal";
     state.vi_cmd = [];
+    state.vi_lastCmd = [];
+    state.vi_insertBuf = [];
+    state.vi_insertResolve = null;
+    state.vi_yankLinewise = false;
+    state.vi_cursor = "full";
 }
