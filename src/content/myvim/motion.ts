@@ -720,7 +720,6 @@ function searchPairCharForward(lines: Line[], row: number, col: number, targetCh
     if (targetCh.length >= 2) throw new Error("targetCh must be a char");
     if (pairCh.length >= 2) throw new Error("pairCh must be a char");
     const startRow = row;
-    let doStop = false;
     let depth = 0;
 
     for (; row < lines.length; row++) {
@@ -738,8 +737,7 @@ function searchPairCharForward(lines: Line[], row: number, col: number, targetCh
             if (ch === targetCh) {
                 if (depth === 0) {
                     console.log(`${targetCh} found`, row, col);
-                    doStop = true;
-                    break;
+                    return { row, col };
                 } else {
                     depth--;
                 }
@@ -748,21 +746,16 @@ function searchPairCharForward(lines: Line[], row: number, col: number, targetCh
                 depth++;
             }
         }
-        if (doStop) break;
     }
 
-    if (!doStop) {
-        console.log(`${targetCh} not found in forward`);
-        return undefined;
-    }
-    return { row, col };
+    console.log(`${targetCh} not found forward`);
+    return undefined;
 }
 
 function searchPairCharBackward(lines: Line[], row: number, col: number, targetCh: string, pairCh: string): Point | undefined {
     if (targetCh.length >= 2) throw new Error("targetCh must be a char");
     if (pairCh.length >= 2) throw new Error("pairCh must be a char");
     const startRow = row;
-    let doStop = false;
     let depth = 0;
 
     for (; row >= 0; row--) {
@@ -779,8 +772,7 @@ function searchPairCharBackward(lines: Line[], row: number, col: number, targetC
             if (ch === targetCh) {
                 if (depth === 0) {
                     console.log(`${targetCh} found`, row, col);
-                    doStop = true;
-                    break;
+                    return { row, col };
                 } else {
                     depth--;
                 }
@@ -789,12 +781,8 @@ function searchPairCharBackward(lines: Line[], row: number, col: number, targetC
                 depth++;
             }
         }
-        if (doStop) break;
-    }
-    if (!doStop) {
-        console.log(`${targetCh} not found in backward`);
-        return undefined;
     }
 
-    return { row, col };
+    console.log(`${targetCh} not found backward`);
+    return undefined;
 }
