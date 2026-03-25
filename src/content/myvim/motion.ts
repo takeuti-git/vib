@@ -1,5 +1,6 @@
 import type { Line } from "../line";
 import type { EditorState } from "../state";
+import type { MotionRange, RC } from "../types/motion";
 import { CommandType, type CommandContext } from "./parser/commandType";
 import { isSymbol, isWhitespace } from "./symbols";
 
@@ -377,17 +378,6 @@ export function moveTail(state: EditorState, separator: "word" | "WORD"): Horizo
     return { distance: ctx.distance, destRow: ctx.row, destCol: ctx.col };
 }
 
-type Point = {
-    row: number;
-    col: number;
-};
-
-type MotionRange = {
-    start: Point;
-    end: Point;
-    linewise: boolean;
-};
-
 export function getMotionRange(
     state: EditorState,
     ctx: CommandContext
@@ -405,8 +395,8 @@ export function getMotionRange(
     if (!currLine) throw new Error("currLine is undefined");
 
     const motion = ctx.motion;
-    const start: Point = { row, col };
-    const end:   Point = { row, col };
+    const start: RC = { row, col };
+    const end:   RC = { row, col };
     let linewise = false;
 
     switch (motion.type) {
@@ -716,7 +706,7 @@ export function getMotionRange(
     return { start, end, linewise };
 }
 
-function searchPairCharForward(lines: Line[], row: number, col: number, targetCh: string, pairCh: string): Point | undefined {
+function searchPairCharForward(lines: Line[], row: number, col: number, targetCh: string, pairCh: string): RC | undefined {
     if (targetCh.length >= 2) throw new Error("targetCh must be a char");
     if (pairCh.length >= 2) throw new Error("pairCh must be a char");
     const startRow = row;
@@ -752,7 +742,7 @@ function searchPairCharForward(lines: Line[], row: number, col: number, targetCh
     return undefined;
 }
 
-function searchPairCharBackward(lines: Line[], row: number, col: number, targetCh: string, pairCh: string): Point | undefined {
+function searchPairCharBackward(lines: Line[], row: number, col: number, targetCh: string, pairCh: string): RC | undefined {
     if (targetCh.length >= 2) throw new Error("targetCh must be a char");
     if (pairCh.length >= 2) throw new Error("pairCh must be a char");
     const startRow = row;
