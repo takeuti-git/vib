@@ -607,13 +607,14 @@ export function getMotionRange(
                     start.col--;
                 }
             }
-            else if (target === "[" || target === "{" || target === "(") {
+            else if (target === "[" || target === "{" || target === "(" || target === "<") {
                 const currCh = currLine.text[col] ?? " ";
                 const openingCh = target;
                 const closingCh = (
                     target === "[" ? "]" :
                     target === "{" ? "}" :
-                    ")"
+                    target === "(" ? ")" :
+                    ">"
                 );
 
                 if (currCh === openingCh) {
@@ -630,7 +631,7 @@ export function getMotionRange(
 
                 } else {
                     const bwOpening = searchPairChar(lines, row, col, openingCh, closingCh, "bw");
-                    // 後方に有効なopeningChが見つからなければ、カーソル以降に存在する次の有効なペアを探索
+                    // 後方に有効なopeningChが見つからなければ、カーソル以降に存在する次の有効なペアの始まりを探索
                     if (bwOpening) {
                         const fwClosing = searchPairChar(lines, row, col, closingCh, openingCh, "fw");
                         if (!fwClosing) return undefined;
@@ -649,19 +650,19 @@ export function getMotionRange(
                         end.col = fwClosing.col;
                     }
                 }
-            }
 
-            if (motion.inner && (target === "[" || target === "{" || target === "(")) {
-                start.col++;
-                end.col--;
-                // 溢れるなら
-                if (start.col === lines[start.row]!.size) {
-                    start.row++;
-                    start.col = 0;
-                }
-                if (end.col === -1) {
-                    end.row--;
-                    end.col = lines[end.row]!.size - 1;
+                if (motion.inner) {
+                    start.col++;
+                    end.col--;
+                    // 溢れるなら
+                    if (start.col === lines[start.row]!.size) {
+                        start.row++;
+                        start.col = 0;
+                    }
+                    if (end.col === -1) {
+                        end.row--;
+                        end.col = lines[end.row]!.size - 1;
+                    }
                 }
             }
             break;
