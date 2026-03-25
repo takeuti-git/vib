@@ -619,42 +619,84 @@ export function getMotionRange(
             }
             else if (target === "[") {
                 const currCh = currLine.text[col] ?? " ";
+                const openingCh = target;
+                const closingCh = "]";
 
-                if (currCh === "[") {
+                if (currCh === openingCh) {
                     console.log("already on [", row, col);
-                    const forward = searchPairCharForward(state, "]", "[", true);
-                    if (!forward) return undefined;
-                    end.row = forward.row;
-                    end.col = forward.col;
+                    const fwClosing = searchPairCharForward(lines, row, col + 1, closingCh, openingCh);
+                    if (!fwClosing) return undefined;
+                    end.row = fwClosing.row;
+                    end.col = fwClosing.col;
 
-                } else if (currCh === "]") {
+                } else if (currCh === closingCh) {
                     console.log("already on ]", row, col);
-                    const backward = searchPairCharBackward(state, "[", "]", true);
-                    if (!backward) return undefined;
-                    start.row = backward.row;
-                    start.col = backward.col;
+                    const bwOpening = searchPairCharBackward(lines, row, col - 1, openingCh, closingCh);
+                    if (!bwOpening) return undefined;
+                    start.row = bwOpening.row;
+                    start.col = bwOpening.col;
                 } else {
-                    const backward = searchPairCharBackward(state, "[", "]");
-                    if (!backward) return undefined;
-                    const forward = searchPairCharForward(state, "]", "[");
-                    if (!forward) return undefined;
-                    start.row = backward.row;
-                    end.row = forward.row;
-                    end.col = forward.col;
-                    start.col = backward.col;
+                    const bwOpening = searchPairCharBackward(lines, row, col, openingCh, closingCh);
+                    if (!bwOpening) return undefined;
+                    const fwClosing = searchPairCharForward(lines, row, col, closingCh, openingCh);
+                    if (!fwClosing) return undefined;
+                    start.row = bwOpening.row;
+                    end.row = fwClosing.row;
+                    end.col = fwClosing.col;
+                    start.col = bwOpening.col;
                 }
-                if (motion.inner) {
-                    start.col++;
-                    end.col--;
-                    // 溢れるなら
-                    if (start.col === lines[start.row]!.size) {
-                        start.row++;
-                        start.col = 0;
+            }
+            else if (target === "{" || target === "(") {
+                const currCh = currLine.text[col] ?? " ";
+                const openingCh = target;
+                const closingCh = target === "{" ? "}" : ")";
+
+                if (currCh === openingCh) {
+                    const fwClosing = searchPairCharForward(lines, row, col + 1, closingCh, openingCh);
+                    if (!fwClosing) return undefined;
+                    end.row = fwClosing.row;
+                    end.col = fwClosing.col;
+
+                } else if (currCh === closingCh) {
+                    const bwOpening = searchPairCharBackward(lines, row, col - 1, openingCh, closingCh);
+                    if (!bwOpening) return undefined;
+                    start.row = bwOpening.row;
+                    start.col = bwOpening.col;
+
+                } else {
+                    const bwOpening = searchPairCharBackward(lines, row, col, openingCh, closingCh);
+                    // 後方に有効なopeningChが見つからなければ、カーソル以降に存在する次の有効なペアを探索
+                    if (bwOpening) {
+                        const fwClosing = searchPairCharForward(lines, row, col, closingCh, openingCh);
+                        if (!fwClosing) return undefined;
+                        start.row = bwOpening.row;
+                        start.col = bwOpening.col;
+                        end.row = fwClosing.row;
+                        end.col = fwClosing.col;
+                    } else {
+                        const fwOpening = searchPairCharForward(lines, row, col, openingCh, closingCh);
+                        if (!fwOpening) return undefined;
+                        const fwClosing = searchPairCharForward(lines, fwOpening.row, fwOpening.col + 1, closingCh, openingCh);
+                        if (!fwClosing) return undefined;
+                        start.row = fwOpening.row;
+                        start.col = fwOpening.col;
+                        end.row = fwClosing.row;
+                        end.col = fwClosing.col;
                     }
-                    if (end.col === -1) {
-                        end.row--;
-                        end.col = lines[end.row]!.size - 1;
-                    }
+                }
+            }
+
+            if (motion.inner && (target === "[" || target === "{" || target === "(")) {
+                start.col++;
+                end.col--;
+                // 溢れるなら
+                if (start.col === lines[start.row]!.size) {
+                    start.row++;
+                    start.col = 0;
+                }
+                if (end.col === -1) {
+                    end.row--;
+                    end.col = lines[end.row]!.size - 1;
                 }
             }
             break;
@@ -674,23 +716,20 @@ export function getMotionRange(
     return { start, end, linewise };
 }
 
-function searchPairCharForward(state: EditorState, targetCh: string, pairCh: string, offset = false): Point | undefined {
+function searchPairCharForward(lines: Line[], row: number, col: number, targetCh: string, pairCh: string): Point | undefined {
     if (targetCh.length >= 2) throw new Error("targetCh must be a char");
     if (pairCh.length >= 2) throw new Error("pairCh must be a char");
-    let { row, col } = state;
-    const linesLen = state.lines.length;
-    const startRow = state.row;
+    const startRow = row;
     let doStop = false;
     let depth = 0;
 
-    for (; row < linesLen; row++) {
-        const line = state.lines[row];
+    for (; row < lines.length; row++) {
+        const line = lines[row];
         if (!line) throw new Error("line is undefined");
         if (line.isEmpty()) continue;
         const lineSize = line.size;
 
         if (row !== startRow) col = 0;
-        else if (offset) col++;
 
         for (; col < lineSize; col++) {
             const ch = line.text[col];
@@ -719,21 +758,19 @@ function searchPairCharForward(state: EditorState, targetCh: string, pairCh: str
     return { row, col };
 }
 
-function searchPairCharBackward(state: EditorState, targetCh: string, pairCh: string, offset = false): Point | undefined {
+function searchPairCharBackward(lines: Line[], row: number, col: number, targetCh: string, pairCh: string): Point | undefined {
     if (targetCh.length >= 2) throw new Error("targetCh must be a char");
     if (pairCh.length >= 2) throw new Error("pairCh must be a char");
-    let { row, col } = state;
-    const startRow = state.row;
+    const startRow = row;
     let doStop = false;
     let depth = 0;
 
     for (; row >= 0; row--) {
-        const line = state.lines[row];
+        const line = lines[row];
         if (!line) throw new Error("line is undefined");
         if (line.isEmpty()) continue
 
         if (row !== startRow) col = line.size - 1;
-        else if (offset) col--;
 
         for (; col >= 0; col--) {
             const ch = line.text[col];
