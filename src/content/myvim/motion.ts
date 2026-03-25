@@ -607,37 +607,14 @@ export function getMotionRange(
                     start.col--;
                 }
             }
-            else if (target === "[") {
+            else if (target === "[" || target === "{" || target === "(") {
                 const currCh = currLine.text[col] ?? " ";
                 const openingCh = target;
-                const closingCh = "]";
-
-                if (currCh === openingCh) {
-                    const fwClosing = searchPairChar(lines, row, col + 1, closingCh, openingCh, "fw");
-                    if (!fwClosing) return undefined;
-                    end.row = fwClosing.row;
-                    end.col = fwClosing.col;
-
-                } else if (currCh === closingCh) {
-                    const bwOpening = searchPairChar(lines, row, col - 1, openingCh, closingCh, "bw");
-                    if (!bwOpening) return undefined;
-                    start.row = bwOpening.row;
-                    start.col = bwOpening.col;
-                } else {
-                    const bwOpening = searchPairChar(lines, row, col, openingCh, closingCh, "bw");
-                    if (!bwOpening) return undefined;
-                    const fwClosing = searchPairChar(lines, row, col, closingCh, openingCh, "fw");
-                    if (!fwClosing) return undefined;
-                    start.row = bwOpening.row;
-                    end.row = fwClosing.row;
-                    end.col = fwClosing.col;
-                    start.col = bwOpening.col;
-                }
-            }
-            else if (target === "{" || target === "(") {
-                const currCh = currLine.text[col] ?? " ";
-                const openingCh = target;
-                const closingCh = target === "{" ? "}" : ")";
+                const closingCh = (
+                    target === "[" ? "]" :
+                    target === "{" ? "}" :
+                    ")"
+                );
 
                 if (currCh === openingCh) {
                     const fwClosing = searchPairChar(lines, row, col + 1, closingCh, openingCh, "fw");
@@ -761,4 +738,5 @@ function searchPairChar(
     }
 
     return undefined;
+
 }
