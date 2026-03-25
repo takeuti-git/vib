@@ -29,29 +29,21 @@ export function getCountToNextChar(
     text: string,
     { limit = 1, reverse = false, stopBefore = false }: Partial<FindOptions> = {},
 ): number {
+    if (limit <= 0) throw new Error("limit must exceed 0");
     if (searchChar.length !== 1) throw new Error("searchChar must be one character");
-    let count = 0;
+    let distance = 0;
 
-    if (reverse) {
-        for (let i = text.length - 1; i >= 0; i--) {
-            count++;
-            if (searchChar === text[i]) {
-                limit--;
-                if (limit === 0) {
-                    if (stopBefore) count--;
-                    return count;
-                }
-            }
-        }
-    } else {
-        for (let i = 0; i < text.length; i++) {
-            count++;
-            if (searchChar === text[i]) {
-                limit--;
-                if (limit === 0) {
-                    if (stopBefore) count--;
-                    return count;
-                }
+    for (
+        let i = reverse ? text.length - 1 : 0;
+        reverse ? i >= 0 : i < text.length;
+        reverse ? i-- : i++
+    ) {
+        distance++;
+        if (searchChar === text[i]) {
+            limit--;
+            if (limit === 0) {
+                if (stopBefore) distance--;
+                return distance;
             }
         }
     }
