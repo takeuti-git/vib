@@ -502,6 +502,9 @@ export class Editor {
                     while (this.state.row > range.start.row) {
                         this.moveCursorUp();
                     }
+                    while (this.state.row < range.start.row) {
+                        this.moveCursorDown();
+                    }
                     while (this.state.col < range.start.col) {
                         this.moveCursor(MOVE_KEYS.RIGHT);
                     }

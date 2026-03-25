@@ -613,22 +613,20 @@ export function getMotionRange(
                 const closingCh = "]";
 
                 if (currCh === openingCh) {
-                    console.log("already on [", row, col);
-                    const fwClosing = searchPairCharForward(lines, row, col + 1, closingCh, openingCh);
+                    const fwClosing = searchPairChar(lines, row, col + 1, closingCh, openingCh, "fw");
                     if (!fwClosing) return undefined;
                     end.row = fwClosing.row;
                     end.col = fwClosing.col;
 
                 } else if (currCh === closingCh) {
-                    console.log("already on ]", row, col);
-                    const bwOpening = searchPairCharBackward(lines, row, col - 1, openingCh, closingCh);
+                    const bwOpening = searchPairChar(lines, row, col - 1, openingCh, closingCh, "bw");
                     if (!bwOpening) return undefined;
                     start.row = bwOpening.row;
                     start.col = bwOpening.col;
                 } else {
-                    const bwOpening = searchPairCharBackward(lines, row, col, openingCh, closingCh);
+                    const bwOpening = searchPairChar(lines, row, col, openingCh, closingCh, "bw");
                     if (!bwOpening) return undefined;
-                    const fwClosing = searchPairCharForward(lines, row, col, closingCh, openingCh);
+                    const fwClosing = searchPairChar(lines, row, col, closingCh, openingCh, "fw");
                     if (!fwClosing) return undefined;
                     start.row = bwOpening.row;
                     end.row = fwClosing.row;
@@ -642,31 +640,31 @@ export function getMotionRange(
                 const closingCh = target === "{" ? "}" : ")";
 
                 if (currCh === openingCh) {
-                    const fwClosing = searchPairCharForward(lines, row, col + 1, closingCh, openingCh);
+                    const fwClosing = searchPairChar(lines, row, col + 1, closingCh, openingCh, "fw");
                     if (!fwClosing) return undefined;
                     end.row = fwClosing.row;
                     end.col = fwClosing.col;
 
                 } else if (currCh === closingCh) {
-                    const bwOpening = searchPairCharBackward(lines, row, col - 1, openingCh, closingCh);
+                    const bwOpening = searchPairChar(lines, row, col - 1, openingCh, closingCh, "bw");
                     if (!bwOpening) return undefined;
                     start.row = bwOpening.row;
                     start.col = bwOpening.col;
 
                 } else {
-                    const bwOpening = searchPairCharBackward(lines, row, col, openingCh, closingCh);
+                    const bwOpening = searchPairChar(lines, row, col, openingCh, closingCh, "bw");
                     // 後方に有効なopeningChが見つからなければ、カーソル以降に存在する次の有効なペアを探索
                     if (bwOpening) {
-                        const fwClosing = searchPairCharForward(lines, row, col, closingCh, openingCh);
+                        const fwClosing = searchPairChar(lines, row, col, closingCh, openingCh, "fw");
                         if (!fwClosing) return undefined;
                         start.row = bwOpening.row;
                         start.col = bwOpening.col;
                         end.row = fwClosing.row;
                         end.col = fwClosing.col;
                     } else {
-                        const fwOpening = searchPairCharForward(lines, row, col, openingCh, closingCh);
+                        const fwOpening = searchPairChar(lines, row, col, openingCh, closingCh, "fw");
                         if (!fwOpening) return undefined;
-                        const fwClosing = searchPairCharForward(lines, fwOpening.row, fwOpening.col + 1, closingCh, openingCh);
+                        const fwClosing = searchPairChar(lines, fwOpening.row, fwOpening.col + 1, closingCh, openingCh, "fw");
                         if (!fwClosing) return undefined;
                         start.row = fwOpening.row;
                         start.col = fwOpening.col;
@@ -699,80 +697,68 @@ export function getMotionRange(
         end.row === -1 ||
         end.col === -1
     ) {
-        console.log(start, end);
+        console.error(start, end);
         throw new Error("unexpected negative value")
     }
 
     return { start, end, linewise };
 }
 
-function searchPairCharForward(lines: Line[], row: number, col: number, targetCh: string, pairCh: string): RC | undefined {
-    if (targetCh.length >= 2) throw new Error("targetCh must be a char");
-    if (pairCh.length >= 2) throw new Error("pairCh must be a char");
+function* iteratePosition(
+    lines: readonly Line[],
+    row: number,
+    col: number,
+    direction: "fw" | "bw"
+): Generator<{ row: number; col: number; ch: string }> {
+    const forward = direction === "fw";
     const startRow = row;
-    let depth = 0;
 
-    for (; row < lines.length; row++) {
+    for (
+        ;
+        forward ? row < lines.length : row >= 0;
+        forward ? row++ : row--
+    ) {
         const line = lines[row];
         if (!line) throw new Error("line is undefined");
         if (line.isEmpty()) continue;
-        const lineSize = line.size;
 
-        if (row !== startRow) col = 0;
+        if (row !== startRow) col = forward ? 0 : line.size - 1;
 
-        for (; col < lineSize; col++) {
+        for (
+            ;
+            forward ? col < line.size : col >= 0;
+            forward ? col++ : col--
+        ) {
             const ch = line.text[col];
             if (!ch) throw new Error("ch is undefined");
-
-            if (ch === targetCh) {
-                if (depth === 0) {
-                    console.log(`${targetCh} found`, row, col);
-                    return { row, col };
-                } else {
-                    depth--;
-                }
-            }
-            else if (ch === pairCh) {
-                depth++;
-            }
+            yield { row, col, ch };
         }
     }
-
-    console.log(`${targetCh} not found forward`);
-    return undefined;
 }
 
-function searchPairCharBackward(lines: Line[], row: number, col: number, targetCh: string, pairCh: string): RC | undefined {
-    if (targetCh.length >= 2) throw new Error("targetCh must be a char");
-    if (pairCh.length >= 2) throw new Error("pairCh must be a char");
-    const startRow = row;
+function searchPairChar(
+    lines: readonly Line[],
+    startRow: number,
+    startCol: number,
+    targetCh: string,
+    pairCh: string,
+    direction: "fw" | "bw",
+): RC | undefined {
+    if (targetCh === pairCh) throw new Error(`duplicated arguments: targetCh: "${targetCh}", pairCh: "${pairCh}"`);
+    if (targetCh.length >= 2) throw new Error(`targetCh must be a char. targetCh: "${targetCh}"`);
+    if (pairCh.length >= 2) throw new Error(`pairCh must be a char. pairCh: "${pairCh}"`);
     let depth = 0;
 
-    for (; row >= 0; row--) {
-        const line = lines[row];
-        if (!line) throw new Error("line is undefined");
-        if (line.isEmpty()) continue
-
-        if (row !== startRow) col = line.size - 1;
-
-        for (; col >= 0; col--) {
-            const ch = line.text[col];
-            if (!ch) throw new Error(`ch is undefined. "${ch}"`);
-
-            if (ch === targetCh) {
-                if (depth === 0) {
-                    console.log(`${targetCh} found`, row, col);
-                    return { row, col };
-                } else {
-                    depth--;
-                }
+    for (const { row, col, ch } of iteratePosition(lines, startRow, startCol, direction)) {
+        if (ch === targetCh) {
+            if (depth === 0) {
+                return { row, col };
             }
-            else if (ch === pairCh) {
-                depth++;
-            }
+            depth--;
+        } else if (ch === pairCh) {
+            depth++;
         }
     }
 
-    console.log(`${targetCh} not found backward`);
     return undefined;
 }
