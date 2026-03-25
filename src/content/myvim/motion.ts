@@ -715,8 +715,8 @@ function searchPairChar(
     direction: "fw" | "bw",
 ): RC | undefined {
     if (targetCh === pairCh) throw new Error(`duplicated arguments: targetCh: "${targetCh}", pairCh: "${pairCh}"`);
-    if (targetCh.length >= 2) throw new Error(`targetCh must be a char. targetCh: "${targetCh}"`);
-    if (pairCh.length >= 2) throw new Error(`pairCh must be a char. pairCh: "${pairCh}"`);
+    if (targetCh.length !== 1) throw new Error(`targetCh must be a char. targetCh: "${targetCh}"`);
+    if (pairCh.length !== 1) throw new Error(`pairCh must be a char. pairCh: "${pairCh}"`);
     let depth = 0;
 
     for (const { row, col, ch } of iteratePosition(lines, startRow, startCol, direction)) {
