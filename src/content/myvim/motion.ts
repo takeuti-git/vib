@@ -610,31 +610,31 @@ export function getMotionRange(
                 );
 
                 if (currCh === openingCh) {
-                    const fwClosing = searchPairChar(lines, row, col + 1, closingCh, openingCh, "fw");
+                    const fwClosing = searchPairCharForward(lines, row, col + 1, closingCh, openingCh);
                     if (!fwClosing) return undefined;
                     end.row = fwClosing.row;
                     end.col = fwClosing.col;
 
                 } else if (currCh === closingCh) {
-                    const bwOpening = searchPairChar(lines, row, col - 1, openingCh, closingCh, "bw");
+                    const bwOpening = searchPairCharBackward(lines, row, col - 1, openingCh, closingCh);
                     if (!bwOpening) return undefined;
                     start.row = bwOpening.row;
                     start.col = bwOpening.col;
 
                 } else {
-                    const bwOpening = searchPairChar(lines, row, col, openingCh, closingCh, "bw");
+                    const bwOpening = searchPairCharBackward(lines, row, col, openingCh, closingCh);
                     // 後方に有効なopeningChが見つからなければ、カーソル以降に存在する次の有効なペアの始まりを探索
                     if (bwOpening) {
-                        const fwClosing = searchPairChar(lines, row, col, closingCh, openingCh, "fw");
+                        const fwClosing = searchPairCharForward(lines, row, col, closingCh, openingCh);
                         if (!fwClosing) return undefined;
                         start.row = bwOpening.row;
                         start.col = bwOpening.col;
                         end.row = fwClosing.row;
                         end.col = fwClosing.col;
                     } else {
-                        const fwOpening = searchPairChar(lines, row, col, openingCh, closingCh, "fw");
+                        const fwOpening = searchPairCharForward(lines, row, col, openingCh, closingCh);
                         if (!fwOpening) return undefined;
-                        const fwClosing = searchPairChar(lines, fwOpening.row, fwOpening.col + 1, closingCh, openingCh, "fw");
+                        const fwClosing = searchPairCharForward(lines, fwOpening.row, fwOpening.col + 1, closingCh, openingCh);
                         if (!fwClosing) return undefined;
                         start.row = fwOpening.row;
                         start.col = fwOpening.col;
@@ -731,5 +731,26 @@ function searchPairChar(
     }
 
     return undefined;
+}
 
+/** helper for searchPairChar */
+function searchPairCharForward(
+    lines: readonly Line[],
+    startRow: number,
+    startCol: number,
+    targetCh: string,
+    pairCh: string
+) {
+    return searchPairChar(lines, startRow, startCol, targetCh, pairCh, "fw");
+}
+
+/** helper for searchPairChar */
+function searchPairCharBackward(
+    lines: readonly Line[],
+    startRow: number,
+    startCol: number,
+    targetCh: string,
+    pairCh: string
+) {
+    return searchPairChar(lines, startRow, startCol, targetCh, pairCh, "bw");
 }
