@@ -334,22 +334,22 @@ export class Editor {
                 if (name === "f") {
                     const text = this.currentLine.text.slice(this.state.col + 1);
                     const moveAmount = getCountToNextChar(arg, text, { limit: count });
-                    this.vi_moveCursor(MOVE_KEYS.RIGHT, moveAmount);
+                    for (let i = 0; i < moveAmount; i++) this.vi_moveCursor(MOVE_KEYS.RIGHT);
                 }
                 else if (name === "F") {
                     const text = this.currentLine.text.slice(0, this.state.col);
                     const moveAmount = getCountToNextChar(arg, text, { limit: count, reverse: true });
-                    this.vi_moveCursor(MOVE_KEYS.LEFT, moveAmount);
+                    for (let i = 0; i < moveAmount; i++) this.vi_moveCursor(MOVE_KEYS.LEFT);
                 }
                 else if (name === "t") {
                     const text = this.currentLine.text.slice(this.state.col + 1);
                     const moveAmount = getCountToNextChar(arg, text, { limit: count, stopBefore: true });
-                    this.vi_moveCursor(MOVE_KEYS.RIGHT, moveAmount);
+                    for (let i = 0; i < moveAmount; i++) this.vi_moveCursor(MOVE_KEYS.RIGHT);
                 }
                 else if (name === "T") {
                     const text = this.currentLine.text.slice(0, this.state.col);
                     const moveAmount = getCountToNextChar(arg, text, { limit: count, reverse: true, stopBefore: true });
-                    this.vi_moveCursor(MOVE_KEYS.LEFT, moveAmount);
+                    for (let i = 0; i < moveAmount; i++) this.vi_moveCursor(MOVE_KEYS.LEFT);
                 }
             }
         }
@@ -556,7 +556,8 @@ export class Editor {
                         const before = currLine.text.slice(0, currCol + delta);
                         const after = currLine.text.slice(currCol + delta);
                         currLine.text = before + text + after;
-                        this.vi_moveCursor(MOVE_KEYS.RIGHT, text.length);
+                        const moveAmount = isBefore ? text.length - 1 : text.length;
+                        for (let i = 0; i < moveAmount; i++) this.vi_moveCursor(MOVE_KEYS.RIGHT);
                     } else {
                         // 改行を含む文字列をペーストする
                         const firstClipText = lines[0] as string;
@@ -568,7 +569,7 @@ export class Editor {
                         currLine.text = currLine.text.slice(0, currCol + delta) + firstClipText;
                         const lastLineText = lastClipText + currLineTail;
                         this.insertRow(this.state.row + 1, lastLineText);
-                        this.vi_moveCursor(MOVE_KEYS.RIGHT, delta); // 仕様上,1文字だけ動くことがある
+                        if (delta === 1) this.vi_moveCursor(MOVE_KEYS.RIGHT);
 
                         const newLineCount = lines.length - 1;
                         if (newLineCount >= 2) {
@@ -803,33 +804,31 @@ export class Editor {
         }
     }
 
-    private vi_moveCursor(key: MoveKey, count = 1): void {
-        for (let i = 0; i < count; i++) {
-            switch (key) {
-                case MOVE_KEYS.LEFT: {
-                    if (this.state.col !== 0) {
-                        this.moveCursorLeft();
-                    }
-                    break;
+    private vi_moveCursor(key: MoveKey): void {
+        switch (key) {
+            case MOVE_KEYS.LEFT: {
+                if (this.state.col !== 0) {
+                    this.moveCursorLeft();
                 }
-                case MOVE_KEYS.RIGHT: {
-                    if (this.state.col < this.currentLine.size - 1) {
-                        this.moveCursorRight();
-                    }
-                    break;
+                break;
+            }
+            case MOVE_KEYS.RIGHT: {
+                if (this.state.col < this.currentLine.size - 1) {
+                    this.moveCursorRight();
                 }
-                case MOVE_KEYS.UP: {
-                    if (this.state.row !== 0) {
-                        this.moveCursorUp();
-                    }
-                    break;
+                break;
+            }
+            case MOVE_KEYS.UP: {
+                if (this.state.row !== 0) {
+                    this.moveCursorUp();
                 }
-                case MOVE_KEYS.DOWN: {
-                    if (this.state.row < this.state.lines.length - 1) {
-                        this.moveCursorDown();
-                    }
-                    break;
+                break;
+            }
+            case MOVE_KEYS.DOWN: {
+                if (this.state.row < this.state.lines.length - 1) {
+                    this.moveCursorDown();
                 }
+                break;
             }
         }
     }
