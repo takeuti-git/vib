@@ -426,18 +426,7 @@ export class Editor {
                     }
                 } else {
                     // カーソル位置を対象範囲の先頭に移動する
-                    while (this.state.row > range.start.row) {
-                        this.moveCursorUp();
-                    }
-                    while (this.state.row < range.start.row) {
-                        this.moveCursorDown();
-                    }
-                    while (this.state.col < range.start.col) {
-                        this.moveCursor(MOVE_KEYS.RIGHT);
-                    }
-                    while (this.state.col > range.start.col) {
-                        this.moveCursor(MOVE_KEYS.LEFT);
-                    }
+                    this.moveCursorToRC(range.start.row, range.start.col);
 
                     if (range.start.row === range.end.row) {
                         // 同一行内の操作
@@ -499,18 +488,7 @@ export class Editor {
                     });
                 } else {
                     // カーソル位置を対象範囲の先頭に移動する
-                    while (this.state.row > range.start.row) {
-                        this.moveCursorUp();
-                    }
-                    while (this.state.row < range.start.row) {
-                        this.moveCursorDown();
-                    }
-                    while (this.state.col < range.start.col) {
-                        this.moveCursor(MOVE_KEYS.RIGHT);
-                    }
-                    while (this.state.col > range.start.col) {
-                        this.moveCursor(MOVE_KEYS.LEFT);
-                    }
+                    this.moveCursorToRC(range.start.row, range.start.col);
 
                     if (range.start.row === range.end.row) {
                         // 単一行の操作
@@ -1058,6 +1036,14 @@ export class Editor {
         const logicalWidth = Math.min(this.state.logicalWidth, calcLogicalWidth(destLine.text));
         const col = logicalWidthToCol(logicalWidth, destLine.text);
         this.state.col = col;
+        this.state.logicalWidth = calcLogicalWidth(destLine.text.slice(0, col));
+    }
+
+    private moveCursorToRC(row: number, col: number) {
+        this.state.row = row;
+        this.state.col = col;
+        const destLine = this.state.lines[row];
+        if (!destLine) throw new Error("destLine is undefined");
         this.state.logicalWidth = calcLogicalWidth(destLine.text.slice(0, col));
     }
 
