@@ -86,7 +86,16 @@ export class Editor {
                     this.input.focus();
 
                     resetState(this.state);
-                    this.state.lines = getLines(activeEl.value);
+
+                    // getLinesの仕様上、文字列が空でも必ず1要素の配列になる
+                    const newLines = getLines(activeEl.value);
+                    if (newLines.length === 0) throw new Error("getLines must return array within at least one element");
+                    const lastLine = newLines[newLines.length - 1] as Line;
+                    const lastRow = newLines.length - 1;
+                    const lastCol = lastLine.isEmpty() ? 0 : lastLine.size - 1;
+                    this.state.lines = newLines;
+                    this.moveCursorToRC(lastRow, lastCol);
+                    this.scrollWindow();
                     this.render();
                 }
                 return;
