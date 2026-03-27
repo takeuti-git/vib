@@ -5,6 +5,7 @@ export type EditorState = {
     col: number; // 現在の行内の文字数
     px: number; // フォント幅を考慮したピクセル単位のx座標
     logicalWidth: number; // 全角半角を考慮した文字数(半角:1, 全角: 2)
+    preferredWidth: number; // 最後に左右移動した値の保持
     rowoff: number; // 縦スクロール時の行のずれ
     logicaloff: number;
     lines: Line[];
@@ -24,6 +25,7 @@ export function createEditorState(): EditorState {
         col: 0,
         px: 0,
         logicalWidth: 0,
+        preferredWidth: 0,
         rowoff: 0,
         logicaloff: 0,
         lines: [

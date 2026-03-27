@@ -55,7 +55,6 @@ export class Editor {
 
     private setDestElementValue(): void {
         if (!this.destElement) {
-            console.error("destElement is null");
             return;
         }
         this.destElement.value = this.state.lines.map(l => l.text).join("\n");
@@ -775,6 +774,7 @@ export class Editor {
                     this.state.row--;
                     this.state.col = prevLineLen;
                     this.state.logicalWidth = calcLogicalWidth(prevLine.text);
+                    this.syncPreferredWidth();
                 }
                 break;
             }
@@ -786,6 +786,7 @@ export class Editor {
                     this.state.row++;
                     this.state.col = 0;
                     this.state.logicalWidth = 0;
+                    this.syncPreferredWidth();
                 }
                 break;
             }
@@ -845,8 +846,9 @@ export class Editor {
     /** 半角文字から全角文字に上下移動する時、移動前が移動後の後ろ側なら右に寄せる */
     private alignCursorToLeft(widthBeforeMove: number): void {
         if (this.state.logicalWidth >= widthBeforeMove + LOGICAL_FULL_WIDTH) {
-            this.state.logicalWidth -= LOGICAL_HALF_WIDTH;
             this.state.col--;
+            this.state.logicalWidth -= LOGICAL_HALF_WIDTH;
+            this.syncPreferredWidth();
         }
     }
 
@@ -858,6 +860,7 @@ export class Editor {
         this.state.row++;
         this.state.col = 0;
         this.state.logicalWidth = 0;
+        this.syncPreferredWidth();
         this.insertRow(this.state.row, textAfter);
     }
 
@@ -866,12 +869,14 @@ export class Editor {
         this.state.row += 1;
         this.state.col = 0;
         this.state.logicalWidth = 0;
+        this.syncPreferredWidth();
     }
 
     private insertNewLineCurrent(): void {
         this.insertRow(this.state.row, "");
         this.state.col = 0;
         this.state.logicalWidth = 0;
+        this.syncPreferredWidth();
     }
 
     private insertText(text: string, { replace = false } = {}): void {
@@ -887,8 +892,9 @@ export class Editor {
         } else {
             this.insertTextInLine(currLine, text);
         }
-        this.state.logicalWidth += calcLogicalWidth(text);
         this.state.col += text.length
+        this.state.logicalWidth += calcLogicalWidth(text);
+        this.syncPreferredWidth();
     }
 
     /** col - 1 の文字を削除する */
@@ -912,6 +918,7 @@ export class Editor {
             this.deleteRow(this.state.row);
             this.state.row--;
         }
+        this.syncPreferredWidth();
     }
 
     private indent(): void {
@@ -936,6 +943,10 @@ export class Editor {
         return this.state.lines[this.state.row - 1];
     }
 
+    private syncPreferredWidth(): void {
+        this.state.preferredWidth = this.state.logicalWidth;
+    }
+
     private insertRow(row: number, text: string): void {
         if (row < 0 || row > this.state.lines.length) return;
         this.state.lines.splice(row, 0, new Line(text));
@@ -949,6 +960,7 @@ export class Editor {
             this.insertRow(0, "");
             this.state.col = 0;
             this.state.logicalWidth = 0;
+            this.syncPreferredWidth();
             return;
         }
         if (this.state.row === row && row !== 0) {
@@ -982,43 +994,52 @@ export class Editor {
 
     private moveCursorLeft(): void {
         const prevChar = this.currentLine.text.slice(this.state.col - 1, this.state.col);
-        this.state.logicalWidth -= calcLogicalWidth(prevChar);
         this.state.col--;
+        this.state.logicalWidth -= calcLogicalWidth(prevChar);
+        this.syncPreferredWidth();
     }
 
     private moveCursorRight(): void {
         const currChar = this.currentLine.text.slice(this.state.col, this.state.col + 1);
-        this.state.logicalWidth += calcLogicalWidth(currChar);
         this.state.col++;
+        this.state.logicalWidth += calcLogicalWidth(currChar);
+        this.syncPreferredWidth();
     }
 
     private moveCursorUp(): void {
-        const widthBeforeMove = this.state.logicalWidth;
-        const prevLine = this.prevLine as Line;
+        const prevLine = this.prevLine as Line; // 1つ上の行
         this.state.row--;
         this.recalcColWidth(prevLine);
-
-        this.alignCursorToLeft(widthBeforeMove);
+        if (this.state.col >= prevLine.size) {
+            const lastChar = prevLine.text.slice(-1);
+            this.state.col--;
+            this.state.logicalWidth -= calcLogicalWidth(lastChar);
+        }
     }
 
     private moveCursorDown(): void {
-        const widthBeforeMove = this.state.logicalWidth;
-        const nextLine = this.nextLine as Line;
+        const nextLine = this.nextLine as Line; // 1つ下の行
         this.state.row++;
         this.recalcColWidth(nextLine);
-
-        this.alignCursorToLeft(widthBeforeMove);
+        if (this.state.col >= nextLine.size) {
+            const lastChar = nextLine.text.slice(-1);
+            this.state.col--;
+            this.state.logicalWidth -= calcLogicalWidth(lastChar);
+        }
     }
 
     private moveCursorToFirst(): void {
         this.state.col = 0;
         this.state.logicalWidth = 0;
+        this.syncPreferredWidth();
     }
+
     private moveCursorToFirstNonWhitespace(): void {
         const line = this.currentLine;
         const start = getFirstNonWhitespaceCol(line.text);
         this.state.col = start;
         this.state.logicalWidth = calcLogicalWidth(line.text.slice(0, start));
+        this.syncPreferredWidth();
     }
 
     private moveCursorToLast(): void {
@@ -1026,6 +1047,7 @@ export class Editor {
         const end = line.text.length - 1;
         this.state.col = end;
         this.state.logicalWidth = calcLogicalWidth(line.text.slice(0, end));
+        this.syncPreferredWidth();
     }
 
     private moveCursorToBOF(): void {
@@ -1041,7 +1063,7 @@ export class Editor {
     }
 
     private recalcColWidth(destLine: Line): void {
-        const logicalWidth = Math.min(this.state.logicalWidth, calcLogicalWidth(destLine.text));
+        const logicalWidth = Math.min(this.state.preferredWidth, calcLogicalWidth(destLine.text));
         const col = logicalWidthToCol(logicalWidth, destLine.text);
         this.state.col = col;
         this.state.logicalWidth = calcLogicalWidth(destLine.text.slice(0, col));
@@ -1053,6 +1075,7 @@ export class Editor {
         const destLine = this.state.lines[row];
         if (!destLine) throw new Error("destLine is undefined");
         this.state.logicalWidth = calcLogicalWidth(destLine.text.slice(0, col));
+        this.syncPreferredWidth();
     }
 
     // ------------------------------
