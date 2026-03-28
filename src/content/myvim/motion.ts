@@ -14,6 +14,7 @@ type FindOptions = {
     limit: number;
     reverse: boolean;
     stopBefore: boolean;
+    ignoreNextCh: boolean;
 };
 
 const FIRST_NON_WHITESPACE = /\S/;
@@ -27,14 +28,23 @@ export function getFirstNonWhitespaceCol(text: string): number {
 export function getCountToNextChar(
     searchChar: string,
     text: string,
-    { limit = 1, reverse = false, stopBefore = false }: Partial<FindOptions> = {},
+    { limit = 1, reverse = false, stopBefore = false, ignoreNextCh = false }: Partial<FindOptions> = {},
 ): number {
     if (limit <= 0) throw new Error("limit must exceed 0");
     if (searchChar.length !== 1) throw new Error("searchChar must be one character");
     let distance = 0;
 
+    let i = reverse ? text.length - 1 : 0;
+    if (ignoreNextCh) {
+        distance++;
+        if (reverse) {
+            i--;
+        } else {
+            i++;
+        }
+    }
     for (
-        let i = reverse ? text.length - 1 : 0;
+        ;
         reverse ? i >= 0 : i < text.length;
         reverse ? i-- : i++
     ) {

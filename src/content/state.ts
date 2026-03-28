@@ -1,4 +1,5 @@
 import { Line } from "./line";
+import type { FindCommand } from "./myvim/parser/command";
 
 export type EditorState = {
     row: number; // 現在の行数
@@ -17,6 +18,7 @@ export type EditorState = {
     vi_insertResolve: (() => void) | null;
     vi_yankLinewise: boolean;
     vi_cursor: "full" | "under" | "vertical";
+    vi_lastFindMotion: { kind: FindCommand, arg: string } | null;
 };
 
 export function createEditorState(): EditorState {
@@ -39,6 +41,7 @@ export function createEditorState(): EditorState {
         vi_insertResolve: null,
         vi_yankLinewise: false,
         vi_cursor: "full",
+        vi_lastFindMotion: null,
     };
 }
 
@@ -57,4 +60,5 @@ export function resetState(state: EditorState): void {
     state.vi_insertResolve = null;
     state.vi_yankLinewise = false;
     state.vi_cursor = "full";
+    state.vi_lastFindMotion = null;
 }

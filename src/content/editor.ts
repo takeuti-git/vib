@@ -342,25 +342,15 @@ export class Editor {
             }
             else if (motiontype === "find") {
                 const { name, arg } = motion;
+                this.state.vi_lastFindMotion = { kind: name, arg };
                 if (name === "f") {
-                    const text = this.currentLine.text.slice(this.state.col + 1);
-                    const moveAmount = getCountToNextChar(arg, text, { limit: count });
-                    for (let i = 0; i < moveAmount; i++) this.vi_moveCursor(MOVE_KEYS.RIGHT);
-                }
-                else if (name === "F") {
-                    const text = this.currentLine.text.slice(0, this.state.col);
-                    const moveAmount = getCountToNextChar(arg, text, { limit: count, reverse: true });
-                    for (let i = 0; i < moveAmount; i++) this.vi_moveCursor(MOVE_KEYS.LEFT);
-                }
-                else if (name === "t") {
-                    const text = this.currentLine.text.slice(this.state.col + 1);
-                    const moveAmount = getCountToNextChar(arg, text, { limit: count, stopBefore: true });
-                    for (let i = 0; i < moveAmount; i++) this.vi_moveCursor(MOVE_KEYS.RIGHT);
-                }
-                else if (name === "T") {
-                    const text = this.currentLine.text.slice(0, this.state.col);
-                    const moveAmount = getCountToNextChar(arg, text, { limit: count, reverse: true, stopBefore: true });
-                    for (let i = 0; i < moveAmount; i++) this.vi_moveCursor(MOVE_KEYS.LEFT);
+                    this.moveUntilNextChar(arg, { limit: count });
+                } else if (name === "F") {
+                    this.moveUntilNextChar(arg, { limit: count, reverse: true });
+                } else if (name === "t") {
+                    this.moveUntilNextChar(arg, { limit: count, stopBefore: true });
+                } else if (name === "T") {
+                    this.moveUntilNextChar(arg, { limit: count, stopBefore: true, reverse: true });
                 }
             }
         }
@@ -630,6 +620,26 @@ export class Editor {
                 // 置き換え処理はsetupListenersで行う
                 this.state.vi_mode = "replace";
                 this.state.vi_cursor = "under";
+            }
+        }
+        else if (datatype === "repeat_mot") {
+            console.log(data);
+            console.log(this.state.vi_lastFindMotion);
+            const lastMotion = this.state.vi_lastFindMotion;
+            if (lastMotion === null) {
+                return 0;
+            }
+            if (lastMotion.kind === "f") {
+                this.moveUntilNextChar(lastMotion.arg, { limit: count, reverse: data.reverse });
+            }
+            else if (lastMotion.kind === "F") {
+                this.moveUntilNextChar(lastMotion.arg, { limit: count, reverse: !data.reverse });
+            }
+            else if (lastMotion.kind === "t") {
+                this.moveUntilNextChar(lastMotion.arg, { limit: count, reverse: data.reverse, stopBefore: true, ignoreNextCh: true });
+            }
+            else if (lastMotion.kind === "T") {
+                this.moveUntilNextChar(lastMotion.arg, { limit: count, reverse: !data.reverse, stopBefore: true, ignoreNextCh: true });
             }
         }
 
@@ -1070,6 +1080,28 @@ export class Editor {
         if (!destLine) throw new Error("destLine is undefined");
         this.state.logicalWidth = calcLogicalWidth(destLine.text.slice(0, col));
         this.syncPreferredWidth();
+    }
+
+    private moveUntilNextChar(
+        arg: string,
+        {
+            limit = 1,
+            reverse = false,
+            stopBefore = false,
+            ignoreNextCh = false
+        } = {}
+    ): void {
+        if (!reverse) {
+            const text = this.currentLine.text.slice(this.state.col + 1);
+            const moveAmount = getCountToNextChar(arg, text, { limit, stopBefore, ignoreNextCh });
+            if (moveAmount === -1) return;
+            for (let i = 0; i < moveAmount; i++) this.vi_moveCursor(MOVE_KEYS.RIGHT);
+        } else {
+            const text = this.currentLine.text.slice(0, this.state.col);
+            const moveAmount = getCountToNextChar(arg, text, { limit, reverse: true, stopBefore, ignoreNextCh });
+            if (moveAmount === -1) return;
+            for (let i = 0; i < moveAmount; i++) this.vi_moveCursor(MOVE_KEYS.LEFT);
+        }
     }
 
     // ------------------------------
