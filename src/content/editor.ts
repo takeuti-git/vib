@@ -189,6 +189,9 @@ export class Editor {
 
             this.input.value = "";
             if (key === "Escape" || (key === "[" && e.ctrlKey)) {
+                if (this.state.vi_mode === "insert") {
+                    this.vi_moveCursor(MOVE_KEYS.LEFT);
+                }
                 this.state.vi_mode = "normal";
                 this.state.vi_cursor = "full";
                 this.state.vi_cmd = [];
@@ -393,7 +396,6 @@ export class Editor {
                         this.vi_insertBuffer(this.state.vi_insertBuf);
                     }
                 }
-                this.vi_moveCursor(MOVE_KEYS.LEFT);
                 this.scrollWindow();
                 this.render();
                 this.setDestElementValue();
@@ -432,6 +434,9 @@ export class Editor {
                         // 全ての行が削除された場合のfallback
                         this.insertRow(0, "");
                     }
+                    if (this.state.logicalWidth >= calcLogicalWidth(this.currentLine.text)) {
+                        this.moveCursorToLast();
+                    }
                 } else {
                     // カーソル位置を対象範囲の先頭に移動する
                     this.moveCursorToRC(range.start.row, range.start.col);
@@ -440,15 +445,9 @@ export class Editor {
                         // 同一行内の操作
                         const text = this.currentLine.text;
                         const copied = text.slice(range.start.col, range.end.col + 1);
-                        const distance = Math.abs(this.state.col - range.start.col);
-                        if (this.state.col > range.start.col) {
-                            for (let i = 0; i < distance; i++) this.moveCursorLeft();
-                        }
-                        else if (range.start.col > this.state.col) {
-                            for (let i = 0; i < distance; i++) this.moveCursorRight();
-                        }
                         clipboardBuf.push(copied);
-                        this.currentLine.text = text.slice(0, range.start.col) + text.slice(range.end.col + 1);
+                        const newText = text.slice(0, range.start.col) + text.slice(range.end.col + 1);
+                        this.currentLine.text = newText;
                     } else {
                         // 複数行の操作
                         const startRow = this.state.lines[range.start.row];
@@ -483,6 +482,10 @@ export class Editor {
 
                         this.currentLine.text = joinedText;
                     }
+                }
+                if (operator === "d" && this.state.col >= this.currentLine.size && this.state.col !== 0) {
+                    // 文字削除でカーソルが行からはみ出た時
+                    this.moveCursor(MOVE_KEYS.LEFT);
                 }
                 if (operator === "c") {
                     this.vi_goInsert();
@@ -954,12 +957,12 @@ export class Editor {
             this.syncPreferredWidth();
             return;
         }
-        if (this.state.row === row && row !== 0) {
-            const prevLine = this.prevLine!;
-            this.recalcColWidth(prevLine);
-        } else {
-            this.recalcColWidth(this.currentLine);
-        }
+        // if (this.state.row === row && row !== 0) {
+        //     const prevLine = this.prevLine!;
+        //     this.recalcColWidth(prevLine);
+        // } else {
+        //     this.recalcColWidth(this.currentLine);
+        // }
     }
 
     private appendTextToLine(line: Line, text: string): void {
@@ -1001,7 +1004,7 @@ export class Editor {
         const prevLine = this.prevLine as Line; // 1つ上の行
         this.state.row--;
         this.recalcColWidth(prevLine);
-        if (this.state.col >= prevLine.size) {
+        if (this.state.col >= prevLine.size && !prevLine.isEmpty()) {
             const lastChar = prevLine.text.slice(-1);
             this.state.col--;
             this.state.logicalWidth -= calcLogicalWidth(lastChar);
@@ -1012,7 +1015,7 @@ export class Editor {
         const nextLine = this.nextLine as Line; // 1つ下の行
         this.state.row++;
         this.recalcColWidth(nextLine);
-        if (this.state.col >= nextLine.size) {
+        if (this.state.col >= nextLine.size && !nextLine.isEmpty()) {
             const lastChar = nextLine.text.slice(-1);
             this.state.col--;
             this.state.logicalWidth -= calcLogicalWidth(lastChar);
@@ -1035,7 +1038,7 @@ export class Editor {
 
     private moveCursorToLast(): void {
         const line = this.currentLine;
-        const end = line.text.length - 1;
+        const end = line.isEmpty() ? 0 : line.size - 1;
         this.state.col = end;
         this.state.logicalWidth = calcLogicalWidth(line.text.slice(0, end));
         this.syncPreferredWidth();

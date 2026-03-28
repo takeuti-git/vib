@@ -398,6 +398,9 @@ export function getMotionRange(
                 start.row = Math.max(0, start.row - count);
             }
             else if (motion.name === "h") {
+                if (col === 0) {
+                    return undefined;
+                }
                 start.col = Math.max(0, start.col - count);
                 end.col--;
             }
@@ -407,6 +410,7 @@ export function getMotionRange(
             }
             else if (motion.name === "l") {
                 end.col = Math.min(end.col + count - 1, currLine.size - 1);
+                end.col = Math.max(0, end.col);
             }
             else if (motion.name === "^" || motion.name === "_") {
                 start.col = getFirstNonWhitespaceCol(currLine.text);
