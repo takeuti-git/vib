@@ -668,7 +668,7 @@ export function getMotionRange(
         end.col === -1
     ) {
         console.error(start, end);
-        throw new Error("unexpected negative value")
+        throw new Error("unexpected negative value");
     }
 
     return { start, end, linewise };

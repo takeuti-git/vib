@@ -4,7 +4,7 @@ import { type EditorState, resetState } from "./state";
 import { Line, getLines } from "./line";
 import { isFunctionKey, MOVE_KEYS, type MoveKey } from "./keys";
 import { hideElement, showElement } from "./dom";
-import { LOGICAL_HALF_WIDTH, LOGICAL_FULL_WIDTH, calcLogicalWidth, logicalWidthToCol } from "./utils";
+import { LOGICAL_HALF_WIDTH, calcLogicalWidth, logicalWidthToCol } from "./utils";
 import { getCountToNextChar, getFirstNonWhitespaceCol, getMotionRange, moveForward, moveTail, moveBackward } from "./myvim/motion";
 import { parseCommand } from "./myvim/parser";
 import type { InsertCommand, Motion } from "./myvim/parser/command";
@@ -164,7 +164,7 @@ export class Editor {
         };
 
         this.input.addEventListener("keydown", (e) => {
-            const key = e.key
+            const key = e.key;
             if (isFunctionKey(key)) return; // fnキーは通常通り動作させるため早期リターン
             e.preventDefault();
             e.stopImmediatePropagation(); // サイト側のkeydownイベントを発火させない
@@ -246,7 +246,7 @@ export class Editor {
     // ------------------------------
 
     // remaining = ["H","L","%",]
-    // @ts-expect-error
+    // @ts-expect-error unimplemented motions
     private motionMap: Record<Motion, () => void> = {
         "h": () => this.vi_moveCursor(MOVE_KEYS.LEFT),
         "l": () => this.vi_moveCursor(MOVE_KEYS.RIGHT),
@@ -309,7 +309,7 @@ export class Editor {
      * - 2: exists but incomplete
      * */
     private vi_processInput(input: string[]): 0 | 1 | 2 {
-        let parseResult = parseCommand(input);
+        const parseResult = parseCommand(input);
         if (parseResult.status === "unknown") {
             console.log("its unknown");
             return 1;
@@ -843,15 +843,6 @@ export class Editor {
         }
     }
 
-    /** 半角文字から全角文字に上下移動する時、移動前が移動後の後ろ側なら右に寄せる */
-    private alignCursorToLeft(widthBeforeMove: number): void {
-        if (this.state.logicalWidth >= widthBeforeMove + LOGICAL_FULL_WIDTH) {
-            this.state.col--;
-            this.state.logicalWidth -= LOGICAL_HALF_WIDTH;
-            this.syncPreferredWidth();
-        }
-    }
-
     private insertNewLine(): void {
         const currLine = this.currentLine;
         const textBefore = currLine.text.slice(0, this.state.col);
@@ -892,7 +883,7 @@ export class Editor {
         } else {
             this.insertTextInLine(currLine, text);
         }
-        this.state.col += text.length
+        this.state.col += text.length;
         this.state.logicalWidth += calcLogicalWidth(text);
         this.syncPreferredWidth();
     }
