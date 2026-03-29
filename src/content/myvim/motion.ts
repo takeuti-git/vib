@@ -1,6 +1,7 @@
 import type { Line } from "../line";
 import type { EditorState } from "../state";
 import type { MotionRange, RC } from "../types/motion";
+import type { FindMoveOptions } from "./findCommand";
 import { CommandType, type CommandContext } from "./parser/commandType";
 import { isSymbol, isWhitespace } from "./symbols";
 
@@ -9,13 +10,6 @@ type AtLeastTwoArray<T> = [T, T, ...T[]];
 function isAtLeastTwoArray<T>(array: T[]): array is AtLeastTwoArray<T> {
     return array.length >= 2;
 }
-
-type FindOptions = {
-    limit: number;
-    reverse: boolean;
-    stopBefore: boolean;
-    ignoreNextCh: boolean;
-};
 
 const FIRST_NON_WHITESPACE = /\S/;
 
@@ -28,7 +22,7 @@ export function getFirstNonWhitespaceCol(text: string): number {
 export function getCountToNextChar(
     searchChar: string,
     text: string,
-    { limit = 1, reverse = false, stopBefore = false, ignoreNextCh = false }: Partial<FindOptions> = {},
+    { limit = 1, reverse = false, stopBefore = false, ignoreNextCh = false }: Partial<FindMoveOptions> = {},
 ): number {
     if (limit <= 0) throw new Error("limit must exceed 0");
     if (searchChar.length !== 1) throw new Error("searchChar must be one character");

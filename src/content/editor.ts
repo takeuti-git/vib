@@ -9,6 +9,7 @@ import { getCountToNextChar, getFirstNonWhitespaceCol, getMotionRange, moveForwa
 import { parseCommand } from "./myvim/parser";
 import type { InsertCommand, Motion } from "./myvim/parser/command";
 import { readClipboard, writeClipboard } from "./clipboard";
+import { FIND_COMMAND_OPTIONS, FIND_REPEAT_OPTIONS, type FindMoveOptions } from "./myvim/findCommand";
 
 export class Editor {
     private readonly config: EditorConfig;
@@ -342,16 +343,11 @@ export class Editor {
             }
             else if (motiontype === "find") {
                 const { name, arg } = motion;
-                this.state.vi_lastFindMotion = { kind: name, arg };
-                if (name === "f") {
-                    this.moveUntilNextChar(arg, { limit: count });
-                } else if (name === "F") {
-                    this.moveUntilNextChar(arg, { limit: count, reverse: true });
-                } else if (name === "t") {
-                    this.moveUntilNextChar(arg, { limit: count, stopBefore: true });
-                } else if (name === "T") {
-                    this.moveUntilNextChar(arg, { limit: count, stopBefore: true, reverse: true });
-                }
+                this.state.vi_lastFindMotion = { name: name, arg };
+
+                // 初回のfindMotionは静的にoptionsを取得
+                const options = FIND_COMMAND_OPTIONS[name];
+                this.moveUntilNextChar(arg, { limit: count, ...options });
             }
         }
         else if (datatype === "insert") {
@@ -623,24 +619,14 @@ export class Editor {
             }
         }
         else if (datatype === "repeat_mot") {
-            console.log(data);
-            console.log(this.state.vi_lastFindMotion);
             const lastMotion = this.state.vi_lastFindMotion;
             if (lastMotion === null) {
                 return 0;
             }
-            if (lastMotion.kind === "f") {
-                this.moveUntilNextChar(lastMotion.arg, { limit: count, reverse: data.reverse });
-            }
-            else if (lastMotion.kind === "F") {
-                this.moveUntilNextChar(lastMotion.arg, { limit: count, reverse: !data.reverse });
-            }
-            else if (lastMotion.kind === "t") {
-                this.moveUntilNextChar(lastMotion.arg, { limit: count, reverse: data.reverse, stopBefore: true, ignoreNextCh: true });
-            }
-            else if (lastMotion.kind === "T") {
-                this.moveUntilNextChar(lastMotion.arg, { limit: count, reverse: !data.reverse, stopBefore: true, ignoreNextCh: true });
-            }
+
+            // 入力(";" | ",")によって移動方向が反転するため、動的にoptionsを生成する
+            const optionsFn = FIND_REPEAT_OPTIONS[lastMotion.name];
+            this.moveUntilNextChar(lastMotion.arg, { limit: count, ...optionsFn(data.reverse) });
         }
 
         return 0;
@@ -1085,11 +1071,11 @@ export class Editor {
     private moveUntilNextChar(
         arg: string,
         {
-            limit = 1,
             reverse = false,
             stopBefore = false,
-            ignoreNextCh = false
-        } = {}
+            limit = 1,
+            ignoreNextCh = false,
+        }: FindMoveOptions
     ): void {
         if (!reverse) {
             const text = this.currentLine.text.slice(this.state.col + 1);
