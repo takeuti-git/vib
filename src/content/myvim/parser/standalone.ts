@@ -19,7 +19,11 @@ export const STANDALONE_MAP: Record<Standalone, StandAloneHandler> = {
     r: (ctx, count) => {
         const ch = ctx.next();
         if (!ch) return { status: ParseStatus.PENDING };
-        const command: CommandContext = { type: CommandType.REPLACE, count, mode: { kind: "single", char: ch } };
+        const command: CommandContext = {
+            type: CommandType.REPLACE,
+            count,
+            mode: { kind: "single", char: ch },
+        };
         return { status: ParseStatus.OK, value: command };
     },
     R: (_, count) => ({
@@ -35,4 +39,3 @@ export const STANDALONE_MAP: Record<Standalone, StandAloneHandler> = {
         value: { type: CommandType.REDO, count },
     }),
 };
-

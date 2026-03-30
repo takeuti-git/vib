@@ -18,7 +18,7 @@ export type EditorState = {
     vi_insertResolve: (() => void) | null;
     vi_yankLinewise: boolean;
     vi_cursor: "full" | "under" | "vertical";
-    vi_lastFindMotion: { name: FindCommandName, arg: string } | null;
+    vi_lastFindMotion: { name: FindCommandName; arg: string } | null;
 };
 
 export function createEditorState(): EditorState {
@@ -30,9 +30,7 @@ export function createEditorState(): EditorState {
         preferredWidth: 0,
         rowoff: 0,
         logicaloff: 0,
-        lines: [
-            new Line()
-        ],
+        lines: [new Line()],
 
         vi_mode: "normal",
         vi_cmd: [],

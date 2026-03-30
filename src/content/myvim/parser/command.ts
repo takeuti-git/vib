@@ -7,12 +7,32 @@ const findCommandSet: ReadonlySet<string> = new Set(findCommands);
 const insertCommands = ["i", "I", "a", "A", "o", "O"] as const;
 const insertCommandSet: ReadonlySet<string> = new Set(insertCommands);
 
-const operators = ["d","c","y",">","<"] as const;
+const operators = ["d", "c", "y", ">", "<"] as const;
 const operatorSet: ReadonlySet<string> = new Set(operators);
 
-const motions = ["h","j","k","l","w","W","b","B","e","E","0","$","^","_",
-                 "gg","G","H","L","%","-","+",
-                ] as const;
+const motions = [
+    "h",
+    "j",
+    "k",
+    "l",
+    "w",
+    "W",
+    "b",
+    "B",
+    "e",
+    "E",
+    "0",
+    "$",
+    "^",
+    "_",
+    "gg",
+    "G",
+    "H",
+    "L",
+    "%",
+    "-",
+    "+",
+] as const;
 const motionSet: ReadonlySet<string> = new Set(motions);
 
 const sugars = ["s", "S", "x", "X", "D", "C", "Y"] as const;
@@ -23,20 +43,37 @@ const standaloneSet: ReadonlySet<string> = new Set(standalones);
 
 const textObjectModifiers = ["i", "a"] as const;
 const textObjectModifierSet: ReadonlySet<string> = new Set(textObjectModifiers);
-const textObjectTypes = ["w","W","p","s","t","(",")","{","}","[","]",">","<","\"","'","`"] as const;
+const textObjectTypes = [
+    "w",
+    "W",
+    "p",
+    "s",
+    "t",
+    "(",
+    ")",
+    "{",
+    "}",
+    "[",
+    "]",
+    ">",
+    "<",
+    '"',
+    "'",
+    "`",
+] as const;
 const textObjectTypeSet: ReadonlySet<string> = new Set(textObjectTypes);
 
 // ------------------------------
 // | Validation Types
 // ------------------------------
-export type FindCommand = typeof findCommands[number];
-export type InsertCommand = typeof insertCommands[number];
-export type Operator = typeof operators[number];
-export type Motion = typeof motions[number];
-export type Sugar = typeof sugars[number];
-export type Standalone = typeof standalones[number];
-export type TextObjectModifier = typeof textObjectModifiers[number];
-export type TextObjectType = typeof textObjectTypes[number];
+export type FindCommand = (typeof findCommands)[number];
+export type InsertCommand = (typeof insertCommands)[number];
+export type Operator = (typeof operators)[number];
+export type Motion = (typeof motions)[number];
+export type Sugar = (typeof sugars)[number];
+export type Standalone = (typeof standalones)[number];
+export type TextObjectModifier = (typeof textObjectModifiers)[number];
+export type TextObjectType = (typeof textObjectTypes)[number];
 
 // ------------------------------
 // | Validations
@@ -72,4 +109,3 @@ export const isTextObjectModifier = (ch: string): ch is TextObjectModifier => {
 export const isTextObjectType = (ch: string): ch is TextObjectType => {
     return textObjectTypeSet.has(ch);
 };
-

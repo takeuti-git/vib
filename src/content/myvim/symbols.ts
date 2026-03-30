@@ -1,8 +1,7 @@
 const SYMBOLS = ",-+*/=<>\\.({[)}]\"'`:;?!&%~^@|";
 const SYMBOLS_SET: ReadonlySet<string> = new Set(SYMBOLS);
 
-type StringToUnion<S extends string> =
-    S extends `${infer F}${infer R}`
+type StringToUnion<S extends string> = S extends `${infer F}${infer R}`
     ? F | StringToUnion<R>
     : never;
 

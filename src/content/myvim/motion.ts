@@ -22,7 +22,12 @@ export function getFirstNonWhitespaceCol(text: string): number {
 export function getCountToNextChar(
     searchChar: string,
     text: string,
-    { limit = 1, reverse = false, stopBefore = false, ignoreNextCh = false }: Partial<FindMoveOptions> = {},
+    {
+        limit = 1,
+        reverse = false,
+        stopBefore = false,
+        ignoreNextCh = false,
+    }: Partial<FindMoveOptions> = {},
 ): number {
     if (limit <= 0) throw new Error("limit must exceed 0");
     if (searchChar.length !== 1) throw new Error("searchChar must be one character");
@@ -37,11 +42,7 @@ export function getCountToNextChar(
             i++;
         }
     }
-    for (
-        ;
-        reverse ? i >= 0 : i < text.length;
-        reverse ? i-- : i++
-    ) {
+    for (; reverse ? i >= 0 : i < text.length; reverse ? i-- : i++) {
         distance++;
         if (searchChar === text[i]) {
             limit--;
@@ -70,7 +71,7 @@ type MovingCtx = {
 
 type ForwardMovingCtx = MovingCtx & {
     moveToNext: "any" | "normal" | "symbol";
-}
+};
 
 function wordHelper(ctx: ForwardMovingCtx): void {
     for (; ctx.col < ctx.line.size; ctx.col++) {
@@ -124,16 +125,10 @@ export function moveForward(state: EditorState, separator: "word" | "WORD"): Hor
 
     if (separator === "word") {
         const startCh = currLine.text[startCol] ?? " ";
-        ctx.moveToNext =
-            isWhitespace(startCh) ? "any"
-            : isSymbol(startCh) ? "normal"
-            : "symbol";
+        ctx.moveToNext = isWhitespace(startCh) ? "any" : isSymbol(startCh) ? "normal" : "symbol";
     }
 
-    const searchHorizontally =
-        separator === "word"
-        ? wordHelper
-        : WORDHelper;
+    const searchHorizontally = separator === "word" ? wordHelper : WORDHelper;
 
     for (; ctx.row < state.lines.length; ctx.row++) {
         const line = state.lines[ctx.row];
@@ -154,7 +149,7 @@ export function moveForward(state: EditorState, separator: "word" | "WORD"): Hor
             continue;
         }
 
-        ctx.col = (ctx.row === startRow) ? startCol + 1 : 0; // 実行時の行でないなら行頭から探索
+        ctx.col = ctx.row === startRow ? startCol + 1 : 0; // 実行時の行でないなら行頭から探索
 
         searchHorizontally(ctx); // separatorごとに異なる行内の探索処理を抽象化
 
@@ -185,16 +180,9 @@ export function moveBackward(state: EditorState, separator: "word" | "WORD"): Ho
     const prevChar = currLine.text[state.col - 1] ?? " ";
 
     if (separator === "WORD") {
-        ctx.stopAt = (
-            isWhitespace(prevChar) ? "unknown" :
-            "any"
-        );
+        ctx.stopAt = isWhitespace(prevChar) ? "unknown" : "any";
     } else {
-        ctx.stopAt = (
-            isWhitespace(prevChar) ? "unknown" :
-            isSymbol(prevChar) ? "symbol" :
-            "normal"
-        );
+        ctx.stopAt = isWhitespace(prevChar) ? "unknown" : isSymbol(prevChar) ? "symbol" : "normal";
     }
 
     const startRow = state.row;
@@ -218,7 +206,7 @@ export function moveBackward(state: EditorState, separator: "word" | "WORD"): Ho
                 continue;
             }
 
-            ctx.col = (ctx.row === startRow) ? state.col - 1 : line.size - 1;
+            ctx.col = ctx.row === startRow ? state.col - 1 : line.size - 1;
 
             for (; ctx.col >= 0; ctx.col--) {
                 ctx.distance++;
@@ -254,13 +242,10 @@ export function moveBackward(state: EditorState, separator: "word" | "WORD"): Ho
     let stopCondition: (currCh: string, prevCh: string) => boolean;
     if (separator === "WORD") {
         stopCondition = (currCh, prevCh) => isWhitespace(prevCh) && !isWhitespace(currCh);
-
     } else if (ctx.stopAt === "normal") {
         stopCondition = (_, prevCh) => isWhitespace(prevCh) || isSymbol(prevCh);
-
     } else if (ctx.stopAt === "symbol") {
         stopCondition = (_, prevCh) => isWhitespace(prevCh) || !isSymbol(prevCh);
-
     } else {
         stopCondition = () => false;
     }
@@ -298,16 +283,9 @@ export function moveTail(state: EditorState, separator: "word" | "WORD"): Horizo
     };
 
     if (separator === "WORD") {
-        ctx.stopAt = (
-            isWhitespace(nextChar) ? "unknown" :
-            "any"
-        );
+        ctx.stopAt = isWhitespace(nextChar) ? "unknown" : "any";
     } else {
-        ctx.stopAt = (
-            isWhitespace(nextChar) ? "unknown" :
-            isSymbol(nextChar) ? "symbol" :
-            "normal"
-        );
+        ctx.stopAt = isWhitespace(nextChar) ? "unknown" : isSymbol(nextChar) ? "symbol" : "normal";
     }
 
     const startRow = state.row;
@@ -319,7 +297,7 @@ export function moveTail(state: EditorState, separator: "word" | "WORD"): Horizo
             const line = state.lines[ctx.row];
             if (!line) throw new Error("line is undefined");
 
-            ctx.col = (ctx.row === startRow) ? startCol + 1 : 0;
+            ctx.col = ctx.row === startRow ? startCol + 1 : 0;
 
             for (; ctx.col < line.size; ctx.col++) {
                 const ch = line.text[ctx.col] as string;
@@ -346,7 +324,7 @@ export function moveTail(state: EditorState, separator: "word" | "WORD"): Horizo
     if (!targetLine) {
         // targetLine is EOF; fastforward
         const distance = ctx.row - state.row;
-        return { distance, destRow: state.lines.length - 1, destCol: ctx.col }; 
+        return { distance, destRow: state.lines.length - 1, destCol: ctx.col };
     }
 
     let stopCondition: (ch: string) => boolean;
@@ -354,13 +332,10 @@ export function moveTail(state: EditorState, separator: "word" | "WORD"): Horizo
     // 停止する条件を決定する
     if (separator === "WORD") {
         stopCondition = isWhitespace; // WORD移動では空白のみを考慮する
-
     } else if (ctx.stopAt === "symbol") {
         stopCondition = (ch) => !isSymbol(ch);
-
     } else if (ctx.stopAt === "normal") {
         stopCondition = (ch) => isSymbol(ch) || isWhitespace(ch);
-
     } else {
         throw new Error("invalid stopAt: " + ctx.stopAt);
     }
@@ -374,10 +349,7 @@ export function moveTail(state: EditorState, separator: "word" | "WORD"): Horizo
     return { distance: ctx.distance, destRow: ctx.row, destCol: ctx.col };
 }
 
-export function getMotionRange(
-    state: EditorState,
-    ctx: CommandContext
-): MotionRange | undefined {
+export function getMotionRange(state: EditorState, ctx: CommandContext): MotionRange | undefined {
     if (ctx.type !== CommandType.OPERATOR) {
         return undefined;
     }
@@ -392,7 +364,7 @@ export function getMotionRange(
 
     const motion = ctx.motion;
     const start: RC = { row, col };
-    const end:   RC = { row, col };
+    const end: RC = { row, col };
     let linewise = false;
 
     switch (motion.type) {
@@ -400,49 +372,39 @@ export function getMotionRange(
             if (motion.name === "k" || motion.name === "-") {
                 linewise = true;
                 start.row = Math.max(0, start.row - count);
-            }
-            else if (motion.name === "h") {
+            } else if (motion.name === "h") {
                 if (col === 0) {
                     return undefined;
                 }
                 start.col = Math.max(0, start.col - count);
                 end.col--;
-            }
-            else if (motion.name === "j" || motion.name === "+") {
+            } else if (motion.name === "j" || motion.name === "+") {
                 linewise = true;
                 end.row = Math.min(end.row + count, maxRow);
-            }
-            else if (motion.name === "l") {
+            } else if (motion.name === "l") {
                 end.col = Math.min(end.col + count - 1, currLine.size - 1);
                 end.col = Math.max(0, end.col);
-            }
-            else if (motion.name === "^" || motion.name === "_") {
+            } else if (motion.name === "^" || motion.name === "_") {
                 start.col = getFirstNonWhitespaceCol(currLine.text);
                 end.col = Math.max(0, end.col - 1);
-            }
-            else if (motion.name === "$") {
+            } else if (motion.name === "$") {
                 end.col = currLine.text.length - 1;
-            }
-            else if (motion.name === "0") {
+            } else if (motion.name === "0") {
                 start.col = 0;
                 end.col = Math.max(0, end.col - 1);
-            }
-            else if (motion.name === "gg") {
+            } else if (motion.name === "gg") {
                 linewise = true;
                 start.row = 0;
-            }
-            else if (motion.name === "G") {
+            } else if (motion.name === "G") {
                 linewise = true;
                 end.row = state.lines.length - 1;
-            }
-            else if (motion.name === "w" || motion.name === "W") {
+            } else if (motion.name === "w" || motion.name === "W") {
                 // w/W motionは絶対に複数行を対象範囲にしない
                 const sep = motion.name === "w" ? "word" : "WORD";
                 const { distance } = moveForward(state, sep);
                 const destCol = end.col + distance - 1; // 到達文字は含めないため1を引く
                 end.col = Math.min(currLine.size - 1, destCol); // 行を超えないように
-            }
-            else if (motion.name === "b" || motion.name === "B") {
+            } else if (motion.name === "b" || motion.name === "B") {
                 if (state.col === 0 && state.row === 0) return undefined;
                 // b/B motionは複数行にまたがることがある
                 const sep = motion.name === "b" ? "word" : "WORD";
@@ -458,8 +420,7 @@ export function getMotionRange(
                 } else {
                     end.col--; // colが1以上のため安全に下げられる
                 }
-            }
-            else if (motion.name === "e" || motion.name === "E") {
+            } else if (motion.name === "e" || motion.name === "E") {
                 // e/E motionは複数行にまたがることがある
                 const sep = motion.name === "e" ? "word" : "WORD";
                 const { destRow, destCol } = moveTail(state, sep);
@@ -479,23 +440,30 @@ export function getMotionRange(
                 const distance = getCountToNextChar(motion.arg, text, { limit: count });
                 if (distance === -1) return undefined;
                 end.col += distance;
-            }
-            else if (motion.name === "F") {
+            } else if (motion.name === "F") {
                 const text = currLine.text.slice(0, col);
-                const distance = getCountToNextChar(motion.arg, text, { limit: count, reverse: true });
+                const distance = getCountToNextChar(motion.arg, text, {
+                    limit: count,
+                    reverse: true,
+                });
                 if (distance === -1) return undefined;
                 start.col -= distance;
                 end.col--;
-            }
-            else if (motion.name === "t") {
+            } else if (motion.name === "t") {
                 const text = currLine.text.slice(col + 1);
-                const distance = getCountToNextChar(motion.arg, text, { limit: count, stopBefore: true });
+                const distance = getCountToNextChar(motion.arg, text, {
+                    limit: count,
+                    stopBefore: true,
+                });
                 if (distance === -1) return undefined;
                 end.col += distance;
-            }
-            else if (motion.name === "T") {
+            } else if (motion.name === "T") {
                 const text = currLine.text.slice(0, col);
-                const distance = getCountToNextChar(motion.arg, text, { limit: count, reverse: true, stopBefore: true });
+                const distance = getCountToNextChar(motion.arg, text, {
+                    limit: count,
+                    reverse: true,
+                    stopBefore: true,
+                });
                 if (distance === -1) return undefined;
                 start.col -= distance;
                 end.col--;
@@ -504,19 +472,24 @@ export function getMotionRange(
         }
         case "textobj": {
             const text = currLine.text;
-            const target = (
-                motion.name === ")" ? "("
-                : motion.name === "}" ? "{"
-                : motion.name === "]" ? "["
-                : motion.name === ">" ? "<"
-                : motion.name
-            );
-            if (target === "\"" || target === "'" || target === "`") {
-                const filtered: number[] = Array.from(text).map((ch, i) => {
-                    return ch === target ? i : -1;
-                }).filter(e => {
-                    return e !== -1;
-                });
+            const target =
+                motion.name === ")"
+                    ? "("
+                    : motion.name === "}"
+                      ? "{"
+                      : motion.name === "]"
+                        ? "["
+                        : motion.name === ">"
+                          ? "<"
+                          : motion.name;
+            if (target === '"' || target === "'" || target === "`") {
+                const filtered: number[] = Array.from(text)
+                    .map((ch, i) => {
+                        return ch === target ? i : -1;
+                    })
+                    .filter((e) => {
+                        return e !== -1;
+                    });
 
                 if (!isAtLeastTwoArray(filtered)) {
                     // 要素数が2未満のとき
@@ -531,17 +504,14 @@ export function getMotionRange(
                 if (isOnLast && isOnLeftSide) {
                     // カーソルがある位置が最後のtargetで、ペアの左側にいるとき
                     return undefined;
-                }
-                else if (col > Math.max(...filtered)) {
+                } else if (col > Math.max(...filtered)) {
                     // カーソルより右側に有効なペアが存在しないとき
                     return undefined;
-                }
-                else if (col < Math.min(...filtered)) {
+                } else if (col < Math.min(...filtered)) {
                     // カーソルが行の先頭にいるとき
                     start.col = filtered[0];
                     end.col = filtered[1];
-                }
-                else if (idx === -1) {
+                } else if (idx === -1) {
                     // カーソルがペアに挟まれているとき
                     for (let i = 0; i < filtered.length; i++) {
                         if (filtered[i]! > col) {
@@ -550,12 +520,10 @@ export function getMotionRange(
                             break;
                         }
                     }
-                }
-                else if (isOnLeftSide) {
+                } else if (isOnLeftSide) {
                     // カーソルがペアの前側に重なっているとき
                     end.col = filtered[idx + 1] as number;
-                }
-                else if (isOnRightSide) {
+                } else if (isOnRightSide) {
                     // カーソルがペアの後側に重なっているとき
                     start.col = filtered[idx - 1] as number;
                 }
@@ -564,16 +532,16 @@ export function getMotionRange(
                     start.col++;
                     end.col--;
                 }
-            }
-            else if (target === "w") {
+            } else if (target === "w") {
                 const currChar = text.slice(col, col + 1);
                 const isOnSymbol = isSymbol(currChar);
                 const isOnWhitespace = isWhitespace(currChar);
 
-                const checkFunc: (ch: string) => boolean =
-                    isOnSymbol ? isSymbol
-                    : isOnWhitespace ? isWhitespace
-                    : (ch: string) => !isSymbol(ch) && !isWhitespace(ch);
+                const checkFunc: (ch: string) => boolean = isOnSymbol
+                    ? isSymbol
+                    : isOnWhitespace
+                      ? isWhitespace
+                      : (ch: string) => !isSymbol(ch) && !isWhitespace(ch);
 
                 for (let i = col + 1; i < text.length; i++) {
                     // カーソルから右方向に探索
@@ -587,13 +555,12 @@ export function getMotionRange(
                     if (!checkFunc(ch)) break;
                     start.col--;
                 }
-            }
-            else if (target === "W") {
+            } else if (target === "W") {
                 const currChar = text.slice(col, col + 1);
                 const isOnWhitespace = isWhitespace(currChar);
 
-                const checkFunc: (ch: string) => boolean =
-                    isOnWhitespace ? isWhitespace
+                const checkFunc: (ch: string) => boolean = isOnWhitespace
+                    ? isWhitespace
                     : (ch: string) => !isWhitespace(ch);
 
                 for (let i = col + 1; i < text.length; i++) {
@@ -606,43 +573,66 @@ export function getMotionRange(
                     if (!checkFunc(ch)) break;
                     start.col--;
                 }
-            }
-            else if (target === "[" || target === "{" || target === "(" || target === "<") {
+            } else if (target === "[" || target === "{" || target === "(" || target === "<") {
                 const currCh = currLine.text[col] ?? " ";
                 const openingCh = target;
-                const closingCh = (
-                    target === "[" ? "]" :
-                    target === "{" ? "}" :
-                    target === "(" ? ")" :
-                    ">"
-                );
+                const closingCh =
+                    target === "[" ? "]" : target === "{" ? "}" : target === "(" ? ")" : ">";
 
                 if (currCh === openingCh) {
-                    const fwClosing = searchPairCharForward(lines, row, col + 1, closingCh, openingCh);
+                    const fwClosing = searchPairCharForward(
+                        lines,
+                        row,
+                        col + 1,
+                        closingCh,
+                        openingCh,
+                    );
                     if (!fwClosing) return undefined;
                     end.row = fwClosing.row;
                     end.col = fwClosing.col;
-
                 } else if (currCh === closingCh) {
-                    const bwOpening = searchPairCharBackward(lines, row, col - 1, openingCh, closingCh);
+                    const bwOpening = searchPairCharBackward(
+                        lines,
+                        row,
+                        col - 1,
+                        openingCh,
+                        closingCh,
+                    );
                     if (!bwOpening) return undefined;
                     start.row = bwOpening.row;
                     start.col = bwOpening.col;
-
                 } else {
                     const bwOpening = searchPairCharBackward(lines, row, col, openingCh, closingCh);
                     // 後方に有効なopeningChが見つからなければ、カーソル以降に存在する次の有効なペアの始まりを探索
                     if (bwOpening) {
-                        const fwClosing = searchPairCharForward(lines, row, col, closingCh, openingCh);
+                        const fwClosing = searchPairCharForward(
+                            lines,
+                            row,
+                            col,
+                            closingCh,
+                            openingCh,
+                        );
                         if (!fwClosing) return undefined;
                         start.row = bwOpening.row;
                         start.col = bwOpening.col;
                         end.row = fwClosing.row;
                         end.col = fwClosing.col;
                     } else {
-                        const fwOpening = searchPairCharForward(lines, row, col, openingCh, closingCh);
+                        const fwOpening = searchPairCharForward(
+                            lines,
+                            row,
+                            col,
+                            openingCh,
+                            closingCh,
+                        );
                         if (!fwOpening) return undefined;
-                        const fwClosing = searchPairCharForward(lines, fwOpening.row, fwOpening.col + 1, closingCh, openingCh);
+                        const fwClosing = searchPairCharForward(
+                            lines,
+                            fwOpening.row,
+                            fwOpening.col + 1,
+                            closingCh,
+                            openingCh,
+                        );
                         if (!fwClosing) return undefined;
                         start.row = fwOpening.row;
                         start.col = fwOpening.col;
@@ -669,12 +659,7 @@ export function getMotionRange(
         }
     }
 
-    if (
-        start.row === -1 ||
-        start.col === -1 ||
-        end.row === -1 ||
-        end.col === -1
-    ) {
+    if (start.row === -1 || start.col === -1 || end.row === -1 || end.col === -1) {
         console.error(start, end);
         throw new Error("unexpected negative value");
     }
@@ -686,27 +671,19 @@ function* iteratePosition(
     lines: readonly Line[],
     row: number,
     col: number,
-    direction: "fw" | "bw"
+    direction: "fw" | "bw",
 ): Generator<{ row: number; col: number; ch: string }> {
     const forward = direction === "fw";
     const startRow = row;
 
-    for (
-        ;
-        forward ? row < lines.length : row >= 0;
-        forward ? row++ : row--
-    ) {
+    for (; forward ? row < lines.length : row >= 0; forward ? row++ : row--) {
         const line = lines[row];
         if (!line) throw new Error("line is undefined");
         if (line.isEmpty()) continue;
 
         if (row !== startRow) col = forward ? 0 : line.size - 1;
 
-        for (
-            ;
-            forward ? col < line.size : col >= 0;
-            forward ? col++ : col--
-        ) {
+        for (; forward ? col < line.size : col >= 0; forward ? col++ : col--) {
             const ch = line.text[col];
             if (!ch) throw new Error("ch is undefined");
             yield { row, col, ch };
@@ -722,7 +699,8 @@ function searchPairChar(
     pairCh: string,
     direction: "fw" | "bw",
 ): RC | undefined {
-    if (targetCh === pairCh) throw new Error(`duplicated arguments: targetCh: "${targetCh}", pairCh: "${pairCh}"`);
+    if (targetCh === pairCh)
+        throw new Error(`duplicated arguments: targetCh: "${targetCh}", pairCh: "${pairCh}"`);
     if (targetCh.length !== 1) throw new Error(`targetCh must be a char. targetCh: "${targetCh}"`);
     if (pairCh.length !== 1) throw new Error(`pairCh must be a char. pairCh: "${pairCh}"`);
     let depth = 0;
@@ -747,7 +725,7 @@ function searchPairCharForward(
     startRow: number,
     startCol: number,
     targetCh: string,
-    pairCh: string
+    pairCh: string,
 ) {
     return searchPairChar(lines, startRow, startCol, targetCh, pairCh, "fw");
 }
@@ -758,7 +736,7 @@ function searchPairCharBackward(
     startRow: number,
     startCol: number,
     targetCh: string,
-    pairCh: string
+    pairCh: string,
 ) {
     return searchPairChar(lines, startRow, startCol, targetCh, pairCh, "bw");
 }

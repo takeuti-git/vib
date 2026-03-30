@@ -1,6 +1,5 @@
 export function mountElementShadow(el: HTMLElement): void {
-    const shadowHost = document.getElementById("vib-shadowHost") 
-        ?? document.createElement("div");
+    const shadowHost = document.getElementById("vib-shadowHost") ?? document.createElement("div");
     shadowHost.id = "vib-shadowHost";
     document.body.appendChild(shadowHost);
 

@@ -5,11 +5,22 @@ import { Line, getLines } from "./line";
 import { isFunctionKey, MOVE_KEYS, type MoveKey } from "./keys";
 import { hideElement, showElement } from "./dom";
 import { LOGICAL_HALF_WIDTH, calcLogicalWidth, logicalWidthToCol } from "./utils";
-import { getCountToNextChar, getFirstNonWhitespaceCol, getMotionRange, moveForward, moveTail, moveBackward } from "./myvim/motion";
+import {
+    getCountToNextChar,
+    getFirstNonWhitespaceCol,
+    getMotionRange,
+    moveForward,
+    moveTail,
+    moveBackward,
+} from "./myvim/motion";
 import { parseCommand } from "./myvim/parser";
 import type { InsertCommand, Motion } from "./myvim/parser/command";
 import { readClipboard, writeClipboard } from "./clipboard";
-import { FIND_COMMAND_OPTIONS, FIND_REPEAT_OPTIONS, type FindMoveOptions } from "./myvim/findCommand";
+import {
+    FIND_COMMAND_OPTIONS,
+    FIND_REPEAT_OPTIONS,
+    type FindMoveOptions,
+} from "./myvim/findCommand";
 
 export class Editor {
     private readonly config: EditorConfig;
@@ -58,13 +69,15 @@ export class Editor {
         if (!this.destElement) {
             return;
         }
-        this.destElement.value = this.state.lines.map(l => l.text).join("\n");
+        this.destElement.value = this.state.lines.map((l) => l.text).join("\n");
         // 入力イベントを発火させる:
         // githubでは入力時にsessionStorageを操作することでPreviewを表示している
-        this.destElement.dispatchEvent(new InputEvent("input", {
-            bubbles: true,
-            cancelable: true,
-        }));
+        this.destElement.dispatchEvent(
+            new InputEvent("input", {
+                bubbles: true,
+                cancelable: true,
+            }),
+        );
     }
 
     private setupListeners(): void {
@@ -77,8 +90,8 @@ export class Editor {
                 if (activeEl === this.input) return;
 
                 if (
-                    (activeEl instanceof HTMLInputElement) ||
-                    (activeEl instanceof HTMLTextAreaElement)
+                    activeEl instanceof HTMLInputElement ||
+                    activeEl instanceof HTMLTextAreaElement
                 ) {
                     showElement(this.container);
 
@@ -89,7 +102,8 @@ export class Editor {
 
                     // getLinesの仕様上、文字列が空でも必ず1要素の配列になる
                     const newLines = getLines(activeEl.value);
-                    if (newLines.length === 0) throw new Error("getLines must return array within at least one element");
+                    if (newLines.length === 0)
+                        throw new Error("getLines must return array within at least one element");
                     const lastLine = newLines[newLines.length - 1] as Line;
                     const lastRow = newLines.length - 1;
                     const lastCol = lastLine.isEmpty() ? 0 : lastLine.size - 1;
@@ -154,13 +168,19 @@ export class Editor {
                 this.config.screencols = Math.min(this.config.screencols + 2, 80);
             },
             ArrowRight: () => {
-                this.config.screencols = Math.max(2 + this.config.lineNumberCols, this.config.screencols - 2);
+                this.config.screencols = Math.max(
+                    2 + this.config.lineNumberCols,
+                    this.config.screencols - 2,
+                );
             },
             ArrowUp: () => {
                 this.config.screenrows = Math.min(this.config.screenrows + 1, 40);
             },
             ArrowDown: () => {
-                this.config.screenrows = Math.max(1 + this.config.statusBarHeight, this.config.screenrows - 1);
+                this.config.screenrows = Math.max(
+                    1 + this.config.statusBarHeight,
+                    this.config.screenrows - 1,
+                );
             },
         };
 
@@ -220,19 +240,16 @@ export class Editor {
 
                 if (result === 0) {
                     this.state.vi_cmd = [];
-                }
-                else if (result === 1) {
+                } else if (result === 1) {
                     this.setStatusMsg("unknown cmd");
                     this.state.vi_cmd = [];
                     return;
                 }
-            }
-            else if (this.state.vi_mode === "insert") {
+            } else if (this.state.vi_mode === "insert") {
                 this.processKeypress(e);
                 this.scrollWindow();
                 this.render();
-            }
-            else if (this.state.vi_mode === "replace") {
+            } else if (this.state.vi_mode === "replace") {
                 this.processKeypress(e, { replace: true });
                 this.scrollWindow();
                 this.render();
@@ -252,16 +269,16 @@ export class Editor {
     // remaining = ["H","L","%",]
     // @ts-expect-error unimplemented motions
     private motionMap: Record<Motion, () => void> = {
-        "h": () => this.vi_moveCursor(MOVE_KEYS.LEFT),
-        "l": () => this.vi_moveCursor(MOVE_KEYS.RIGHT),
-        "j": () => this.vi_moveCursor(MOVE_KEYS.DOWN),
-        "k": () => this.vi_moveCursor(MOVE_KEYS.UP),
+        h: () => this.vi_moveCursor(MOVE_KEYS.LEFT),
+        l: () => this.vi_moveCursor(MOVE_KEYS.RIGHT),
+        j: () => this.vi_moveCursor(MOVE_KEYS.DOWN),
+        k: () => this.vi_moveCursor(MOVE_KEYS.UP),
         "0": () => this.moveCursorToFirst(),
-        "_": () => this.moveCursorToFirstNonWhitespace(),
+        _: () => this.moveCursorToFirstNonWhitespace(),
         "^": () => this.moveCursorToFirstNonWhitespace(),
-        "$": () => this.moveCursorToLast(),
-        "gg": () => this.moveCursorToBOF(),
-        "G": () => this.moveCursorToEOF(),
+        $: () => this.moveCursorToLast(),
+        gg: () => this.moveCursorToBOF(),
+        G: () => this.moveCursorToEOF(),
         "-": () => {
             this.vi_moveCursor(MOVE_KEYS.UP);
             this.moveCursorToFirstNonWhitespace();
@@ -270,37 +287,41 @@ export class Editor {
             this.vi_moveCursor(MOVE_KEYS.DOWN);
             this.moveCursorToFirstNonWhitespace();
         },
-        "w": () => {
+        w: () => {
             const { distance } = moveForward(this.state, "word");
             for (let i = 0; i < distance; i++) this.moveCursor(MOVE_KEYS.RIGHT);
         },
-        "W": () => {
+        W: () => {
             const { distance } = moveForward(this.state, "WORD");
             for (let i = 0; i < distance; i++) this.moveCursor(MOVE_KEYS.RIGHT);
         },
-        "b": () => {
+        b: () => {
             // const distance = getDistanceWordBackward(this.state);
             const { distance } = moveBackward(this.state, "word");
             for (let i = 0; i < distance; i++) this.moveCursor(MOVE_KEYS.LEFT);
         },
-        "B": () => {
+        B: () => {
             // const distance = getDistanceWORDBackward(this.state);
             const { distance } = moveBackward(this.state, "WORD");
             for (let i = 0; i < distance; i++) this.moveCursor(MOVE_KEYS.LEFT);
         },
-        "e": () => {
+        e: () => {
             const { distance } = moveTail(this.state, "word");
             for (let i = 0; i < distance; i++) this.moveCursor(MOVE_KEYS.RIGHT);
         },
-        "E": () => {
+        E: () => {
             const { distance } = moveTail(this.state, "WORD");
             for (let i = 0; i < distance; i++) this.moveCursor(MOVE_KEYS.RIGHT);
         },
     };
 
     private insertMap: Record<InsertCommand, () => void> = {
-        i: () => {/* ここでは何もしない */},
-        a: () => {/* ここでは何もしない */},
+        i: () => {
+            /* ここでは何もしない */
+        },
+        a: () => {
+            /* ここでは何もしない */
+        },
         I: () => this.moveCursorToFirstNonWhitespace(),
         A: () => this.moveCursorToLast(),
         o: () => this.insertNewLineNext(),
@@ -340,8 +361,7 @@ export class Editor {
                     return 0;
                 }
                 for (let i = 0; i < count; i++) fn();
-            }
-            else if (motiontype === "find") {
+            } else if (motiontype === "find") {
                 const { name, arg } = motion;
                 this.state.vi_lastFindMotion = { name: name, arg };
 
@@ -349,8 +369,7 @@ export class Editor {
                 const options = FIND_COMMAND_OPTIONS[name];
                 this.moveUntilNextChar(arg, { limit: count, ...options });
             }
-        }
-        else if (datatype === "insert") {
+        } else if (datatype === "insert") {
             const insKind = data.command;
             this.insertMap[insKind]();
 
@@ -360,7 +379,7 @@ export class Editor {
             this.vi_goInsert();
 
             (async () => {
-                await new Promise<void>(resolve => {
+                await new Promise<void>((resolve) => {
                     this.state.vi_insertResolve = resolve;
                 });
                 // this.state.vi_insertResolveがどこかで呼び出されるまで以下を実行しない
@@ -386,8 +405,7 @@ export class Editor {
                 this.render();
                 this.setDestElementValue();
             })();
-        }
-        else if (datatype === "operator") {
+        } else if (datatype === "operator") {
             const range = getMotionRange(this.state, parseResult.value);
             if (!range) {
                 return 0;
@@ -400,7 +418,7 @@ export class Editor {
 
             if (operator === "d" || operator === "c") {
                 if (isLinewise) {
-                    lines.slice(range.start.row, range.end.row + 1).forEach(l => {
+                    lines.slice(range.start.row, range.end.row + 1).forEach((l) => {
                         clipboardBuf.push(l.text);
                     });
                     const delCount = range.end.row - range.start.row + 1;
@@ -415,8 +433,7 @@ export class Editor {
                         } else {
                             this.insertNewLineCurrent();
                         }
-                    }
-                    else if (lines.length <= 0) {
+                    } else if (lines.length <= 0) {
                         // 全ての行が削除された場合のfallback
                         this.insertRow(0, "");
                     }
@@ -432,7 +449,8 @@ export class Editor {
                         const text = this.currentLine.text;
                         const copied = text.slice(range.start.col, range.end.col + 1);
                         clipboardBuf.push(copied);
-                        const newText = text.slice(0, range.start.col) + text.slice(range.end.col + 1);
+                        const newText =
+                            text.slice(0, range.start.col) + text.slice(range.end.col + 1);
                         this.currentLine.text = newText;
                     } else {
                         // 複数行の操作
@@ -469,7 +487,11 @@ export class Editor {
                         this.currentLine.text = joinedText;
                     }
                 }
-                if (operator === "d" && this.state.col >= this.currentLine.size && this.state.col !== 0) {
+                if (
+                    operator === "d" &&
+                    this.state.col >= this.currentLine.size &&
+                    this.state.col !== 0
+                ) {
                     // 文字削除でカーソルが行からはみ出た時
                     this.moveCursor(MOVE_KEYS.LEFT);
                 }
@@ -477,10 +499,9 @@ export class Editor {
                     this.vi_goInsert();
                 }
                 writeClipboard(clipboardBuf.join("\n"));
-            }
-            else if (operator === "y") {
+            } else if (operator === "y") {
                 if (isLinewise) {
-                    lines.slice(range.start.row, range.end.row + 1).forEach(l => {
+                    lines.slice(range.start.row, range.end.row + 1).forEach((l) => {
                         clipboardBuf.push(l.text);
                     });
                 } else {
@@ -494,8 +515,7 @@ export class Editor {
                         const distance = Math.abs(this.state.col - range.start.col);
                         if (this.state.col > range.start.col) {
                             for (let i = 0; i < distance; i++) this.moveCursorLeft();
-                        }
-                        else if (range.start.col > this.state.col) {
+                        } else if (range.start.col > this.state.col) {
                             for (let i = 0; i < distance; i++) this.moveCursorRight();
                         }
                         clipboardBuf.push(copied);
@@ -522,10 +542,9 @@ export class Editor {
                 }
                 writeClipboard(clipboardBuf.join("\n"));
             }
-        }
-        else if (datatype === "put") {
+        } else if (datatype === "put") {
             const isBefore = data.position === "before";
-            readClipboard().then(text => {
+            readClipboard().then((text) => {
                 if (text === null) return;
 
                 const lines = text.split("\n");
@@ -574,7 +593,8 @@ export class Editor {
                             for (let i = 0; i < newLineCount - 1; i++) {
                                 const row = this.state.row + 1 + i;
                                 const text = lines[i + 1];
-                                if (text === undefined) throw new Error("clipboard text is undefined");
+                                if (text === undefined)
+                                    throw new Error("clipboard text is undefined");
                                 this.insertRow(row, text);
                             }
                         }
@@ -583,8 +603,7 @@ export class Editor {
                 this.scrollWindow();
                 this.render();
             });
-        }
-        else if (datatype === "join") {
+        } else if (datatype === "join") {
             for (let i = 0; i < count; i++) {
                 const nextLine = this.nextLine;
                 if (!nextLine) break;
@@ -595,8 +614,7 @@ export class Editor {
                 this.appendTextToLine(this.currentLine, appending);
                 this.deleteRow(this.state.row + 1);
             }
-        }
-        else if (datatype === "replace") {
+        } else if (datatype === "replace") {
             const kind = data.mode.kind;
             if (kind === "single") {
                 const arg = data.mode.char;
@@ -611,14 +629,12 @@ export class Editor {
                 const replaecd = before + arg.repeat(count) + after;
                 this.currentLine.text = replaecd;
                 for (let i = 0; i < count - 1; i++) this.moveCursorRight();
-            }
-            else if (kind === "continuous") {
+            } else if (kind === "continuous") {
                 // 置き換え処理はsetupListenersで行う
                 this.state.vi_mode = "replace";
                 this.state.vi_cursor = "under";
             }
-        }
-        else if (datatype === "repeat_mot") {
+        } else if (datatype === "repeat_mot") {
             const lastMotion = this.state.vi_lastFindMotion;
             if (lastMotion === null) {
                 return 0;
@@ -681,37 +697,37 @@ export class Editor {
     }
 
     private keyMap: Record<string, () => void> = {
-        "ArrowLeft": () => {
+        ArrowLeft: () => {
             this.moveCursor(MOVE_KEYS.LEFT);
             this.state.vi_insertBuf = [];
         },
-        "ArrowRight": () => {
+        ArrowRight: () => {
             this.moveCursor(MOVE_KEYS.RIGHT);
             this.state.vi_insertBuf = [];
         },
-        "ArrowUp": () => {
+        ArrowUp: () => {
             this.moveCursor(MOVE_KEYS.UP);
             this.state.vi_insertBuf = [];
         },
-        "ArrowDown": () => {
+        ArrowDown: () => {
             this.moveCursor(MOVE_KEYS.DOWN);
             this.state.vi_insertBuf = [];
         },
-        "Backspace": () => {
+        Backspace: () => {
             this.deleteChar();
             this.state.vi_insertBuf.push(Editor.VI_BACKSPACE);
         },
-        "Delete": () => {
+        Delete: () => {
             if (this.isAtVeryTail()) return;
             this.moveCursor(MOVE_KEYS.RIGHT);
             this.deleteChar();
             this.state.vi_insertBuf.push(Editor.VI_DELETE);
         },
-        "Enter": () => {
+        Enter: () => {
             this.insertNewLine();
             this.state.vi_insertBuf.push(Editor.VI_ENTER);
         },
-        "Tab": () => {
+        Tab: () => {
             this.indent();
             this.state.vi_insertBuf.push(Editor.VI_TAB);
         },
@@ -740,9 +756,13 @@ export class Editor {
             // decrease rowoff
             this.state.rowoff = this.state.row;
         }
-        if (this.state.row + this.config.statusBarHeight >= this.state.rowoff + this.config.screenrows) {
+        if (
+            this.state.row + this.config.statusBarHeight >=
+            this.state.rowoff + this.config.screenrows
+        ) {
             // increase rowoff
-            this.state.rowoff = this.state.row - this.config.screenrows + 1 + this.config.statusBarHeight;
+            this.state.rowoff =
+                this.state.row - this.config.screenrows + 1 + this.config.statusBarHeight;
         }
 
         if (this.state.logicalWidth < this.state.logicaloff) {
@@ -752,13 +772,10 @@ export class Editor {
 
         const screencols = this.config.screencols;
         const lineNumberCols = this.config.lineNumberCols;
-        if (
-            this.state.logicalWidth + lineNumberCols
-            >= this.state.logicaloff + screencols
-        ) {
+        if (this.state.logicalWidth + lineNumberCols >= this.state.logicaloff + screencols) {
             // スクロール時に常に列を開けるためLOGICAL_HALF_WIDHTを加算する
-            this.state.logicaloff = this.state.logicalWidth - screencols
-            + lineNumberCols + LOGICAL_HALF_WIDTH;
+            this.state.logicaloff =
+                this.state.logicalWidth - screencols + lineNumberCols + LOGICAL_HALF_WIDTH;
         }
     }
 
@@ -875,10 +892,8 @@ export class Editor {
             const before = currLine.text.slice(0, this.state.col);
             const after = currLine.text.slice(this.state.col + 1);
             currLine.text = before + text + after;
-
         } else if (this.state.col >= currLine.size) {
             this.appendTextToLine(currLine, text);
-
         } else {
             this.insertTextInLine(currLine, text);
         }
@@ -976,10 +991,7 @@ export class Editor {
     }
 
     private isAtVeryTail(): boolean {
-        return (
-            this.state.row === this.state.lines.length - 1 &&
-            this.isAtLineTail()
-        );
+        return this.state.row === this.state.lines.length - 1 && this.isAtLineTail();
     }
 
     private moveCursorLeft(): void {
@@ -1070,12 +1082,7 @@ export class Editor {
 
     private moveUntilNextChar(
         arg: string,
-        {
-            reverse = false,
-            stopBefore = false,
-            limit = 1,
-            ignoreNextCh = false,
-        }: FindMoveOptions
+        { reverse = false, stopBefore = false, limit = 1, ignoreNextCh = false }: FindMoveOptions,
     ): void {
         if (!reverse) {
             const text = this.currentLine.text.slice(this.state.col + 1);
@@ -1084,7 +1091,12 @@ export class Editor {
             for (let i = 0; i < moveAmount; i++) this.vi_moveCursor(MOVE_KEYS.RIGHT);
         } else {
             const text = this.currentLine.text.slice(0, this.state.col);
-            const moveAmount = getCountToNextChar(arg, text, { limit, reverse: true, stopBefore, ignoreNextCh });
+            const moveAmount = getCountToNextChar(arg, text, {
+                limit,
+                reverse: true,
+                stopBefore,
+                ignoreNextCh,
+            });
             if (moveAmount === -1) return;
             for (let i = 0; i < moveAmount; i++) this.vi_moveCursor(MOVE_KEYS.LEFT);
         }

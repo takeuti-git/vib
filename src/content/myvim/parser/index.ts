@@ -1,7 +1,12 @@
 import * as cmd from "./command";
 import { CommandType, type CommandContext, type Count } from "./commandType";
 import { MotionType, type MotionContext } from "./motionType";
-import { ParseStatus, type CommandParseResult, type MotionParseResult, type ParserContext } from "./parseStatus";
+import {
+    ParseStatus,
+    type CommandParseResult,
+    type MotionParseResult,
+    type ParserContext,
+} from "./parseStatus";
 import { STANDALONE_MAP } from "./standalone";
 import { SUGAR_MAP } from "./sugar";
 import { isDigitChar } from "../utils";
@@ -26,13 +31,17 @@ export function parseCommand(input: readonly string[]): CommandParseResult {
 
     const countStr = ctx.eatDigits();
     if (countStr === "0") {
-        const command: CommandContext = { type: CommandType.MOTION, count: null, motion: { type: MotionType.CHAR , name: "0" } };
+        const command: CommandContext = {
+            type: CommandType.MOTION,
+            count: null,
+            motion: { type: MotionType.CHAR, name: "0" },
+        };
         return { status: ParseStatus.OK, value: command };
     }
-    const count  = countStr === "" ? null : parseInt(countStr, 10);
+    const count = countStr === "" ? null : parseInt(countStr, 10);
 
     const first = ctx.read();
-    if (!first)  {
+    if (!first) {
         // 数値以外の入力がない状態
         return { status: ParseStatus.PENDING };
     }
@@ -42,7 +51,11 @@ export function parseCommand(input: readonly string[]): CommandParseResult {
         return { status: ParseStatus.OK, value: command };
     }
     if (first === ";" || first === ",") {
-        const command: CommandContext = { type: CommandType.REPEAT_MOT, count, reverse: first === "," };
+        const command: CommandContext = {
+            type: CommandType.REPEAT_MOT,
+            count,
+            reverse: first === ",",
+        };
         return { status: ParseStatus.OK, value: command };
     }
 
@@ -76,7 +89,11 @@ export function parseCommand(input: readonly string[]): CommandParseResult {
             }
             ctx.next();
             if (cmd.isTextObjectType(char)) {
-                const motion: MotionContext = { type: MotionType.TEXTOBJ, inner: ch === "i", name: char };
+                const motion: MotionContext = {
+                    type: MotionType.TEXTOBJ,
+                    inner: ch === "i",
+                    name: char,
+                };
                 return { status: ParseStatus.OK, value: motion };
             } else {
                 return { status: ParseStatus.UNKNOWN };
@@ -97,7 +114,13 @@ export function parseCommand(input: readonly string[]): CommandParseResult {
         const desugared = SUGAR_MAP[first];
         const operator = desugared.operator;
         const motion: MotionContext = desugared.motion;
-        const command: CommandContext = { type: CommandType.OPERATOR, count, operator, innerCount: null, motion };
+        const command: CommandContext = {
+            type: CommandType.OPERATOR,
+            count,
+            operator,
+            innerCount: null,
+            motion,
+        };
         return { status: ParseStatus.OK, value: command };
     }
 
@@ -113,7 +136,13 @@ export function parseCommand(input: readonly string[]): CommandParseResult {
         const innerCountStr = ctx.eatDigits();
         if (innerCountStr === "0") {
             const motion: MotionContext = { type: MotionType.CHAR, name: "0" };
-            const command: CommandContext = { type: CommandType.OPERATOR, count, operator, innerCount: null, motion };
+            const command: CommandContext = {
+                type: CommandType.OPERATOR,
+                count,
+                operator,
+                innerCount: null,
+                motion,
+            };
             return { status: ParseStatus.OK, value: command };
         }
         const innerCount: Count = innerCountStr === "" ? null : parseInt(innerCountStr, 10);
@@ -125,7 +154,13 @@ export function parseCommand(input: readonly string[]): CommandParseResult {
         // operatorが同じ2文字の場合は特殊処理。 ex: dd, cc
         if (afterInnerCount === operator || afterInnerCount === "_") {
             const motion: MotionContext = { type: MotionType.LINEWISE, name: "line" };
-            const command: CommandContext = { type: CommandType.OPERATOR, count, operator, innerCount, motion };
+            const command: CommandContext = {
+                type: CommandType.OPERATOR,
+                count,
+                operator,
+                innerCount,
+                motion,
+            };
             return { status: ParseStatus.OK, value: command };
         }
 
@@ -134,7 +169,13 @@ export function parseCommand(input: readonly string[]): CommandParseResult {
             return { status: result.status };
         }
 
-        const command: CommandContext = { type: CommandType.OPERATOR, count, operator, innerCount, motion: result.value };
+        const command: CommandContext = {
+            type: CommandType.OPERATOR,
+            count,
+            operator,
+            innerCount,
+            motion: result.value,
+        };
         return { status: ParseStatus.OK, value: command };
     }
 
