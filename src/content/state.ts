@@ -10,6 +10,9 @@ export type EditorState = {
     rowoff: number; // 縦スクロール時の行のずれ
     logicaloff: number;
     lines: Line[];
+    diffStack: string[];
+    stackPtr: number;
+    diffDirty: boolean;
 
     vi_mode: "normal" | "insert" | "replace";
     vi_cmd: string[];
@@ -31,6 +34,9 @@ export function createEditorState(): EditorState {
         rowoff: 0,
         logicaloff: 0,
         lines: [new Line()],
+        diffStack: [],
+        stackPtr: 0,
+        diffDirty: false,
 
         vi_mode: "normal",
         vi_cmd: [],
@@ -50,7 +56,10 @@ export function resetState(state: EditorState): void {
     state.logicalWidth = 0;
     state.rowoff = 0;
     state.logicaloff = 0;
-    state.lines = [];
+    state.lines = [new Line()];
+    state.diffStack = [];
+    state.stackPtr = 0;
+    state.diffDirty = false;
     state.vi_mode = "normal";
     state.vi_cmd = [];
     state.vi_lastCmd = [];
