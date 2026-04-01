@@ -10,6 +10,7 @@ export type EditorState = {
     rowoff: number; // 縦スクロール時の行のずれ
     logicaloff: number;
     lines: Line[];
+    lastSnapshot: string;
     diffStack: string[];
     stackPtr: number;
     diffDirty: boolean;
@@ -34,6 +35,7 @@ export function createEditorState(): EditorState {
         rowoff: 0,
         logicaloff: 0,
         lines: [new Line()],
+        lastSnapshot: "",
         diffStack: [],
         stackPtr: 0,
         diffDirty: false,
@@ -57,6 +59,7 @@ export function resetState(state: EditorState): void {
     state.rowoff = 0;
     state.logicaloff = 0;
     state.lines = [new Line()];
+    state.lastSnapshot = "";
     state.diffStack = [];
     state.stackPtr = 0;
     state.diffDirty = false;

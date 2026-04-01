@@ -21,6 +21,7 @@ import {
     FIND_REPEAT_OPTIONS,
     type FindMoveOptions,
 } from "./myvim/findCommand";
+import { createDiff, toRange } from "./undo";
 
 export class Editor {
     private readonly config: EditorConfig;
@@ -209,8 +210,9 @@ export class Editor {
             }
 
             this.input.value = "";
+
             if (key === "Escape" || (key === "[" && e.ctrlKey)) {
-                if (this.state.vi_mode === "insert") {
+                if (this.state.vi_mode === "insert" || this.state.vi_mode === "replace") {
                     this.vi_moveCursor(MOVE_KEYS.LEFT);
                 }
                 this.state.vi_mode = "normal";
@@ -219,6 +221,11 @@ export class Editor {
                 this.state.vi_insertResolve?.();
                 this.state.vi_insertResolve = null;
                 this.render();
+
+                const newText = this.state.lines.map((l) => l.text).join("\n");
+                if (this.state.lastSnapshot !== newText) {
+                    this.savediff(this.state.lastSnapshot, newText);
+                }
                 return;
             }
 
@@ -233,8 +240,8 @@ export class Editor {
                     this.state.vi_cmd = [];
                     return;
                 }
-
                 const result = this.vi_processInput(this.state.vi_cmd);
+                const newText = this.state.lines.map((l) => l.text).join("\n");
                 this.scrollWindow();
                 this.render();
 
@@ -245,6 +252,10 @@ export class Editor {
                     this.state.vi_cmd = [];
                     return;
                 }
+                if (this.state.lastSnapshot !== newText) {
+                    this.savediff(this.state.lastSnapshot, newText);
+                }
+
             } else if (this.state.vi_mode === "insert") {
                 this.processKeypress(e);
                 this.scrollWindow();
@@ -643,6 +654,10 @@ export class Editor {
             // 入力(";" | ",")によって移動方向が反転するため、動的にoptionsを生成する
             const optionsFn = FIND_REPEAT_OPTIONS[lastMotion.name];
             this.moveUntilNextChar(lastMotion.arg, { limit: count, ...optionsFn(data.reverse) });
+        } else if (datatype === "undo") {
+            this.undo();
+        } else if (datatype === "redo") {
+            this.redo();
         }
 
         return 0;
@@ -1112,5 +1127,113 @@ export class Editor {
 
     private setStatusMsg(text: string): void {
         this.renderer.setStatusMsg(this.state, text);
+    }
+
+    // ------------------------------
+    // | undo / redo
+    // ------------------------------
+
+    private savediff(oldText: string, newText: string): void {
+        const diff = createDiff(oldText, newText);
+        this.state.diffStack[this.state.stackPtr] = diff;
+
+        this.state.lastSnapshot = newText;
+        this.state.stackPtr++;
+        this.state.diffStack.length = this.state.stackPtr; // ptr以降の要素を切り捨て, undo後に編集すると以降の履歴を削除する
+    }
+
+    private undo(): string | void {
+        if (this.state.stackPtr === 0) {
+            console.log("Already at oldest change");
+            return;
+        }
+        // この時点でptrは1以上ある
+        this.state.stackPtr--;
+        this.applyReverse(this.state.diffStack[this.state.stackPtr]!.split("\n"));
+    }
+
+    private redo(): string | void {
+        if (this.state.stackPtr === this.state.diffStack.length) {
+            console.log("Already at newest change");
+            return;
+        }
+        this.applyForward(this.state.diffStack[this.state.stackPtr]!.split("\n"));
+        this.state.stackPtr++;
+    }
+
+    private applyReverse(diffLines: string[]): void {
+        const result: Line[] = [];
+        let newPos = 0;
+
+        let i = 0;
+        while (i < diffLines.length && !diffLines[i]!.startsWith("@@")) i++;
+
+        while (i < diffLines.length) {
+            const dline = diffLines[i]!;
+            if (!dline.startsWith("@@")) {
+                i++;
+                continue;
+            }
+
+            const { newStart } = toRange(dline);
+            i++;
+
+            while (newPos < newStart - 1) {
+                result.push(this.state.lines[newPos++]!);
+            }
+
+            while (i < diffLines.length && !diffLines[i]!.startsWith("@@")) {
+                const line = diffLines[i]!;
+                const firstCh = line[0];
+                if      (firstCh === " ") { result.push(new Line(line.slice(1))); newPos++; }
+                else if (firstCh === "-") { result.push(new Line(line.slice(1))); }
+                else if (firstCh === "+") { newPos++; }
+                i++;
+            }
+        }
+
+        while (newPos < this.state.lines.length) result.push(this.state.lines[newPos++]!);
+
+        if (result.length === 0) {
+            result.push(new Line());
+        }
+        this.state.lines = result;
+        this.state.lastSnapshot = result.map((l) => l.text).join("\n");
+    }
+
+    private applyForward(diffLines: string[]): void {
+        const result: Line[] = [];
+        let oldPos = 0;
+
+        let i = 0;
+        while (i < diffLines.length && !diffLines[i]!.startsWith("@@")) i++;
+
+        while (i < diffLines.length) {
+            const dline = diffLines[i]!;
+            if (!dline.startsWith("@@")) {
+                i++;
+                continue;
+            }
+
+            const { oldStart } = toRange(dline);
+            i++;
+
+            while (oldPos < oldStart - 1) result.push(this.state.lines[oldPos++]!);
+
+            while (i < diffLines.length && !diffLines[i]!.startsWith("@@")) {
+                const line = diffLines[i]!;
+                const firstCh = line[0];
+                if      (firstCh === " ") { result.push(new Line(line.slice(1))); oldPos++; }
+                else if (firstCh === "+") { result.push(new Line(line.slice(1))); }
+                else if (firstCh === "-") { oldPos++; }
+                i++;
+            }
+        }
+
+        while (oldPos < this.state.lines.length) result.push(this.state.lines[oldPos++]!);
+
+        console.log(result);
+        this.state.lines = result;
+        this.state.lastSnapshot = result.map((l) => l.text).join("\n");
     }
 }
