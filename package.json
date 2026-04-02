@@ -6,19 +6,36 @@
   "author": "takeuti-git",
   "license": "MIT",
   "repository": {
-      "type": "git",
-      "url": "https://github.com/takeuti-git/vib"
+    "type": "git",
+    "url": "https://github.com/takeuti-git/vib"
   },
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "build-watch": "vite build --watch",
+    "preview": "vite preview",
+    "lint": "eslint src"
   },
-  "keywords": ["chrome-extension", "typescript", "vim", "vite"],
+  "keywords": [
+    "chrome-extension",
+    "typescript",
+    "vim",
+    "vite"
+  ],
   "devDependencies": {
     "@crxjs/vite-plugin": "^2.3.0",
-    "@types/chrome": "^0.1.36",
+    "@eslint/js": "^10.0.1",
+    "@typescript-eslint/eslint-plugin": "^8.57.2",
+    "@typescript-eslint/parser": "^8.57.2",
+    "eslint": "^10.1.0",
+    "eslint-config-prettier": "^10.1.8",
+    "globals": "^17.4.0",
+    "prettier": "^3.8.1",
     "typescript": "^5.9.3",
+    "typescript-eslint": "^8.57.2",
     "vite": "^7.3.1"
+  },
+  "dependencies": {
+    "diff": "^8.0.4"
   }
 }

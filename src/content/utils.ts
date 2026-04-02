@@ -1,6 +1,6 @@
 /** 受け取った文字が全角ならtrueを返す */
-export function isFullWidth(char: string): boolean {
-    return /[^\x00-\x7F]/.test(char);
+export function isFullWidth(ch: string): boolean {
+    return ch.codePointAt(0)! > 0x7f;
 }
 
 export const LOGICAL_HALF_WIDTH = 1;
@@ -29,4 +29,3 @@ export function logicalWidthToCol(logicalWidth: number, text: string): number {
     }
     return col;
 }
-

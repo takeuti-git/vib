@@ -14,7 +14,7 @@ import { Renderer } from "./renderer";
     const state = createEditorState();
     const config = createEditorConfig();
     const renderer = new Renderer(config, canvas);
-    /* const editor = */new Editor(config, state, container, canvas, input, renderer);
+    /* const editor = */ new Editor(config, state, container, canvas, input, renderer);
 
     console.log("Alt+v: Focus canvas");
 })();

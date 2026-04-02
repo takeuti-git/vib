@@ -7,8 +7,12 @@ export class Line {
     public get size(): number {
         return this.text.length;
     }
+
+    public isEmpty(): boolean {
+        return this.text === "";
+    }
 }
 
 export function getLines(text: string): Line[] {
-    return text.split("\n").map(line => new Line(line));
+    return text.split("\n").map((line) => new Line(line));
 }

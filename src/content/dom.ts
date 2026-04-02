@@ -1,6 +1,5 @@
 export function mountElementShadow(el: HTMLElement): void {
-    const shadowHost = document.getElementById("vib-shadowHost") 
-        ?? document.createElement("div");
+    const shadowHost = document.getElementById("vib-shadowHost") ?? document.createElement("div");
     shadowHost.id = "vib-shadowHost";
     document.body.appendChild(shadowHost);
 
@@ -49,12 +48,12 @@ export function createInput(): HTMLInputElement {
     return input;
 }
 
-export function showContainer(container: HTMLElement) {
-    container.style.visibility = "visible";
-    container.style.display = "block";
+export function showElement(element: HTMLElement) {
+    element.style.visibility = "visible";
+    element.style.display = "block";
 }
 
-export function hideContainer(container: HTMLElement) {
-    container.style.visibility = "hidden";
-    container.style.display = "none";
+export function hideElement(element: HTMLElement) {
+    element.style.visibility = "hidden";
+    element.style.display = "none";
 }
