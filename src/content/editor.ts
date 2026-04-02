@@ -223,9 +223,7 @@ export class Editor {
                 this.render();
 
                 const newText = this.state.lines.map((l) => l.text).join("\n");
-                if (this.state.lastSnapshot !== newText) {
-                    this.savediff(this.state.lastSnapshot, newText);
-                }
+                this.saveDiff(this.state.lastSnapshot, newText);
                 return;
             }
 
@@ -252,9 +250,8 @@ export class Editor {
                     this.state.vi_cmd = [];
                     return;
                 }
-                if (this.state.lastSnapshot !== newText) {
-                    this.savediff(this.state.lastSnapshot, newText);
-                }
+                this.saveDiff(this.state.lastSnapshot, newText);
+                this.disableSaveDiff = false;
 
             } else if (this.state.vi_mode === "insert") {
                 this.processKeypress(e);
@@ -383,6 +380,8 @@ export class Editor {
         } else if (datatype === "insert") {
             const insKind = data.command;
             this.insertMap[insKind]();
+
+            this.disableSaveDiff = true; // insertへの移行入力は差分として扱わない
 
             if ((insKind === "a" || insKind === "A") && !this.isAtLineTail()) {
                 this.moveCursor(MOVE_KEYS.RIGHT);
@@ -1133,13 +1132,19 @@ export class Editor {
     // | undo / redo
     // ------------------------------
 
-    private savediff(oldText: string, newText: string): void {
+    private disableSaveDiff = false;
+
+    private saveDiff(oldText: string, newText: string): void {
+        if (this.disableSaveDiff || oldText === newText) return;
+
         const diff = createDiff(oldText, newText);
         this.state.diffStack[this.state.stackPtr] = diff;
+        this.state.cursorStack[this.state.stackPtr] = { row: this.state.row, col: this.state.col };
 
         this.state.lastSnapshot = newText;
         this.state.stackPtr++;
         this.state.diffStack.length = this.state.stackPtr; // ptr以降の要素を切り捨て, undo後に編集すると以降の履歴を削除する
+        this.state.cursorStack.length = this.state.stackPtr; // ptr以降の要素を切り捨て, undo後に編集すると以降の履歴を削除する
     }
 
     private undo(): string | void {
@@ -1199,6 +1204,14 @@ export class Editor {
         }
         this.state.lines = result;
         this.state.lastSnapshot = result.map((l) => l.text).join("\n");
+
+        const cursor = (
+            this.state.stackPtr === 0
+            ? { row: 0, col: 0 }
+            : this.state.cursorStack[this.state.stackPtr]
+        );
+        if (!cursor) throw new Error("cursor is undefined");
+        this.moveCursorToRC(cursor.row, cursor.col);
     }
 
     private applyForward(diffLines: string[]): void {
@@ -1232,8 +1245,11 @@ export class Editor {
 
         while (oldPos < this.state.lines.length) result.push(this.state.lines[oldPos++]!);
 
-        console.log(result);
         this.state.lines = result;
         this.state.lastSnapshot = result.map((l) => l.text).join("\n");
+
+        const cursor = this.state.cursorStack[this.state.stackPtr];
+        if (!cursor) throw new Error("cursor is undefined");
+        this.moveCursorToRC(cursor.row, cursor.col);
     }
 }

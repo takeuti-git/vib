@@ -1,5 +1,6 @@
 import { Line } from "./line";
 import type { FindCommandName } from "./myvim/findCommand";
+import type { RC } from "./types/motion";
 
 export type EditorState = {
     row: number; // 現在の行数
@@ -12,6 +13,7 @@ export type EditorState = {
     lines: Line[];
     lastSnapshot: string;
     diffStack: string[];
+    cursorStack: RC[];
     stackPtr: number;
     diffDirty: boolean;
 
@@ -37,6 +39,7 @@ export function createEditorState(): EditorState {
         lines: [new Line()],
         lastSnapshot: "",
         diffStack: [],
+        cursorStack: [],
         stackPtr: 0,
         diffDirty: false,
 
@@ -61,6 +64,7 @@ export function resetState(state: EditorState): void {
     state.lines = [new Line()];
     state.lastSnapshot = "";
     state.diffStack = [];
+    state.cursorStack = [];
     state.stackPtr = 0;
     state.diffDirty = false;
     state.vi_mode = "normal";
