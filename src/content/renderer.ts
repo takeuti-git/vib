@@ -128,7 +128,7 @@ export class Renderer {
 
         this.drawStatusBarText(STATUS_MSG_X, text);
 
-        this.drawStatusBarRC(state.row, state.col);
+        this.drawStatusBarRC(state.row, state.col, state.logicalWidth);
     }
 
     private get bottomTextY(): number {
@@ -153,11 +153,11 @@ export class Renderer {
     }
 
     /** draw row/col in the status bar */
-    private drawStatusBarRC(row: number, col: number): void {
+    private drawStatusBarRC(row: number, col: number, width: number): void {
         this.ctx.fillStyle = this.config.colors.statusBar.text;
         this.ctx.textAlign = "right";
         const x = this.config.screencols * this.halfFontSize;
-        const rc = `${row + 1},${col + 1}`;
+        const rc = `${row + 1},${col + 1}(${width})`;
         this.ctx.fillText(rc, x, this.bottomTextY);
         this.ctx.textAlign = "start"; // 元に戻す
     }
