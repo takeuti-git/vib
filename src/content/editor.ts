@@ -96,20 +96,28 @@ export class Editor {
                 ) {
                     showElement(this.container);
 
+                    const isSameElement = activeEl === this.destElement;
                     this.destElement = activeEl;
                     this.input.focus();
 
-                    resetState(this.state);
+                    if (!isSameElement) {
+                        resetState(this.state);
+                    }
 
                     // getLinesの仕様上、文字列が空でも必ず1要素の配列になる
                     const newLines = getLines(activeEl.value);
                     if (newLines.length === 0)
                         throw new Error("getLines must return array within at least one element");
-                    const lastLine = newLines[newLines.length - 1] as Line;
-                    const lastRow = newLines.length - 1;
-                    const lastCol = lastLine.isEmpty() ? 0 : lastLine.size - 1;
+
                     this.state.lines = newLines;
-                    this.moveCursorToRC(lastRow, lastCol);
+
+                    if (!isSameElement) {
+                        // 元の文字列の末尾まで移動する
+                        this.moveCursorToEOF();
+                        this.moveCursorToLast();
+                    } else {
+                        this.clampCursor();
+                    }
                     this.scrollWindow();
                     this.render();
                 }
@@ -1092,6 +1100,24 @@ export class Editor {
         if (!destLine) throw new Error("destLine is undefined");
         this.state.logicalWidth = calcLogicalWidth(destLine.text.slice(0, col));
         this.syncPreferredWidth();
+    }
+
+    /**
+     * - DOM要素の文字列が更新されるような場面でrow/colの不整合を解決する
+     * - 最も近い行に移動する
+     * - 行はあるが文字がない場合は0文字目に移動する
+     * */
+    private clampCursor(): void {
+        const maybeLine = this.state.lines[this.state.row];
+        if (!maybeLine) {
+            // カーソルの位置に行が存在しない場合
+            this.state.row = this.state.lines.length - 1;
+        }
+        const maybeChar = this.currentLine.text[this.state.col];
+        if (!maybeChar) {
+            // カーソルの位置に文字が存在しない場合
+            this.moveCursorToLast();
+        }
     }
 
     private moveUntilNextChar(
