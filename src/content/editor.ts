@@ -120,12 +120,15 @@ export class Editor {
                     }
                     this.scrollWindow();
                     this.render();
+                } else {
+                    this.input.focus();
                 }
                 return;
             }
 
             if (e.altKey && e.code === "KeyQ") {
                 toggleVisibility();
+                return;
             }
         });
 
