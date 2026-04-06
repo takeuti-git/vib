@@ -657,14 +657,13 @@ export class Editor {
             if (lastMotion === null) {
                 return 0;
             }
-
             // 入力(";" | ",")によって移動方向が反転するため、動的にoptionsを生成する
             const optionsFn = FIND_REPEAT_OPTIONS[lastMotion.name];
             this.moveUntilNextChar(lastMotion.arg, { limit: count, ...optionsFn(data.reverse) });
         } else if (datatype === "undo") {
-            this.undo();
+            for (let i = 0; i < count; i++) this.undo();
         } else if (datatype === "redo") {
-            this.redo();
+            for (let i = 0; i < count; i++) this.redo();
         }
 
         return 0;
