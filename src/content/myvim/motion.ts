@@ -28,7 +28,7 @@ export function getCountToNextChar(
         stopBefore = false,
         ignoreNextCh = false,
     }: Partial<FindMoveOptions> = {},
-): number {
+): number | undefined {
     if (limit <= 0) throw new Error("limit must exceed 0");
     if (searchChar.length !== 1) throw new Error("searchChar must be one character");
     let distance = 0;
@@ -42,6 +42,7 @@ export function getCountToNextChar(
             i++;
         }
     }
+
     for (; reverse ? i >= 0 : i < text.length; reverse ? i-- : i++) {
         distance++;
         if (searchChar === text[i]) {
@@ -52,7 +53,7 @@ export function getCountToNextChar(
             }
         }
     }
-    return -1;
+    return undefined;
 }
 
 type HorizontalMotion = {
@@ -438,7 +439,7 @@ export function getMotionRange(state: EditorState, ctx: CommandContext): MotionR
             if (motion.name === "f") {
                 const text = currLine.text.slice(col + 1);
                 const distance = getCountToNextChar(motion.arg, text, { limit: count });
-                if (distance === -1) return undefined;
+                if (!distance) return undefined;
                 end.col += distance;
             } else if (motion.name === "F") {
                 const text = currLine.text.slice(0, col);
@@ -446,7 +447,7 @@ export function getMotionRange(state: EditorState, ctx: CommandContext): MotionR
                     limit: count,
                     reverse: true,
                 });
-                if (distance === -1) return undefined;
+                if (!distance) return undefined;
                 start.col -= distance;
                 end.col--;
             } else if (motion.name === "t") {
@@ -455,7 +456,7 @@ export function getMotionRange(state: EditorState, ctx: CommandContext): MotionR
                     limit: count,
                     stopBefore: true,
                 });
-                if (distance === -1) return undefined;
+                if (!distance) return undefined;
                 end.col += distance;
             } else if (motion.name === "T") {
                 const text = currLine.text.slice(0, col);
@@ -464,7 +465,7 @@ export function getMotionRange(state: EditorState, ctx: CommandContext): MotionR
                     reverse: true,
                     stopBefore: true,
                 });
-                if (distance === -1) return undefined;
+                if (!distance) return undefined;
                 start.col -= distance;
                 end.col--;
             }

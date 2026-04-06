@@ -1119,21 +1119,24 @@ export class Editor {
         arg: string,
         { reverse = false, stopBefore = false, limit = 1, ignoreNextCh = false }: FindMoveOptions,
     ): void {
-        if (!reverse) {
-            const text = this.currentLine.text.slice(this.state.col + 1);
-            const moveAmount = getCountToNextChar(arg, text, { limit, stopBefore, ignoreNextCh });
-            if (moveAmount === -1) return;
-            for (let i = 0; i < moveAmount; i++) this.vi_moveCursor(MOVE_KEYS.RIGHT);
+        const text = this.currentLine.text;
+        const sliced = (
+            (reverse)
+                ? text.slice(0, this.state.col)
+                : text.slice(this.state.col + 1)
+        );
+        const distance = getCountToNextChar(arg, sliced, {
+            limit,
+            reverse,
+            stopBefore,
+            ignoreNextCh,
+        });
+        if (!distance) return;
+
+        if (reverse) {
+            this.moveCursorToRC(this.state.row, this.state.col - distance);
         } else {
-            const text = this.currentLine.text.slice(0, this.state.col);
-            const moveAmount = getCountToNextChar(arg, text, {
-                limit,
-                reverse: true,
-                stopBefore,
-                ignoreNextCh,
-            });
-            if (moveAmount === -1) return;
-            for (let i = 0; i < moveAmount; i++) this.vi_moveCursor(MOVE_KEYS.LEFT);
+            this.moveCursorToRC(this.state.row, this.state.col + distance);
         }
     }
 
