@@ -1165,10 +1165,18 @@ export class Editor {
     // | undo / redo
     // ------------------------------
 
+    /** 差分保存を割り込みで無効化するフラグ */
     private disableSaveDiff = false;
 
     private saveDiff(oldText: string, newText: string): void {
-        if (this.disableSaveDiff || oldText === newText) return;
+        if (this.disableSaveDiff) {
+            this.disableSaveDiff = false;
+            return;
+        }
+
+        if (oldText === newText) {
+            return;
+        }
 
         const diff = createDiff(oldText, newText);
         this.state.diffStack[this.state.stackPtr] = diff;
