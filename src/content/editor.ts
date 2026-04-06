@@ -527,15 +527,9 @@ export class Editor {
                     this.moveCursorToRC(range.start.row, range.start.col);
 
                     if (range.start.row === range.end.row) {
-                        // 単一行の操作
+                        // 単一行内の操作
                         const text = this.currentLine.text;
                         const copied = text.slice(range.start.col, range.end.col + 1);
-                        const distance = Math.abs(this.state.col - range.start.col);
-                        if (this.state.col > range.start.col) {
-                            for (let i = 0; i < distance; i++) this.moveCursorLeft();
-                        } else if (range.start.col > this.state.col) {
-                            for (let i = 0; i < distance; i++) this.moveCursorRight();
-                        }
                         clipboardBuf.push(copied);
                     } else {
                         // 複数行の操作
