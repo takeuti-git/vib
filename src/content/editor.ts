@@ -247,24 +247,32 @@ export class Editor {
                     return;
                 }
                 const result = this.vi_processInput(this.state.vi_cmd);
-                const newText = this.state.lines.map((l) => l.text).join("\n");
-                this.scrollWindow();
-                this.render();
 
-                if (result === 0) {
-                    this.state.vi_cmd = [];
-                } else if (result === 1) {
+                if (result === 1) {
                     this.setStatusMsg("unknown cmd");
                     this.state.vi_cmd = [];
                     return;
                 }
-                this.saveDiff(this.state.lastSnapshot, newText);
-                this.disableSaveDiff = false;
+
+                if (result === 2) {
+                    this.render();
+                    return;
+                }
+
+                if (result === 0) {
+                    this.scrollWindow();
+                    this.render();
+                    this.state.vi_cmd = []; // render後にcmdを初期化
+
+                    const newText = this.state.lines.map((l) => l.text).join("\n");
+                    this.saveDiff(this.state.lastSnapshot, newText);
+                }
 
             } else if (this.state.vi_mode === "insert") {
                 this.processKeypress(e);
                 this.scrollWindow();
                 this.render();
+
             } else if (this.state.vi_mode === "replace") {
                 this.processKeypress(e, { replace: true });
                 this.scrollWindow();
