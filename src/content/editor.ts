@@ -1067,6 +1067,7 @@ export class Editor {
         this.state.col = end;
         this.state.logicalWidth = calcLogicalWidth(line.text.slice(0, end));
         this.syncPreferredWidth();
+        this.state.preferredWidth = 99999;
     }
 
     private moveCursorToBOF(): void {
