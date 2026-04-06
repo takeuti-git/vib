@@ -125,13 +125,17 @@ export class Editor {
             }
 
             if (e.altKey && e.code === "KeyQ") {
-                if (this.container.style.visibility === "hidden") {
-                    showElement(this.container);
-                } else {
-                    hideElement(this.container);
-                }
+                toggleVisibility();
             }
         });
+
+        const toggleVisibility = () => {
+            if (this.container.style.visibility === "hidden") {
+                showElement(this.container);
+            } else {
+                hideElement(this.container);
+            }
+        };
 
         const updateCanvas = () => {
             this.renderer.applyConfig();
@@ -214,6 +218,15 @@ export class Editor {
                     this.setDestElementValue();
                     this.destElement.focus();
                 }
+                return;
+            }
+
+            if (e.altKey && e.code === "KeyQ") {
+                if (this.destElement) {
+                    this.setDestElementValue();
+                    this.destElement.focus();
+                }
+                toggleVisibility();
                 return;
             }
 
