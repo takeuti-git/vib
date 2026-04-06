@@ -1031,7 +1031,8 @@ export class Editor {
     }
 
     private moveCursorUp(): void {
-        const prevLine = this.prevLine as Line; // 1つ上の行
+        const prevLine = this.prevLine; // 1つ上の行
+        if (!prevLine) throw new Error("moveCursorUp called at first row");
         this.state.row--;
         this.recalcColWidth(prevLine);
         if (this.state.col >= prevLine.size && !prevLine.isEmpty()) {
@@ -1042,7 +1043,8 @@ export class Editor {
     }
 
     private moveCursorDown(): void {
-        const nextLine = this.nextLine as Line; // 1つ下の行
+        const nextLine = this.nextLine; // 1つ下の行
+        if (!nextLine) throw new Error("moveCursorDown called at last row");
         this.state.row++;
         this.recalcColWidth(nextLine);
         if (this.state.col >= nextLine.size && !nextLine.isEmpty()) {
