@@ -452,6 +452,11 @@ export class Editor {
             })();
         } else if (datatype === "operator") {
             const range = getMotionRange(this.state, parseResult.value);
+            if (data.motion.type === "find") {
+                const { name, arg } = data.motion;
+                this.state.vi_lastFindMotion = { name, arg };
+            }
+
             if (!range) {
                 return 0;
             }
