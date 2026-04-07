@@ -81,6 +81,10 @@ export function createEditorConfig(): EditorConfig {
     };
 }
 
-export function getHalfScreenRows(arg: Readonly<EditorConfig>): number {
-    return Math.max(1, arg.screenrows / 2 - 1);
+export function getHalfScreenRows(config: Readonly<EditorConfig>): number {
+    return Math.max(1, config.screenrows / 2 - config.statusBarHeight);
+}
+
+export function getFullScreenRows(config: Readonly<EditorConfig>): number {
+    return config.screenrows - config.statusBarHeight;
 }

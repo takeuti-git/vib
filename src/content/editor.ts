@@ -1,4 +1,4 @@
-import { getHalfScreenRows, type EditorConfig } from "./config";
+import { getFullScreenRows, getHalfScreenRows, type EditorConfig } from "./config";
 import type { Renderer } from "./renderer";
 import { type EditorState, resetState } from "./state";
 import { Line, getLines } from "./line";
@@ -701,15 +701,28 @@ export class Editor {
     private scrollCommandMap: Record<ScrollKind, () => void> = {
         "up-half": () => {
             for (let i = 0; i < this.state.vi_scrollAmount; i++) {
-                this.scrollUp();
                 this.vi_moveCursor(MOVE_KEYS.UP);
+                this.scrollUp();
             }
         },
         "down-half": () => {
             for (let i = 0; i < this.state.vi_scrollAmount; i++) {
-                this.scrollDown();
                 this.vi_moveCursor(MOVE_KEYS.DOWN);
+                this.scrollDown();
             }
+        },
+        "up-full": () => {
+            if (this.state.rowoff === 0) {
+                return;
+            }
+            const screenrows = getFullScreenRows(this.config) - 1;
+            this.state.row = Math.max(screenrows, this.state.rowoff);
+            this.state.rowoff = Math.max(0, this.state.row - screenrows);
+        },
+        "down-full": () => {
+            const screenrows = getFullScreenRows(this.config);
+            this.state.row = Math.min(this.state.lines.length - 1, this.state.rowoff + screenrows - 1);
+            this.state.rowoff = this.state.row;
         },
     };
 

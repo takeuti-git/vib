@@ -33,7 +33,7 @@ const textObjectTypes = [
 ] as const;
 const textObjectTypeSet: ReadonlySet<string> = new Set(textObjectTypes);
 
-const scrollCommands = ["<C-u>", "<C-d>"] as const;
+const scrollCommands = ["<C-u>", "<C-d>", "<C-f>", "<C-b>"] as const;
 const scrollCommandSet: ReadonlySet<string> = new Set(scrollCommands);
 
 // ------------------------------
