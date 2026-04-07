@@ -10,27 +10,10 @@ const insertCommandSet: ReadonlySet<string> = new Set(insertCommands);
 const operators = ["d", "c", "y", ">", "<"] as const;
 const operatorSet: ReadonlySet<string> = new Set(operators);
 
+// prettier-ignore
 const motions = [
-    "h",
-    "j",
-    "k",
-    "l",
-    "w",
-    "W",
-    "b",
-    "B",
-    "e",
-    "E",
-    "0",
-    "$",
-    "^",
-    "_",
-    "gg",
-    "G",
-    "H",
-    "L",
-    "%",
-    "-",
+    "h", "j", "k", "l", "w", "W", "b", "B", "e", "E",
+    "0", "$", "^", "_", "gg", "G", "H", "L", "%", "-",
     "+",
 ] as const;
 const motionSet: ReadonlySet<string> = new Set(motions);
@@ -43,23 +26,10 @@ const standaloneSet: ReadonlySet<string> = new Set(standalones);
 
 const textObjectModifiers = ["i", "a"] as const;
 const textObjectModifierSet: ReadonlySet<string> = new Set(textObjectModifiers);
+// prettier-ignore
 const textObjectTypes = [
-    "w",
-    "W",
-    "p",
-    "s",
-    "t",
-    "(",
-    ")",
-    "{",
-    "}",
-    "[",
-    "]",
-    ">",
-    "<",
-    '"',
-    "'",
-    "`",
+    "w", "W", "p", "s", "t", "(", ")", "{", "}",
+    "[", "]", ">", "<", '"', "'", "`",
 ] as const;
 const textObjectTypeSet: ReadonlySet<string> = new Set(textObjectTypes);
 

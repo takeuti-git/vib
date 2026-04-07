@@ -1,29 +1,25 @@
 import type { InsertCommand, Operator } from "./command";
 import type { MotionContext } from "./motionType";
 
+// prettier-ignore
 export const CommandType = {
-    OPERATOR: "operator",
-    INSERT: "insert",
-    MOTION: "motion",
-    PUT: "put",
-    REPLACE: "replace",
+    OPERATOR:   "operator",
+    INSERT:     "insert",
+    MOTION:     "motion",
+    PUT:        "put",
+    REPLACE:    "replace",
     REPEAT_OPE: "repeat_ope",
     REPEAT_MOT: "repeat_mot",
-    JOIN: "join",
-    UNDO: "undo",
-    REDO: "redo",
+    JOIN:       "join",
+    UNDO:       "undo",
+    REDO:       "redo",
 } as const;
 
 type CommandType = (typeof CommandType)[keyof typeof CommandType];
 
+// prettier-ignore
 export type CommandContext =
-    | {
-          type: typeof CommandType.OPERATOR;
-          count: Count;
-          operator: Operator;
-          innerCount: Count;
-          motion: MotionContext;
-      }
+    | { type: typeof CommandType.OPERATOR; count: Count; operator: Operator; innerCount: Count; motion: MotionContext; }
     | { type: typeof CommandType.INSERT; count: Count; command: InsertCommand }
     | { type: typeof CommandType.MOTION; count: Count; motion: MotionContext }
     | { type: typeof CommandType.PUT; count: Count; position: PutPosition }
