@@ -692,13 +692,13 @@ export class Editor {
             if (data.count !== null) {
                 this.state.vi_scrollAmount = count;
             }
-            this.scrollCommandMap[kind]();
+            this.scrollCommandMap[kind](count);
         }
 
         return 0;
     }
 
-    private scrollCommandMap: Record<ScrollKind, () => void> = {
+    private scrollCommandMap: Record<ScrollKind, (count: number) => void> = {
         "up-half": () => {
             for (let i = 0; i < this.state.vi_scrollAmount; i++) {
                 this.vi_moveCursor(MOVE_KEYS.UP);
@@ -711,18 +711,22 @@ export class Editor {
                 this.scrollDown();
             }
         },
-        "up-full": () => {
-            if (this.state.rowoff === 0) {
-                return;
+        "up-full": (count) => {
+            for (let i = 0; i < count; i++) {
+                if (this.state.rowoff === 0) {
+                    return;
+                }
+                const screenrows = getFullScreenRows(this.config) - 1;
+                this.state.row = Math.max(screenrows, this.state.rowoff);
+                this.state.rowoff = Math.max(0, this.state.row - screenrows);
             }
-            const screenrows = getFullScreenRows(this.config) - 1;
-            this.state.row = Math.max(screenrows, this.state.rowoff);
-            this.state.rowoff = Math.max(0, this.state.row - screenrows);
         },
-        "down-full": () => {
-            const screenrows = getFullScreenRows(this.config);
-            this.state.row = Math.min(this.state.lines.length - 1, this.state.rowoff + screenrows - 1);
-            this.state.rowoff = this.state.row;
+        "down-full": (count) => {
+            for (let i = 0; i < count; i++) {
+                const screenrows = getFullScreenRows(this.config);
+                this.state.row = Math.min(this.state.lines.length - 1, this.state.rowoff + screenrows - 1);
+                this.state.rowoff = this.state.row;
+            }
         },
     };
 
