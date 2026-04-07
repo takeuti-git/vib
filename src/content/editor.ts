@@ -1,4 +1,4 @@
-import type { EditorConfig } from "./config";
+import { getHalfScreenRows, type EditorConfig } from "./config";
 import type { Renderer } from "./renderer";
 import { type EditorState, resetState } from "./state";
 import { Line, getLines } from "./line";
@@ -102,7 +102,7 @@ export class Editor {
                     this.input.focus();
 
                     if (!isSameElement) {
-                        resetState(this.state);
+                        resetState(this.state, this.config);
                     }
 
                     // getLinesの仕様上、文字列が空でも必ず1要素の配列になる
@@ -192,12 +192,14 @@ export class Editor {
             },
             ArrowUp: () => {
                 this.config.screenrows = Math.min(this.config.screenrows + 1, 40);
+                this.state.vi_scrollAmount = getHalfScreenRows(this.config);
             },
             ArrowDown: () => {
                 this.config.screenrows = Math.max(
                     1 + this.config.statusBarHeight,
                     this.config.screenrows - 1,
                 );
+                this.state.vi_scrollAmount = getHalfScreenRows(this.config);
             },
         };
 
@@ -687,6 +689,9 @@ export class Editor {
 
         } else if (datatype === "scroll") {
             const kind = data.kind;
+            if (data.count !== null) {
+                this.state.vi_scrollAmount = count;
+            }
             this.scrollCommandMap[kind]();
         }
 
@@ -695,18 +700,29 @@ export class Editor {
 
     private scrollCommandMap: Record<ScrollKind, () => void> = {
         "up-half": () => {
-            for (let i = 0; i < this.config.screenrows / 2 - 1; i++) {
+            for (let i = 0; i < this.state.vi_scrollAmount; i++) {
+                this.scrollUp();
                 this.vi_moveCursor(MOVE_KEYS.UP);
-                this.state.rowoff = Math.max(0, this.state.rowoff - 1);
             }
         },
         "down-half": () => {
-            for (let i = 0; i < this.config.screenrows / 2 - 1; i++) {
+            for (let i = 0; i < this.state.vi_scrollAmount; i++) {
+                this.scrollDown();
                 this.vi_moveCursor(MOVE_KEYS.DOWN);
-                this.state.rowoff = Math.min(this.state.lines.length - this.config.screenrows + 1, this.state.rowoff + 1);
             }
         },
     };
+
+    /** 1行上にスクロールする */
+    private scrollUp(): void {
+        this.state.rowoff = Math.max(0, this.state.rowoff - 1);
+    }
+
+    /** 1行下にスクロールする */
+    private scrollDown(): void {
+        const maxRowoff = this.state.lines.length - this.config.screenrows + 1;
+        this.state.rowoff = Math.min(maxRowoff, this.state.rowoff + 1);
+    }
 
     // private vi_processInputClone(input: string[]): void {
     //     const [count, motion] = vi_getCountMotion(input.join(""));

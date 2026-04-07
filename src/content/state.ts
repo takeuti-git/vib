@@ -1,3 +1,4 @@
+import { getHalfScreenRows, type EditorConfig } from "./config";
 import { Line } from "./line";
 import type { FindCommandName } from "./myvim/findCommand";
 import type { RC } from "./types/motion";
@@ -25,9 +26,10 @@ export type EditorState = {
     vi_yankLinewise: boolean;
     vi_cursor: "full" | "under" | "vertical";
     vi_lastFindMotion: { name: FindCommandName; arg: string } | null;
+    vi_scrollAmount: number;
 };
 
-export function createEditorState(): EditorState {
+export function createEditorState(config: Readonly<EditorConfig>): EditorState {
     return {
         row: 0,
         col: 0,
@@ -51,10 +53,11 @@ export function createEditorState(): EditorState {
         vi_yankLinewise: false,
         vi_cursor: "full",
         vi_lastFindMotion: null,
+        vi_scrollAmount: getHalfScreenRows(config),
     };
 }
 
-export function resetState(state: EditorState): void {
+export function resetState(state: EditorState, config: Readonly<EditorConfig>): void {
     state.row = 0;
     state.col = 0;
     state.px = 0;
@@ -75,4 +78,5 @@ export function resetState(state: EditorState): void {
     state.vi_yankLinewise = false;
     state.vi_cursor = "full";
     state.vi_lastFindMotion = null;
+    state.vi_scrollAmount = getHalfScreenRows(config);
 }

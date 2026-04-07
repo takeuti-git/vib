@@ -11,8 +11,8 @@ import { Renderer } from "./renderer";
     mountElementShadow(container);
     container.append(canvas, input);
 
-    const state = createEditorState();
     const config = createEditorConfig();
+    const state = createEditorState(config);
     const renderer = new Renderer(config, canvas);
     /* const editor = */ new Editor(config, state, container, canvas, input, renderer);
 

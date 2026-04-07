@@ -80,3 +80,7 @@ export function createEditorConfig(): EditorConfig {
         },
     };
 }
+
+export function getHalfScreenRows(arg: Readonly<EditorConfig>): number {
+    return Math.max(1, arg.screenrows / 2 - 1);
+}
