@@ -22,6 +22,7 @@ import {
     type FindMoveOptions,
 } from "./myvim/findCommand";
 import { createDiff, toRange } from "./undo";
+import type { ScrollKind } from "./myvim/parser/scroll";
 
 export class Editor {
     private readonly config: EditorConfig;
@@ -680,12 +681,32 @@ export class Editor {
             this.moveUntilNextChar(lastMotion.arg, { limit: count, ...optionsFn(data.reverse) });
         } else if (datatype === "undo") {
             for (let i = 0; i < count; i++) this.undo();
+
         } else if (datatype === "redo") {
             for (let i = 0; i < count; i++) this.redo();
+
+        } else if (datatype === "scroll") {
+            const kind = data.kind;
+            this.scrollCommandMap[kind]();
         }
 
         return 0;
     }
+
+    private scrollCommandMap: Record<ScrollKind, () => void> = {
+        "up-half": () => {
+            for (let i = 0; i < this.config.screenrows / 2 - 1; i++) {
+                this.vi_moveCursor(MOVE_KEYS.UP);
+                this.state.rowoff = Math.max(0, this.state.rowoff - 1);
+            }
+        },
+        "down-half": () => {
+            for (let i = 0; i < this.config.screenrows / 2 - 1; i++) {
+                this.vi_moveCursor(MOVE_KEYS.DOWN);
+                this.state.rowoff = Math.min(this.state.lines.length - this.config.screenrows + 1, this.state.rowoff + 1);
+            }
+        },
+    };
 
     // private vi_processInputClone(input: string[]): void {
     //     const [count, motion] = vi_getCountMotion(input.join(""));

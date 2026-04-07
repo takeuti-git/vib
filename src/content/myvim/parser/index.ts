@@ -10,6 +10,7 @@ import {
 import { STANDALONE_MAP } from "./standalone";
 import { SUGAR_MAP } from "./sugar";
 import { isDigitChar } from "../utils";
+import { SCROLL_COMMAND_MAP } from "./scroll";
 
 /**
  * - status: [ok, pending, unknown]
@@ -183,6 +184,17 @@ export function parseCommand(input: readonly string[]): CommandParseResult {
         ctx.next();
         const handler = STANDALONE_MAP[first];
         return handler(ctx, count);
+    }
+
+    if (cmd.isScrollCommand(first)) {
+        ctx.next();
+        const kind = SCROLL_COMMAND_MAP[first];
+        const command: CommandContext = {
+            type: CommandType.SCROLL,
+            count,
+            kind,
+        };
+        return { status: ParseStatus.OK, value: command };
     }
 
     // 以上の処理のどれにも当てはまらないときは移動入力として解析する

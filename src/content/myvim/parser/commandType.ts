@@ -1,5 +1,6 @@
 import type { InsertCommand, Operator } from "./command";
 import type { MotionContext } from "./motionType";
+import type { ScrollKind } from "./scroll";
 
 // prettier-ignore
 export const CommandType = {
@@ -13,6 +14,7 @@ export const CommandType = {
     JOIN:       "join",
     UNDO:       "undo",
     REDO:       "redo",
+    SCROLL:     "scroll",
 } as const;
 
 type CommandType = (typeof CommandType)[keyof typeof CommandType];
@@ -28,7 +30,8 @@ export type CommandContext =
     | { type: typeof CommandType.REPEAT_MOT; count: Count; reverse: boolean }
     | { type: typeof CommandType.JOIN; count: Count }
     | { type: typeof CommandType.UNDO; count: Count }
-    | { type: typeof CommandType.REDO; count: Count };
+    | { type: typeof CommandType.REDO; count: Count }
+    | { type: typeof CommandType.SCROLL; count: Count; kind: ScrollKind };
 
 export type Count = number | null;
 

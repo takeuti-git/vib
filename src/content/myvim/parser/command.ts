@@ -33,6 +33,9 @@ const textObjectTypes = [
 ] as const;
 const textObjectTypeSet: ReadonlySet<string> = new Set(textObjectTypes);
 
+const scrollCommands = ["<C-u>", "<C-d>"] as const;
+const scrollCommandSet: ReadonlySet<string> = new Set(scrollCommands);
+
 // ------------------------------
 // | Validation Types
 // ------------------------------
@@ -44,6 +47,7 @@ export type Sugar = (typeof sugars)[number];
 export type Standalone = (typeof standalones)[number];
 export type TextObjectModifier = (typeof textObjectModifiers)[number];
 export type TextObjectType = (typeof textObjectTypes)[number];
+export type ScrollCommand = (typeof scrollCommands)[number];
 
 // ------------------------------
 // | Validations
@@ -78,4 +82,8 @@ export const isTextObjectModifier = (ch: string): ch is TextObjectModifier => {
 
 export const isTextObjectType = (ch: string): ch is TextObjectType => {
     return textObjectTypeSet.has(ch);
+};
+
+export const isScrollCommand = (token: string): token is ScrollCommand => {
+    return scrollCommandSet.has(token);
 };
