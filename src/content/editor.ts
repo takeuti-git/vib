@@ -378,7 +378,7 @@ export class Editor {
      * - 1: doesn't exists
      * - 2: exists but incomplete
      * */
-    private vi_processInput(input: string[]): 0 | 1 | 2 {
+    private vi_processInput(input: readonly string[]): 0 | 1 | 2 {
         const parseResult = parseCommand(input);
         if (parseResult.status === "unknown") {
             console.log("its unknown");
@@ -453,7 +453,7 @@ export class Editor {
                 this.setDestElementValue();
             })();
         } else if (datatype === "operator") {
-            const range = getMotionRange(this.state, parseResult.value);
+            const range = getMotionRange(this.state, data);
             if (data.motion.type === "find") {
                 const { name, arg } = data.motion;
                 this.state.vi_lastFindMotion = { name, arg };

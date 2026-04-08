@@ -350,7 +350,7 @@ export function moveTail(state: EditorState, separator: "word" | "WORD"): Horizo
     return { distance: ctx.distance, destRow: ctx.row, destCol: ctx.col };
 }
 
-export function getMotionRange(state: EditorState, ctx: CommandContext): MotionRange | undefined {
+export function getMotionRange(state: Readonly<EditorState>, ctx: Readonly<CommandContext>): MotionRange | undefined {
     if (ctx.type !== CommandType.OPERATOR) {
         return undefined;
     }
