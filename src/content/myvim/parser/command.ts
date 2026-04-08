@@ -14,7 +14,7 @@ const operatorSet: ReadonlySet<string> = new Set(operators);
 const motions = [
     "h", "j", "k", "l", "w", "W", "b", "B", "e", "E",
     "0", "$", "^", "_", "gg", "G", "H", "L", "%", "-",
-    "+",
+    "+", "Enter",
 ] as const;
 const motionSet: ReadonlySet<string> = new Set(motions);
 

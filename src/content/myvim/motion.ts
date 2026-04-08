@@ -379,7 +379,7 @@ export function getMotionRange(state: EditorState, ctx: CommandContext): MotionR
                 }
                 start.col = Math.max(0, start.col - count);
                 end.col--;
-            } else if (motion.name === "j" || motion.name === "+") {
+            } else if (motion.name === "j" || motion.name === "+" || motion.name === "Enter") {
                 linewise = true;
                 end.row = Math.min(end.row + count, maxRow);
             } else if (motion.name === "l") {

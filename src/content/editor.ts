@@ -256,7 +256,7 @@ export class Editor {
 
             // processing
             if (this.state.vi_mode === "normal") {
-                if (key.length > 1) return;
+                if (key.length > 1 && key !== "Enter") return;
                 const input = e.ctrlKey ? `<C-${key}>` : key;
                 this.state.vi_cmd.push(input);
 
@@ -309,19 +309,19 @@ export class Editor {
     // | processing basic inputs
     // ------------------------------
 
-    // remaining = ["H","L","%",]
-    // @ts-expect-error unimplemented motions
+    // remaining = ["H","L","%"]
+    // @ts-expect-error there are unimplemented motions
     private motionMap: Record<Motion, () => void> = {
-        h: () => this.vi_moveCursor(MOVE_KEYS.LEFT),
-        l: () => this.vi_moveCursor(MOVE_KEYS.RIGHT),
-        j: () => this.vi_moveCursor(MOVE_KEYS.DOWN),
-        k: () => this.vi_moveCursor(MOVE_KEYS.UP),
+        "h": () => this.vi_moveCursor(MOVE_KEYS.LEFT),
+        "l": () => this.vi_moveCursor(MOVE_KEYS.RIGHT),
+        "j": () => this.vi_moveCursor(MOVE_KEYS.DOWN),
+        "k": () => this.vi_moveCursor(MOVE_KEYS.UP),
         "0": () => this.moveCursorToFirst(),
-        _: () => this.moveCursorToFirstNonWhitespace(),
+        "_": () => this.moveCursorToFirstNonWhitespace(),
         "^": () => this.moveCursorToFirstNonWhitespace(),
-        $: () => this.moveCursorToLast(),
-        gg: () => this.moveCursorToBOF(),
-        G: () => this.moveCursorToEOF(),
+        "$": () => this.moveCursorToLast(),
+        "gg": () => this.moveCursorToBOF(),
+        "G": () => this.moveCursorToEOF(),
         "-": () => {
             this.vi_moveCursor(MOVE_KEYS.UP);
             this.moveCursorToFirstNonWhitespace();
@@ -330,29 +330,31 @@ export class Editor {
             this.vi_moveCursor(MOVE_KEYS.DOWN);
             this.moveCursorToFirstNonWhitespace();
         },
-        w: () => {
+        "Enter": () => {
+            this.vi_moveCursor(MOVE_KEYS.DOWN);
+            this.moveCursorToFirstNonWhitespace();
+        },
+        "w": () => {
             const { distance } = moveForward(this.state, "word");
             for (let i = 0; i < distance; i++) this.moveCursor(MOVE_KEYS.RIGHT);
         },
-        W: () => {
+        "W": () => {
             const { distance } = moveForward(this.state, "WORD");
             for (let i = 0; i < distance; i++) this.moveCursor(MOVE_KEYS.RIGHT);
         },
-        b: () => {
-            // const distance = getDistanceWordBackward(this.state);
+        "b": () => {
             const { distance } = moveBackward(this.state, "word");
             for (let i = 0; i < distance; i++) this.moveCursor(MOVE_KEYS.LEFT);
         },
-        B: () => {
-            // const distance = getDistanceWORDBackward(this.state);
+        "B": () => {
             const { distance } = moveBackward(this.state, "WORD");
             for (let i = 0; i < distance; i++) this.moveCursor(MOVE_KEYS.LEFT);
         },
-        e: () => {
+        "e": () => {
             const { distance } = moveTail(this.state, "word");
             for (let i = 0; i < distance; i++) this.moveCursor(MOVE_KEYS.RIGHT);
         },
-        E: () => {
+        "E": () => {
             const { distance } = moveTail(this.state, "WORD");
             for (let i = 0; i < distance; i++) this.moveCursor(MOVE_KEYS.RIGHT);
         },
