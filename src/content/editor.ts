@@ -741,6 +741,8 @@ export class Editor {
 
         } else if (datatype === "visual") {
             this.state.vi_mode = "visual";
+            this.state.vi_visualStart = { row: this.state.row, col: this.state.col };
+            this.state.vi_visualEnd = { row: this.state.row, col: this.state.col };
         }
 
         return 0;
@@ -770,6 +772,46 @@ export class Editor {
         if (datatype === "motion") {
             const motion = data.motion;
             this.vi_executeMotion(motion, count);
+
+            if (this.state.vi_visualStart === null) {
+                throw new Error("vi_visualStart is not instantiated");
+            }
+            if (this.state.vi_visualEnd === null) {
+                throw new Error("vi_visualEnd is not instantiated");
+            }
+
+            // sync cusror and start/end
+            const start = this.state.vi_visualStart;
+            const end = this.state.vi_visualEnd;
+            const swapStartEnd = () => {
+                [start.row, end.row] = [end.row, start.row];
+                [start.col, end.col] = [end.col, start.col];
+            };
+
+            if (this.state.vi_visualSide === "start") {
+                start.row = this.state.row;
+                start.col = this.state.col;
+                if (
+                    (start.row === end.row && start.col > end.col) ||
+                    (start.row > end.row)
+                ) {
+                    this.state.vi_visualSide = "end";
+                    swapStartEnd();
+                }
+            } else {
+                end.row = this.state.row;
+                end.col = this.state.col;
+                if (
+                    (end.row === start.row && end.col < start.col) ||
+                    (end.row < start.row)
+                ) {
+                    this.state.vi_visualSide = "start";
+                    swapStartEnd();
+                }
+            }
+            console.log("side:", this.state.vi_visualSide);
+            console.log("s.row:", start.row, "s.col:", start.col);
+            console.log("e.row:", end.row,   "e.col:", end.col);
         }
         return 0;
     }

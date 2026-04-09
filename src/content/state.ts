@@ -27,6 +27,10 @@ export type EditorState = {
     vi_cursor: "full" | "under" | "vertical";
     vi_lastFindMotion: { name: FindCommandName; arg: string } | null;
     vi_scrollAmount: number;
+
+    vi_visualSide: "start" | "end";
+    vi_visualStart: RC | null;
+    vi_visualEnd:   RC | null;
 };
 
 export function createEditorState(config: Readonly<EditorConfig>): EditorState {
@@ -54,6 +58,10 @@ export function createEditorState(config: Readonly<EditorConfig>): EditorState {
         vi_cursor: "full",
         vi_lastFindMotion: null,
         vi_scrollAmount: getHalfScreenRows(config),
+
+        vi_visualSide: "start",
+        vi_visualStart: null,
+        vi_visualEnd: null,
     };
 }
 
@@ -79,4 +87,7 @@ export function resetState(state: EditorState, config: Readonly<EditorConfig>): 
     state.vi_cursor = "full";
     state.vi_lastFindMotion = null;
     state.vi_scrollAmount = getHalfScreenRows(config);
+    state.vi_visualSide = "start";
+    state.vi_visualStart = null;
+    state.vi_visualEnd = null;
 }
