@@ -18,7 +18,7 @@ export type EditorState = {
     stackPtr: number;
     diffDirty: boolean;
 
-    vi_mode: "normal" | "insert" | "replace";
+    vi_mode: "normal" | "insert" | "replace" | "visual";
     vi_cmd: string[];
     vi_lastCmd: string[];
     vi_insertBuf: string[];

@@ -20,12 +20,12 @@ export function parseCommand(input: readonly string[]): CommandParseResult {
     const len = input.length;
 
     const ctx: ParserContext = {
-        read: () => (i < len ? input[i]! : ""),
-        next: () => (i < len ? input[i++]! : ""),
+        read: () => (i < len ? input[i] : ""),
+        next: () => (i < len ? input[i++] : ""),
         eatDigits: () => {
             let s = "";
             if (ctx.read() === "0") return "0";
-            while (isDigitChar(ctx.read())) s += ctx.next();
+            while (isDigitChar(ctx.read()!)) s += ctx.next();
             return s;
         },
     };
@@ -193,6 +193,14 @@ export function parseCommand(input: readonly string[]): CommandParseResult {
             type: CommandType.SCROLL,
             count,
             kind,
+        };
+        return { status: ParseStatus.OK, value: command };
+    }
+
+    if (first === "v") {
+        const command: CommandContext = {
+            type: CommandType.VISUAL,
+            count,
         };
         return { status: ParseStatus.OK, value: command };
     }
