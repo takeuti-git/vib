@@ -1,5 +1,6 @@
 import type { CommandContext } from "./commandType";
 import type { MotionContext } from "./motionType";
+import type { VisualCmdContext } from "./visualType";
 
 type ParseStatus = (typeof ParseStatus)[keyof typeof ParseStatus];
 export const ParseStatus = {
@@ -9,15 +10,16 @@ export const ParseStatus = {
 } as const;
 
 export type ParserContext = {
-    read(): string;
-    next(): string;
+    read(): string | undefined;
+    next(): string | undefined;
     eatDigits(): string;
 };
-
-export type MotionParseResult = ParseResult<MotionContext>;
-export type CommandParseResult = ParseResult<CommandContext>;
 
 type ParseResult<T> =
     | { status: typeof ParseStatus.OK; value: T }
     | { status: typeof ParseStatus.PENDING }
     | { status: typeof ParseStatus.UNKNOWN };
+
+export type MotionParseResult = ParseResult<MotionContext>;
+export type CommandParseResult = ParseResult<CommandContext>;
+export type VisualCmdParseResult = ParseResult<VisualCmdContext>;

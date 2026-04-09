@@ -15,6 +15,7 @@ export const CommandType = {
     UNDO:       "undo",
     REDO:       "redo",
     SCROLL:     "scroll",
+    VISUAL:     "visual",
 } as const;
 
 type CommandType = (typeof CommandType)[keyof typeof CommandType];
@@ -31,7 +32,8 @@ export type CommandContext =
     | { type: typeof CommandType.JOIN; count: Count }
     | { type: typeof CommandType.UNDO; count: Count }
     | { type: typeof CommandType.REDO; count: Count }
-    | { type: typeof CommandType.SCROLL; count: Count; kind: ScrollKind };
+    | { type: typeof CommandType.SCROLL; count: Count; kind: ScrollKind }
+    | { type: typeof CommandType.VISUAL; count: Count; }
 
 export type Count = number | null;
 

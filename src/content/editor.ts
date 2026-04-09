@@ -23,6 +23,8 @@ import {
 } from "./myvim/findCommand";
 import { createDiff, toRange } from "./undo";
 import type { ScrollKind } from "./myvim/parser/scroll";
+import type { MotionContext } from "./myvim/parser/motionType";
+import { parseVisualCommand } from "./myvim/parser/visual";
 
 export class Editor {
     private readonly config: EditorConfig;
@@ -265,7 +267,7 @@ export class Editor {
                     this.state.vi_cmd = [];
                     return;
                 }
-                const result = this.vi_processInput(this.state.vi_cmd);
+                const result = this.vi_executeNormal(this.state.vi_cmd);
 
                 if (result === 1) {
                     this.setStatusMsg("unknown cmd");
@@ -296,6 +298,36 @@ export class Editor {
                 this.processKeypress(e, { replace: true });
                 this.scrollWindow();
                 this.render();
+            } else if (this.state.vi_mode === "visual") {
+                if (key.length > 1 && key !== "Enter") return;
+                const input = e.ctrlKey ? `<C-${key}>` : key;
+                this.state.vi_cmd.push(input);
+
+                if (this.state.vi_cmd.length > 6) {
+                    this.setStatusMsg("too long");
+                    this.state.vi_cmd = [];
+                    return;
+                }
+                const result = this.vi_executeVisual(this.state.vi_cmd);
+                if (result === 1) {
+                    this.setStatusMsg("unknown cmd");
+                    this.state.vi_cmd = [];
+                    return;
+                }
+
+                if (result === 2) {
+                    this.render();
+                    return;
+                }
+
+                if (result === 0) {
+                    this.scrollWindow();
+                    this.render();
+                    this.state.vi_cmd = []; // render後にcmdを初期化
+
+                    const newText = this.state.lines.map((l) => l.text).join("\n");
+                    this.saveDiff(this.state.lastSnapshot, newText);
+                }
             }
 
             if (setDestElValueTimer) {
@@ -373,12 +405,32 @@ export class Editor {
         O: () => this.insertNewLineCurrent(),
     };
 
+    private vi_executeMotion(motion: MotionContext, count: number): void {
+    const motiontype = motion.type;
+        if (motiontype === "char") {
+            const fn = this.motionMap[motion.name];
+            if (!fn) {
+                this.setStatusMsg(`${motion.name} is not mapped`);
+                return;
+            }
+            for (let i = 0; i < count; i++) fn();
+
+        } else if (motiontype === "find") {
+            const { name, arg } = motion;
+            this.state.vi_lastFindMotion = { name: name, arg };
+
+            // 初回のfindMotionは静的にoptionsを取得
+            const options = FIND_COMMAND_OPTIONS[name];
+            this.moveUntilNextChar(arg, { limit: count, ...options });
+        }
+    }
+
     /**
      * - 0: complete
      * - 1: doesn't exists
      * - 2: exists but incomplete
      * */
-    private vi_processInput(input: readonly string[]): 0 | 1 | 2 {
+    private vi_executeNormal(input: readonly string[]): 0 | 1 | 2 {
         const parseResult = parseCommand(input);
         if (parseResult.status === "unknown") {
             console.log("its unknown");
@@ -398,22 +450,8 @@ export class Editor {
 
         if (datatype === "motion") {
             const motion = data.motion;
-            const motiontype = motion.type;
-            if (motiontype === "char") {
-                const fn = this.motionMap[motion.name];
-                if (!fn) {
-                    console.log(motion.name + " is not mapped yet");
-                    return 0;
-                }
-                for (let i = 0; i < count; i++) fn();
-            } else if (motiontype === "find") {
-                const { name, arg } = motion;
-                this.state.vi_lastFindMotion = { name: name, arg };
+            this.vi_executeMotion(motion, count);
 
-                // 初回のfindMotionは静的にoptionsを取得
-                const options = FIND_COMMAND_OPTIONS[name];
-                this.moveUntilNextChar(arg, { limit: count, ...options });
-            }
         } else if (datatype === "insert") {
             const insKind = data.command;
             this.insertMap[insKind]();
@@ -700,8 +738,39 @@ export class Editor {
                 this.state.vi_scrollAmount = count;
             }
             this.scrollCommandMap[kind](count);
+
+        } else if (datatype === "visual") {
+            this.state.vi_mode = "visual";
         }
 
+        return 0;
+    }
+
+    private vi_executeVisual(input: readonly string[]): 0 | 1 | 2 {
+        const parseResult = parseVisualCommand(input);
+        console.log(parseResult);
+        if (parseResult.status === "unknown") {
+            console.log("its unknown");
+            return 1;
+        }
+        if (parseResult.status === "pending") {
+            console.log("its pending");
+            return 2;
+        }
+        console.log("its ok");
+
+        const data = parseResult.value;
+        const datatype = data.type;
+        const count = (
+            ("count" in data) ?
+                (data.count === null) ? 1 : data.count
+            : 1
+        );
+
+        if (datatype === "motion") {
+            const motion = data.motion;
+            this.vi_executeMotion(motion, count);
+        }
         return 0;
     }
 
