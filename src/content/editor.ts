@@ -773,14 +773,15 @@ export class Editor {
             const start = this.state.vi_state.visualStart;
             const end = this.state.vi_state.visualEnd;
             const swapStartEnd = () => {
+                if (this.state.vi_state.mode !== "visual") throw new Error("vi_state.mode should be 'visual'");
                 // カーソルがどちらかのsideを追い越すようなときに値を入れ替える
-                this.state.vi_visualSide = (this.state.vi_visualSide === "start") ? "end" : "start";
+                this.state.vi_state.rangeSide = (this.state.vi_state.rangeSide === "start") ? "end" : "start";
                 [start.row, end.row] = [end.row, start.row];
                 [start.col, end.col] = [end.col, start.col];
             };
 
             // sync cusror and start/end
-            if (this.state.vi_visualSide === "start") {
+            if (this.state.vi_state.rangeSide === "start") {
                 start.row = this.state.row;
                 start.col = this.state.col;
                 if (
@@ -906,8 +907,6 @@ export class Editor {
         this.state.vi_cmd = [];
         this.state.vi_insertResolve?.();
         this.state.vi_insertResolve = null;
-        this.state.vi_visualStart = null;
-        this.state.vi_visualEnd = null;
     }
 
     private vi_goInsert(): void {
