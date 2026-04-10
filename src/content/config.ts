@@ -66,7 +66,7 @@ export function createEditorConfig(): EditorConfig {
                 whitespace: "#ccc",
             },
             cursor: {
-                body: "#00f5",
+                body: "#00f8",
                 outline: "#00f",
             },
             lineNumber: {

@@ -249,6 +249,8 @@ export class Editor {
                 this.state.vi_cmd = [];
                 this.state.vi_insertResolve?.();
                 this.state.vi_insertResolve = null;
+                this.state.vi_visualStart = null;
+                this.state.vi_visualEnd = null;
                 this.render();
 
                 const newText = this.state.lines.map((l) => l.text).join("\n");
@@ -812,6 +814,22 @@ export class Editor {
             console.log("side:", this.state.vi_visualSide);
             console.log("s.row:", start.row, "s.col:", start.col);
             console.log("e.row:", end.row,   "e.col:", end.col);
+            const result: string[] = [];
+            const startLine = this.state.lines[start.row];
+            if (!startLine) throw new Error("startLine is undefined");
+
+            if (start.row === end.row) {
+                result.push(startLine.text.slice(start.col, end.col + 1));
+            } else {
+                result.push(startLine.text.slice(start.col));
+                for (let i = 1; i < end.row - start.row; i++) {
+                    result.push(this.state.lines[start.row + i]!.text);
+                }
+                result.push(this.state.lines[end.row]!.text.slice(0, end.col));
+            }
+            for (const l of result) {
+                console.log([l]);
+            }
         }
         return 0;
     }
