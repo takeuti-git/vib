@@ -51,8 +51,7 @@ export class Renderer {
 
     public render(state: EditorState): void {
         this.clear();
-        // this.drawLines(state);
-        this.drawLinesWithRange(state);
+        this.drawLines(state);
         this.drawCursor(state);
         this.drawStatusBar(state, state.vi_cmd.join(""));
         this.adjustLineNumberMargin();
@@ -65,97 +64,6 @@ export class Renderer {
     // ------------------------------
     // | rendering methods
     // ------------------------------
-
-    private drawLinesWithRange(state: EditorState): void {
-        this.clear();
-        // drawLines
-        const config = this.config;
-        const px = this.lineNumberMargin;
-        const isLineNumberOn = this.config.lineNumbers !== "off";
-        const isRelative = this.config.lineNumbers === "relative";
-
-        let vis_inRowRange = false;
-        let vis_inColRange = false;
-        let stopRenderingCursor = false;
-
-        for (let y = 0; y < config.screenrows - config.statusBarHeight; y++) {
-            const targetRow = y + state.rowoff;
-            const py = y * this.lineHeight + this.halfLineHeight;
-            const targetLine = state.lines[targetRow];
-            if (!targetLine) {
-                this.drawNonLine(py);
-                continue;
-            }
-
-            /// drawLineText
-            this.ctx.textAlign = "start";
-            const startCol = logicalWidthToCol(state.logicaloff, targetLine.text);
-            const subPixelOffset =
-                this.calcWidth(targetLine.text.slice(0, startCol)) - state.logicaloff * this.halfFontSize;
-            let cursorX = px + subPixelOffset;
-            const textRendered = targetLine.text.slice(
-                startCol,
-                startCol + config.screencols - this.lineNumberCols
-            );
-
-            let vis_inBetweenRow = false;
-            if (state.vi_visualStart && targetRow > state.vi_visualStart.row && state.vi_visualEnd && targetRow < state.vi_visualEnd.row) {
-                // 対象行が範囲の中間なら必ずカーソルを描写できる
-                vis_inBetweenRow = true;
-            }
-            if (state.vi_visualStart && targetRow >= state.vi_visualStart.row) {
-                vis_inRowRange = true;
-            }
-            if (state.vi_visualEnd && targetRow > state.vi_visualEnd.row) {
-                vis_inRowRange = false;
-            }
-
-            if (textRendered === "" && (vis_inBetweenRow || vis_inRowRange)) {
-                this.drawCursorAt(state, px, py - this.halfLineHeight);
-            } else {
-                Array.from(textRendered).forEach((ch, i) => {
-                   this.drawChar(cursorX, py, ch);
-
-                    if (this.config.renderWhitespace === "all") {
-                        if (ch === " " /* half width whitespace */) {
-                            this.drawEmptyHalfWidth(cursorX, py);
-                        } else if (ch === "　" /* full width whitespace */) {
-                            this.drawEmptyFullWidth(cursorX, py, textRendered, i);
-                        }
-                    }
-
-                    if (vis_inRowRange && state.vi_visualStart && i + startCol >= state.vi_visualStart.col) {
-                        vis_inColRange = true;
-                    }
-                    if (vis_inRowRange && state.vi_visualEnd && targetRow === state.vi_visualEnd.row && i + startCol > state.vi_visualEnd.col) {
-                        stopRenderingCursor = true;
-                    }
-
-                    if (
-                        !stopRenderingCursor &&
-                        (
-                            vis_inBetweenRow || (vis_inRowRange && vis_inColRange)
-                        )
-                    ) {
-                        this.drawCursorAt(state, cursorX, py - this.halfLineHeight, ch);
-                    }
-                    cursorX += this.calcWidth(ch);
-                });
-            }
-
-            if (!isLineNumberOn) continue;
-
-            const isCurrentRow = state.row === targetRow;
-            const absoluteRowNumber = targetRow + 1;
-
-            const rowDisplayNumber = isRelative
-                ? isCurrentRow
-                    ? absoluteRowNumber
-                    : Math.abs(state.row - targetRow)
-                : absoluteRowNumber;
-            this.drawLineNumber(state, px, py, targetRow, rowDisplayNumber);
-        }
-    }
 
     private clear(): void {
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
@@ -176,7 +84,7 @@ export class Renderer {
                 continue;
             }
 
-            this.drawLineText(state, px, py, line.text);
+            this.drawLineText(state, targetRow, px, py, line.text);
 
             if (!isLineNumberOn) continue;
 
@@ -196,20 +104,12 @@ export class Renderer {
         const currLine = state.lines[state.row] as Line;
         const text = currLine.text;
         const lineheight = this.lineHeight;
-
-        const isUnder = state.cursorStyle === "under";
-        const isVertical = state.cursorStyle === "vertical";
-
         const x =
             (state.logicalWidth - state.logicaloff) * this.halfFontSize + this.lineNumberMargin;
-        const baseY = (state.row - state.rowoff) * lineheight;
-        const y = isUnder ? baseY + lineheight : baseY;
-        const w = isVertical ? 1 : this.calcWidth(text[state.col] ?? " ");
-        const h = isUnder ? 1 : lineheight;
-        this.ctx.fillStyle = this.config.colors.cursor.body;
-        this.ctx.fillRect(x, y, w, h);
-        // this.ctx.strokeStyle = this.config.colors.cursor.outline;
-        // this.ctx.strokeRect(x, y, w, h);
+        const y = (state.row - state.rowoff) * lineheight;
+        const ch = text[state.col];
+
+        this.drawCursorAt(state, x, y, ch);
     }
 
     private drawCursorAt(state: EditorState, x: number, y: number, ch?: string): void {
@@ -297,29 +197,44 @@ export class Renderer {
         this.ctx.textAlign = "start"; // 元に戻す
     }
 
-    private drawLineText(state: EditorState, x: number, y: number, text: string): void {
+    private drawLineText(
+        state: EditorState,
+        lineNumber: number,
+        x: number,
+        y: number,
+        text: string
+    ): void {
         this.ctx.textAlign = "start";
         const startCol = logicalWidthToCol(state.logicaloff, text);
         const subPixelOffset =
             this.calcWidth(text.slice(0, startCol)) - state.logicaloff * this.halfFontSize;
         let cursorX = x + subPixelOffset;
 
-        const drawingText = text.slice(
+        const slicedText = text.slice(
             startCol,
             startCol + this.config.screencols - this.lineNumberCols,
         );
-        Array.from(drawingText).forEach((ch, i) => {
-            this.drawChar(cursorX, y, ch);
+        const isVisualMode = state.vi_state.mode === "visual";
 
-            if (this.config.renderWhitespace === "all") {
-                if (ch === " " /* half width whitespace */) {
-                    this.drawEmptyHalfWidth(cursorX, y);
-                } else if (ch === "　" /* full width whitespace */) {
-                    this.drawEmptyFullWidth(cursorX, y, drawingText, i);
+        if (isVisualMode && slicedText === "" && this.inVisualRange(state, lineNumber, startCol)) {
+            this.drawCursorAt(state, this.lineNumberMargin, y - this.halfLineHeight);
+        } else {
+            Array.from(slicedText).forEach((ch, i) => {
+                this.drawChar(cursorX, y, ch);
+
+                if (this.config.renderWhitespace === "all") {
+                    if (ch === " " /* half width whitespace */) {
+                        this.drawEmptyHalfWidth(cursorX, y);
+                    } else if (ch === "　" /* full width whitespace */) {
+                        this.drawEmptyFullWidth(cursorX, y, slicedText, i);
+                    }
                 }
-            }
-            cursorX += this.calcWidth(ch);
-        });
+                if (isVisualMode && this.inVisualRange(state, lineNumber, i + startCol)) {
+                    this.drawCursorAt(state, cursorX, y - this.halfLineHeight, ch);
+                }
+                cursorX += this.calcWidth(ch);
+            });
+        }
     }
 
     private drawNonLine(y: number) {
@@ -460,5 +375,23 @@ export class Renderer {
             width += isFullWidth(ch) ? this.config.baseFontSize : this.halfFontSize;
         }
         return width;
+    }
+
+    private inVisualRange(state: EditorState, row: number, col: number): boolean {
+        if (state.vi_state.mode !== "visual") throw new Error("vi_state.mode is not visual");
+        const start = state.vi_state.visualStart;
+        const end = state.vi_state.visualEnd;
+        if (row < start.row || row > end.row) {
+            // 完全に対象外の行が範囲から除かれる
+            return false;
+        }
+        if (
+            (row === start.row && col < start.col) ||
+            (row === end.row && col > end.col)
+        ) {
+            // 行内の対象範囲外が除かれる
+            return false;
+        }
+        return true;
     }
 }
