@@ -19,7 +19,7 @@ export type EditorState = {
     diffDirty: boolean;
     cursorStyle: "full" | "under" | "vertical";
 
-    vi_mode: "normal" | "insert" | "replace" | "visual";
+    vi_state: ViState;
     vi_cmd: string[];
     vi_lastCmd: string[];
     vi_insertBuf: string[];
@@ -31,6 +31,30 @@ export type EditorState = {
     vi_visualSide: "start" | "end";
     vi_visualStart: RC | null;
     vi_visualEnd:   RC | null;
+};
+
+type ViState =
+    | NormalState
+    | InsertState
+    | ReplaceState
+    | VisualState
+
+type NormalState = {
+    mode: "normal";
+};
+type VisualState = {
+    mode: "visual";
+    rangeSide: "start" | "end";
+    visualStart: RC;
+    visualEnd: RC;
+};
+
+type InsertState = {
+    mode: "insert";
+};
+
+type ReplaceState = {
+    mode: "replace";
 };
 
 export function createEditorState(config: Readonly<EditorConfig>): EditorState {
@@ -49,7 +73,7 @@ export function createEditorState(config: Readonly<EditorConfig>): EditorState {
         stackPtr: 0,
         diffDirty: false,
 
-        vi_mode: "normal",
+        vi_state: { mode: "normal" },
         vi_cmd: [],
         vi_lastCmd: [],
         vi_insertBuf: [""],
@@ -78,7 +102,7 @@ export function resetState(state: EditorState, config: Readonly<EditorConfig>): 
     state.cursorStack = [];
     state.stackPtr = 0;
     state.diffDirty = false;
-    state.vi_mode = "normal";
+    state.vi_state = { mode: "normal" };
     state.vi_cmd = [];
     state.vi_lastCmd = [];
     state.vi_insertBuf = [];

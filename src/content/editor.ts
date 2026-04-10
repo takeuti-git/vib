@@ -168,7 +168,7 @@ export class Editor {
         });
         this.input.addEventListener("compositionend", () => {
             // 日本語変換が終わったとき
-            if (this.state.vi_mode === "insert") {
+            if (this.state.vi_state.mode === "insert") {
                 this.insertText(this.input.value);
                 this.scrollWindow();
                 this.render();
@@ -242,16 +242,6 @@ export class Editor {
             this.input.value = "";
 
             if (key === "Escape" || (key === "[" && e.ctrlKey)) {
-                // if (this.state.vi_mode === "insert" || this.state.vi_mode === "replace") {
-                //     this.vi_moveCursor(MOVE_KEYS.LEFT);
-                // }
-                // this.state.vi_mode = "normal";
-                // this.state.vi_cursor = "full";
-                // this.state.vi_cmd = [];
-                // this.state.vi_insertResolve?.();
-                // this.state.vi_insertResolve = null;
-                // this.state.vi_visualStart = null;
-                // this.state.vi_visualEnd = null;
                 this.vi_goNormal();
                 this.render();
 
@@ -261,7 +251,7 @@ export class Editor {
             }
 
             // processing
-            if (this.state.vi_mode === "normal") {
+            if (this.state.vi_state.mode === "normal") {
                 if (key.length > 1 && key !== "Enter") return;
                 const input = e.ctrlKey ? `<C-${key}>` : key;
                 this.state.vi_cmd.push(input);
@@ -293,16 +283,16 @@ export class Editor {
                     this.saveDiff(this.state.lastSnapshot, newText);
                 }
 
-            } else if (this.state.vi_mode === "insert") {
+            } else if (this.state.vi_state.mode === "insert") {
                 this.processKeypress(e);
                 this.scrollWindow();
                 this.render();
 
-            } else if (this.state.vi_mode === "replace") {
+            } else if (this.state.vi_state.mode === "replace") {
                 this.processKeypress(e, { replace: true });
                 this.scrollWindow();
                 this.render();
-            } else if (this.state.vi_mode === "visual") {
+            } else if (this.state.vi_state.mode === "visual") {
                 if (key.length > 1 && key !== "Enter") return;
                 const input = e.ctrlKey ? `<C-${key}>` : key;
                 this.state.vi_cmd.push(input);
@@ -723,7 +713,7 @@ export class Editor {
                 for (let i = 0; i < count - 1; i++) this.moveCursorRight();
             } else if (kind === "continuous") {
                 // 置き換え処理はsetupListenersで行う
-                this.state.vi_mode = "replace";
+                this.state.vi_state.mode = "replace";
                 this.state.cursorStyle = "under";
             }
         } else if (datatype === "repeat_mot") {
@@ -748,15 +738,14 @@ export class Editor {
             this.scrollCommandMap[kind](count);
 
         } else if (datatype === "visual") {
-            this.state.vi_mode = "visual";
-            this.state.vi_visualStart = { row: this.state.row, col: this.state.col };
-            this.state.vi_visualEnd = { row: this.state.row, col: this.state.col };
+            this.vi_goVisual();
         }
 
         return 0;
     }
 
     private vi_executeVisual(input: readonly string[]): 0 | 1 | 2 {
+        if (this.state.vi_state.mode !== "visual") throw new Error("vi_state.mode should be 'visual'");
         const parseResult = parseVisualCommand(input);
         console.log(parseResult);
         if (parseResult.status === "unknown") {
@@ -781,11 +770,8 @@ export class Editor {
             const motion = data.motion;
             this.vi_executeMotion(motion, count);
 
-            if (!this.state.vi_visualStart) throw new Error("vi_visualStart is not instantiated");
-            if (!this.state.vi_visualEnd) throw new Error("vi_visualEnd is not instantiated");
-
-            const start = this.state.vi_visualStart;
-            const end = this.state.vi_visualEnd;
+            const start = this.state.vi_state.visualStart;
+            const end = this.state.vi_state.visualEnd;
             const swapStartEnd = () => {
                 // カーソルがどちらかのsideを追い越すようなときに値を入れ替える
                 this.state.vi_visualSide = (this.state.vi_visualSide === "start") ? "end" : "start";
@@ -814,11 +800,10 @@ export class Editor {
                 }
             }
         } else if (datatype === "operator") {
-            if (!this.state.vi_visualStart) throw new Error("vi_visualStart must be an object");
-            if (!this.state.vi_visualEnd) throw new Error("vi_visualEnd must be an object");
+            if (this.state.vi_state.mode !== "visual") throw new Error("vi_state.mode should be 'visual'");
             const range: MotionRange = {
-                start: this.state.vi_visualStart,
-                end: this.state.vi_visualEnd,
+                start: this.state.vi_state.visualStart,
+                end: this.state.vi_state.visualEnd,
                 linewise: data.linewise,
             };
             this.vi_executeOperator({ operator: data.operator, range, linewise: data.linewise });
@@ -913,10 +898,10 @@ export class Editor {
     }
 
     private vi_goNormal(): void {
-        if (this.state.vi_mode === "insert" || this.state.vi_mode === "replace") {
+        if (this.state.vi_state.mode === "insert" || this.state.vi_state.mode === "replace") {
             this.vi_moveCursor(MOVE_KEYS.LEFT);
         }
-        this.state.vi_mode = "normal";
+        this.state.vi_state = { mode: "normal" };
         this.state.cursorStyle = "full";
         this.state.vi_cmd = [];
         this.state.vi_insertResolve?.();
@@ -926,9 +911,18 @@ export class Editor {
     }
 
     private vi_goInsert(): void {
-        this.state.vi_mode = "insert";
+        this.state.vi_state.mode = "insert";
         this.state.cursorStyle = "vertical";
         this.state.vi_insertBuf = [];
+    }
+
+    private vi_goVisual(): void {
+        this.state.vi_state = {
+            mode: "visual",
+            rangeSide: "start",
+            visualStart: { row: this.state.row, col: this.state.col },
+            visualEnd: { row: this.state.row, col: this.state.col },
+        };
     }
 
     private keyMap: Record<string, () => void> = {
