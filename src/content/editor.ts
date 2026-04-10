@@ -14,7 +14,7 @@ import {
     moveBackward,
 } from "./myvim/motion";
 import { parseCommand } from "./myvim/parser";
-import type { InsertCommand, Motion } from "./myvim/parser/command";
+import type { InsertCommand, Motion, Operator } from "./myvim/parser/command";
 import { readClipboard, writeClipboard } from "./clipboard";
 import {
     FIND_COMMAND_OPTIONS,
@@ -25,6 +25,7 @@ import { createDiff, toRange } from "./undo";
 import type { ScrollKind } from "./myvim/parser/scroll";
 import type { MotionContext } from "./myvim/parser/motionType";
 import { parseVisualCommand } from "./myvim/parser/visual";
+import type { MotionRange } from "./types/motion";
 
 export class Editor {
     private readonly config: EditorConfig;
@@ -241,16 +242,17 @@ export class Editor {
             this.input.value = "";
 
             if (key === "Escape" || (key === "[" && e.ctrlKey)) {
-                if (this.state.vi_mode === "insert" || this.state.vi_mode === "replace") {
-                    this.vi_moveCursor(MOVE_KEYS.LEFT);
-                }
-                this.state.vi_mode = "normal";
-                this.state.vi_cursor = "full";
-                this.state.vi_cmd = [];
-                this.state.vi_insertResolve?.();
-                this.state.vi_insertResolve = null;
-                this.state.vi_visualStart = null;
-                this.state.vi_visualEnd = null;
+                // if (this.state.vi_mode === "insert" || this.state.vi_mode === "replace") {
+                //     this.vi_moveCursor(MOVE_KEYS.LEFT);
+                // }
+                // this.state.vi_mode = "normal";
+                // this.state.vi_cursor = "full";
+                // this.state.vi_cmd = [];
+                // this.state.vi_insertResolve?.();
+                // this.state.vi_insertResolve = null;
+                // this.state.vi_visualStart = null;
+                // this.state.vi_visualEnd = null;
+                this.vi_goNormal();
                 this.render();
 
                 const newText = this.state.lines.map((l) => l.text).join("\n");
@@ -427,6 +429,133 @@ export class Editor {
         }
     }
 
+    private vi_executeOperator({ operator, range, linewise }: { operator: Operator,range: MotionRange, linewise: boolean }): void {
+        const { lines } = this.state;
+        const clipboardBuf: string[] = [];
+        this.state.vi_yankLinewise = linewise;
+
+        if (operator === "d" || operator === "c") {
+            if (linewise) {
+                lines.slice(range.start.row, range.end.row + 1).forEach((l) => {
+                    clipboardBuf.push(l.text);
+                });
+                const delCount = range.end.row - range.start.row + 1;
+                lines.splice(range.start.row, delCount);
+
+                const row = Math.min(range.start.row, lines.length - 1);
+                this.state.row = Math.max(0, row);
+
+                if (operator === "c") {
+                    if (range.start.row > this.state.row) {
+                        this.insertNewLineNext();
+                    } else {
+                        this.insertNewLineCurrent();
+                    }
+                } else if (lines.length <= 0) {
+                    // 全ての行が削除された場合のfallback
+                    this.insertRow(0, "");
+                }
+                if (this.state.logicalWidth >= calcLogicalWidth(this.currentLine.text)) {
+                    this.moveCursorToLast();
+                }
+            } else {
+                // カーソル位置を対象範囲の先頭に移動する
+                this.moveCursorToRC(range.start.row, range.start.col);
+
+                if (range.start.row === range.end.row) {
+                    // 同一行内の操作
+                    const text = this.currentLine.text;
+                    const copied = text.slice(range.start.col, range.end.col + 1);
+                    clipboardBuf.push(copied);
+                    const newText =
+                        text.slice(0, range.start.col) + text.slice(range.end.col + 1);
+                    this.currentLine.text = newText;
+                } else {
+                    // 複数行の操作
+                    const startRow = this.state.lines[range.start.row];
+                    if (!startRow) throw new Error("startRow is undefined");
+                    const endRow = this.state.lines[range.end.row];
+                    if (!endRow) throw new Error("endRow is undefined");
+
+                    // あらかじめ取得できる文字列
+                    const startRowText = startRow.text.slice(0, range.start.col);
+                    const endRowText = endRow.text.slice(range.end.col + 1);
+                    const joinedText = startRowText + endRowText;
+
+                    // 開始行のスライスヤンク
+                    clipboardBuf.push(startRow.text.slice(range.start.col));
+
+                    // ヤンク用ループ
+                    for (let i = range.start.row + 1; i < range.end.row; i++) {
+                        // 完全行のみを対象にしたループ
+                        const line = this.state.lines[i];
+                        if (!line) throw new Error("line for yank is undefined");
+                        clipboardBuf.push(line.text);
+                    }
+
+                    // 最終行のスライスヤンク
+                    clipboardBuf.push(endRow.text.slice(0, range.end.col + 1));
+
+                    // 行単位で削除
+                    const delCount = range.end.row - range.start.row;
+                    for (let i = 0; i < delCount; i++) {
+                        this.deleteRow(range.start.row + 1);
+                    }
+
+                    this.currentLine.text = joinedText;
+                }
+            }
+            if (
+                operator === "d" &&
+                this.state.col >= this.currentLine.size &&
+                this.state.col !== 0
+            ) {
+                // 文字削除でカーソルが行からはみ出た時
+                this.moveCursor(MOVE_KEYS.LEFT);
+            }
+            if (operator === "c") {
+                this.vi_goInsert();
+            }
+            writeClipboard(clipboardBuf.join("\n"));
+        } else if (operator === "y") {
+            if (linewise) {
+                lines.slice(range.start.row, range.end.row + 1).forEach((l) => {
+                    clipboardBuf.push(l.text);
+                });
+            } else {
+                // カーソル位置を対象範囲の先頭に移動する
+                this.moveCursorToRC(range.start.row, range.start.col);
+
+                if (range.start.row === range.end.row) {
+                    // 単一行内の操作
+                    const text = this.currentLine.text;
+                    const copied = text.slice(range.start.col, range.end.col + 1);
+                    clipboardBuf.push(copied);
+                } else {
+                    // 複数行の操作
+                    const startRow = this.state.lines[range.start.row];
+                    if (!startRow) throw new Error("startRow is undefined");
+                    const endRow = this.state.lines[range.end.row];
+                    if (!endRow) throw new Error("endRow is undefined");
+
+                    // 開始行のスライスヤンク
+                    clipboardBuf.push(startRow.text.slice(range.start.col));
+
+                    for (let i = range.start.row + 1; i < range.end.row; i++) {
+                        // start/endを含まない,あいだの行単位のヤンク
+                        const line = this.state.lines[i];
+                        if (!line) throw new Error("line is undefined");
+                        clipboardBuf.push(line.text);
+                    }
+
+                    // 終了行のスライスヤンク
+                    clipboardBuf.push(endRow.text.slice(0, range.end.col + 1));
+                }
+            }
+            writeClipboard(clipboardBuf.join("\n"));
+        }
+    }
+
     /**
      * - 0: complete
      * - 1: doesn't exists
@@ -502,132 +631,9 @@ export class Editor {
             if (!range) {
                 return 0;
             }
-            const { operator } = data;
-            const { lines } = this.state;
-            const clipboardBuf: string[] = [];
-            const isLinewise = data.motion.type === "linewise" || range.linewise;
-            this.state.vi_yankLinewise = isLinewise;
+            const isLinewise = data.motion.type === "linewise" || range.linewise; // dj/ykのような, motiontypeはcharだがrangeとしては行単位の挙動を持つ場合がある
+            this.vi_executeOperator({ operator: data.operator, range, linewise: isLinewise });
 
-            if (operator === "d" || operator === "c") {
-                if (isLinewise) {
-                    lines.slice(range.start.row, range.end.row + 1).forEach((l) => {
-                        clipboardBuf.push(l.text);
-                    });
-                    const delCount = range.end.row - range.start.row + 1;
-                    lines.splice(range.start.row, delCount);
-
-                    const row = Math.min(range.start.row, lines.length - 1);
-                    this.state.row = Math.max(0, row);
-
-                    if (operator === "c") {
-                        if (range.start.row > this.state.row) {
-                            this.insertNewLineNext();
-                        } else {
-                            this.insertNewLineCurrent();
-                        }
-                    } else if (lines.length <= 0) {
-                        // 全ての行が削除された場合のfallback
-                        this.insertRow(0, "");
-                    }
-                    if (this.state.logicalWidth >= calcLogicalWidth(this.currentLine.text)) {
-                        this.moveCursorToLast();
-                    }
-                } else {
-                    // カーソル位置を対象範囲の先頭に移動する
-                    this.moveCursorToRC(range.start.row, range.start.col);
-
-                    if (range.start.row === range.end.row) {
-                        // 同一行内の操作
-                        const text = this.currentLine.text;
-                        const copied = text.slice(range.start.col, range.end.col + 1);
-                        clipboardBuf.push(copied);
-                        const newText =
-                            text.slice(0, range.start.col) + text.slice(range.end.col + 1);
-                        this.currentLine.text = newText;
-                    } else {
-                        // 複数行の操作
-                        const startRow = this.state.lines[range.start.row];
-                        if (!startRow) throw new Error("startRow is undefined");
-                        const endRow = this.state.lines[range.end.row];
-                        if (!endRow) throw new Error("endRow is undefined");
-
-                        // あらかじめ取得できる文字列
-                        const startRowText = startRow.text.slice(0, range.start.col);
-                        const endRowText = endRow.text.slice(range.end.col + 1);
-                        const joinedText = startRowText + endRowText;
-
-                        // 開始行のスライスヤンク
-                        clipboardBuf.push(startRow.text.slice(range.start.col));
-
-                        // ヤンク用ループ
-                        for (let i = range.start.row + 1; i < range.end.row; i++) {
-                            // 完全行のみを対象にしたループ
-                            const line = this.state.lines[i];
-                            if (!line) throw new Error("line for yank is undefined");
-                            clipboardBuf.push(line.text);
-                        }
-
-                        // 最終行のスライスヤンク
-                        clipboardBuf.push(endRow.text.slice(0, range.end.col + 1));
-
-                        // 行単位で削除
-                        const delCount = range.end.row - range.start.row;
-                        for (let i = 0; i < delCount; i++) {
-                            this.deleteRow(range.start.row + 1);
-                        }
-
-                        this.currentLine.text = joinedText;
-                    }
-                }
-                if (
-                    operator === "d" &&
-                    this.state.col >= this.currentLine.size &&
-                    this.state.col !== 0
-                ) {
-                    // 文字削除でカーソルが行からはみ出た時
-                    this.moveCursor(MOVE_KEYS.LEFT);
-                }
-                if (operator === "c") {
-                    this.vi_goInsert();
-                }
-                writeClipboard(clipboardBuf.join("\n"));
-            } else if (operator === "y") {
-                if (isLinewise) {
-                    lines.slice(range.start.row, range.end.row + 1).forEach((l) => {
-                        clipboardBuf.push(l.text);
-                    });
-                } else {
-                    // カーソル位置を対象範囲の先頭に移動する
-                    this.moveCursorToRC(range.start.row, range.start.col);
-
-                    if (range.start.row === range.end.row) {
-                        // 単一行内の操作
-                        const text = this.currentLine.text;
-                        const copied = text.slice(range.start.col, range.end.col + 1);
-                        clipboardBuf.push(copied);
-                    } else {
-                        // 複数行の操作
-                        const startRow = this.state.lines[range.start.row];
-                        if (!startRow) throw new Error("startRow is undefined");
-                        const endRow = this.state.lines[range.end.row];
-                        if (!endRow) throw new Error("endRow is undefined");
-
-                        // 開始行のスライスヤンク
-                        clipboardBuf.push(startRow.text.slice(range.start.col));
-
-                        for (let i = range.start.row + 1; i < range.end.row; i++) {
-                            // start/endを含まない,あいだの行単位のヤンク
-                            const line = this.state.lines[i];
-                            if (!line) throw new Error("line is undefined");
-                            clipboardBuf.push(line.text);
-                        }
-
-                        // 終了行のスライスヤンク
-                        clipboardBuf.push(endRow.text.slice(0, range.end.col + 1));
-                    }
-                }
-                writeClipboard(clipboardBuf.join("\n"));
-            }
         } else if (datatype === "put") {
             const isBefore = data.position === "before";
             readClipboard().then((text) => {
@@ -775,21 +781,19 @@ export class Editor {
             const motion = data.motion;
             this.vi_executeMotion(motion, count);
 
-            if (this.state.vi_visualStart === null) {
-                throw new Error("vi_visualStart is not instantiated");
-            }
-            if (this.state.vi_visualEnd === null) {
-                throw new Error("vi_visualEnd is not instantiated");
-            }
+            if (!this.state.vi_visualStart) throw new Error("vi_visualStart is not instantiated");
+            if (!this.state.vi_visualEnd) throw new Error("vi_visualEnd is not instantiated");
 
-            // sync cusror and start/end
             const start = this.state.vi_visualStart;
             const end = this.state.vi_visualEnd;
             const swapStartEnd = () => {
+                // カーソルがどちらかのsideを追い越すようなときに値を入れ替える
+                this.state.vi_visualSide = (this.state.vi_visualSide === "start") ? "end" : "start";
                 [start.row, end.row] = [end.row, start.row];
                 [start.col, end.col] = [end.col, start.col];
             };
 
+            // sync cusror and start/end
             if (this.state.vi_visualSide === "start") {
                 start.row = this.state.row;
                 start.col = this.state.col;
@@ -797,7 +801,6 @@ export class Editor {
                     (start.row === end.row && start.col > end.col) ||
                     (start.row > end.row)
                 ) {
-                    this.state.vi_visualSide = "end";
                     swapStartEnd();
                 }
             } else {
@@ -807,29 +810,19 @@ export class Editor {
                     (end.row === start.row && end.col < start.col) ||
                     (end.row < start.row)
                 ) {
-                    this.state.vi_visualSide = "start";
                     swapStartEnd();
                 }
             }
-            console.log("side:", this.state.vi_visualSide);
-            console.log("s.row:", start.row, "s.col:", start.col);
-            console.log("e.row:", end.row,   "e.col:", end.col);
-            const result: string[] = [];
-            const startLine = this.state.lines[start.row];
-            if (!startLine) throw new Error("startLine is undefined");
-
-            if (start.row === end.row) {
-                result.push(startLine.text.slice(start.col, end.col + 1));
-            } else {
-                result.push(startLine.text.slice(start.col));
-                for (let i = 1; i < end.row - start.row; i++) {
-                    result.push(this.state.lines[start.row + i]!.text);
-                }
-                result.push(this.state.lines[end.row]!.text.slice(0, end.col));
-            }
-            for (const l of result) {
-                console.log([l]);
-            }
+        } else if (datatype === "operator") {
+            if (!this.state.vi_visualStart) throw new Error("vi_visualStart must be an object");
+            if (!this.state.vi_visualEnd) throw new Error("vi_visualEnd must be an object");
+            const range: MotionRange = {
+                start: this.state.vi_visualStart,
+                end: this.state.vi_visualEnd,
+                linewise: data.linewise,
+            };
+            this.vi_executeOperator({ operator: data.operator, range, linewise: data.linewise });
+            this.vi_goNormal();
         }
         return 0;
     }
@@ -917,6 +910,19 @@ export class Editor {
                 this.insertText(token);
             }
         }
+    }
+
+    private vi_goNormal(): void {
+        if (this.state.vi_mode === "insert" || this.state.vi_mode === "replace") {
+            this.vi_moveCursor(MOVE_KEYS.LEFT);
+        }
+        this.state.vi_mode = "normal";
+        this.state.vi_cursor = "full";
+        this.state.vi_cmd = [];
+        this.state.vi_insertResolve?.();
+        this.state.vi_insertResolve = null;
+        this.state.vi_visualStart = null;
+        this.state.vi_visualEnd = null;
     }
 
     private vi_goInsert(): void {
