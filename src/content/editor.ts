@@ -746,8 +746,10 @@ export class Editor {
 
     private vi_executeVisual(input: readonly string[]): 0 | 1 | 2 {
         if (this.state.vi_state.mode !== "visual") throw new Error("vi_state.mode should be 'visual'");
+        const vi_state = this.state.vi_state; // クロージャで使うためnarrow後にローカル変数にバインド
         const parseResult = parseVisualCommand(input);
         console.log(parseResult);
+
         if (parseResult.status === "unknown") {
             console.log("its unknown");
             return 1;
@@ -773,9 +775,8 @@ export class Editor {
             const start = this.state.vi_state.visualStart;
             const end = this.state.vi_state.visualEnd;
             const swapStartEnd = () => {
-                if (this.state.vi_state.mode !== "visual") throw new Error("vi_state.mode should be 'visual'");
                 // カーソルがどちらかのsideを追い越すようなときに値を入れ替える
-                this.state.vi_state.rangeSide = (this.state.vi_state.rangeSide === "start") ? "end" : "start";
+                vi_state.rangeSide = (vi_state.rangeSide === "start") ? "end" : "start";
                 [start.row, end.row] = [end.row, start.row];
                 [start.col, end.col] = [end.col, start.col];
             };

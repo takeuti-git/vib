@@ -1,5 +1,5 @@
 import type { EditorConfig } from "./config";
-import type { EditorState } from "./state";
+import type { EditorState, VisualState } from "./state";
 import type { Line } from "./line";
 import { isFullWidth, logicalWidthToCol } from "./utils";
 
@@ -216,8 +216,27 @@ export class Renderer {
         );
         const isVisualMode = state.vi_state.mode === "visual";
 
-        if (isVisualMode && slicedText === "" && this.inVisualRange(state, lineNumber, startCol)) {
-            this.drawCursorAt(state, this.lineNumberMargin, y - this.halfLineHeight);
+        if (state.vi_state.mode === "visual") {
+            const vi_state = state.vi_state;
+            if (isVisualMode && slicedText === "" && this.inVisualRange(vi_state, lineNumber, startCol)) {
+                this.drawCursorAt(state, this.lineNumberMargin, y - this.halfLineHeight);
+            } else {
+                Array.from(slicedText).forEach((ch, i) => {
+                    this.drawChar(cursorX, y, ch);
+
+                    if (this.config.renderWhitespace === "all") {
+                        if (ch === " " /* half width whitespace */) {
+                            this.drawEmptyHalfWidth(cursorX, y);
+                        } else if (ch === "　" /* full width whitespace */) {
+                            this.drawEmptyFullWidth(cursorX, y, slicedText, i);
+                        }
+                    }
+                    if (isVisualMode && this.inVisualRange(vi_state, lineNumber, i + startCol)) {
+                        this.drawCursorAt(state, cursorX, y - this.halfLineHeight, ch);
+                    }
+                    cursorX += this.calcWidth(ch);
+                });
+            }
         } else {
             Array.from(slicedText).forEach((ch, i) => {
                 this.drawChar(cursorX, y, ch);
@@ -228,9 +247,6 @@ export class Renderer {
                     } else if (ch === "　" /* full width whitespace */) {
                         this.drawEmptyFullWidth(cursorX, y, slicedText, i);
                     }
-                }
-                if (isVisualMode && this.inVisualRange(state, lineNumber, i + startCol)) {
-                    this.drawCursorAt(state, cursorX, y - this.halfLineHeight, ch);
                 }
                 cursorX += this.calcWidth(ch);
             });
@@ -377,19 +393,18 @@ export class Renderer {
         return width;
     }
 
-    private inVisualRange(state: EditorState, row: number, col: number): boolean {
-        if (state.vi_state.mode !== "visual") throw new Error("vi_state.mode is not visual");
-        const start = state.vi_state.visualStart;
-        const end = state.vi_state.visualEnd;
+    private inVisualRange(visualState: VisualState, row: number, col: number): boolean {
+        const start = visualState.visualStart;
+        const end = visualState.visualEnd;
         if (row < start.row || row > end.row) {
-            // 完全に対象外の行が範囲から除かれる
+            // 完全に対象外の範囲が除かれる
             return false;
         }
         if (
             (row === start.row && col < start.col) ||
             (row === end.row && col > end.col)
         ) {
-            // 行内の対象範囲外が除かれる
+            // 行内前後の範囲が除かれる
             return false;
         }
         return true;
