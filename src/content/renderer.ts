@@ -51,7 +51,8 @@ export class Renderer {
 
     public render(state: EditorState): void {
         this.clear();
-        this.drawLines(state);
+        // this.drawLines(state);
+        this.drawLinesWithRange(state);
         this.drawCursor(state);
         this.drawStatusBar(state, state.vi_cmd.join(""));
         this.adjustLineNumberMargin();
@@ -64,6 +65,97 @@ export class Renderer {
     // ------------------------------
     // | rendering methods
     // ------------------------------
+
+    private drawLinesWithRange(state: EditorState): void {
+        this.clear();
+        // drawLines
+        const config = this.config;
+        const px = this.lineNumberMargin;
+        const isLineNumberOn = this.config.lineNumbers !== "off";
+        const isRelative = this.config.lineNumbers === "relative";
+
+        let vis_inRowRange = false;
+        let vis_inColRange = false;
+        let stopRenderingCursor = false;
+
+        for (let y = 0; y < config.screenrows - config.statusBarHeight; y++) {
+            const targetRow = y + state.rowoff;
+            const py = y * this.lineHeight + this.halfLineHeight;
+            const targetLine = state.lines[targetRow];
+            if (!targetLine) {
+                this.drawNonLine(py);
+                continue;
+            }
+
+            /// drawLineText
+            this.ctx.textAlign = "start";
+            const startCol = logicalWidthToCol(state.logicaloff, targetLine.text);
+            const subPixelOffset =
+                this.calcWidth(targetLine.text.slice(0, startCol)) - state.logicaloff * this.halfFontSize;
+            let cursorX = px + subPixelOffset;
+            const textRendered = targetLine.text.slice(
+                startCol,
+                startCol + config.screencols - this.lineNumberCols
+            );
+
+            let vis_inBetweenRow = false;
+            if (state.vi_visualStart && targetRow > state.vi_visualStart.row && state.vi_visualEnd && targetRow < state.vi_visualEnd.row) {
+                // 対象行が範囲の中間なら必ずカーソルを描写できる
+                vis_inBetweenRow = true;
+            }
+            if (state.vi_visualStart && targetRow >= state.vi_visualStart.row) {
+                vis_inRowRange = true;
+            }
+            if (state.vi_visualEnd && targetRow > state.vi_visualEnd.row) {
+                vis_inRowRange = false;
+            }
+
+            if (textRendered === "" && (vis_inBetweenRow || vis_inRowRange)) {
+                this.drawCursorAt(state, px, py - this.halfLineHeight);
+            } else {
+                Array.from(textRendered).forEach((ch, i) => {
+                   this.drawChar(cursorX, py, ch);
+
+                    if (this.config.renderWhitespace === "all") {
+                        if (ch === " " /* half width whitespace */) {
+                            this.drawEmptyHalfWidth(cursorX, py);
+                        } else if (ch === "　" /* full width whitespace */) {
+                            this.drawEmptyFullWidth(cursorX, py, textRendered, i);
+                        }
+                    }
+
+                    if (vis_inRowRange && state.vi_visualStart && i + startCol >= state.vi_visualStart.col) {
+                        vis_inColRange = true;
+                    }
+                    if (vis_inRowRange && state.vi_visualEnd && targetRow === state.vi_visualEnd.row && i + startCol > state.vi_visualEnd.col) {
+                        stopRenderingCursor = true;
+                    }
+
+                    if (
+                        !stopRenderingCursor &&
+                        (
+                            vis_inBetweenRow || (vis_inRowRange && vis_inColRange)
+                        )
+                    ) {
+                        this.drawCursorAt(state, cursorX, py - this.halfLineHeight, ch);
+                    }
+                    cursorX += this.calcWidth(ch);
+                });
+            }
+
+            if (!isLineNumberOn) continue;
+
+            const isCurrentRow = state.row === targetRow;
+            const absoluteRowNumber = targetRow + 1;
+
+            const rowDisplayNumber = isRelative
+                ? isCurrentRow
+                    ? absoluteRowNumber
+                    : Math.abs(state.row - targetRow)
+                : absoluteRowNumber;
+            this.drawLineNumber(state, px, py, targetRow, rowDisplayNumber);
+        }
+    }
 
     private clear(): void {
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
@@ -112,12 +204,30 @@ export class Renderer {
             (state.logicalWidth - state.logicaloff) * this.halfFontSize + this.lineNumberMargin;
         const baseY = (state.row - state.rowoff) * lineheight;
         const y = isUnder ? baseY + lineheight : baseY;
-        const w = isVertical ? 0 : this.calcWidth(text[state.col] ?? " ");
-        const h = isUnder ? 0 : lineheight;
+        const w = isVertical ? 1 : this.calcWidth(text[state.col] ?? " ");
+        const h = isUnder ? 1 : lineheight;
         this.ctx.fillStyle = this.config.colors.cursor.body;
-        this.ctx.strokeStyle = this.config.colors.cursor.outline;
         this.ctx.fillRect(x, y, w, h);
-        this.ctx.strokeRect(x, y, w, h);
+        // this.ctx.strokeStyle = this.config.colors.cursor.outline;
+        // this.ctx.strokeRect(x, y, w, h);
+    }
+
+    private drawCursorAt(state: EditorState, x: number, y: number, ch?: string): void {
+        if (!ch) ch = " ";
+        else if (ch.length > 1) throw new Error("ch must be a char or empty char");
+
+        const isUnder = state.vi_cursor === "under";
+        const isVertical = state.vi_cursor === "vertical";
+
+        const y_ = isUnder ? y + this.lineHeight : y;
+        const w = isVertical ? 1 : this.calcWidth(ch);
+        const h = isUnder ? 1 : this.lineHeight;
+
+        this.ctx.fillStyle = this.config.colors.cursor.body;
+        this.ctx.fillRect(x, y_, w, h);
+        // // stroke付きだと範囲選択時に枠線だらけで見づらいため無効化
+        // this.ctx.strokeStyle = this.config.colors.cursor.outline;
+        // this.ctx.strokeRect(x, y_, w, h);
     }
 
     private drawStatusBar(state: EditorState, text: string): void {
