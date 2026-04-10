@@ -17,6 +17,7 @@ export type EditorState = {
     cursorStack: RC[];
     stackPtr: number;
     diffDirty: boolean;
+    cursorStyle: "full" | "under" | "vertical";
 
     vi_mode: "normal" | "insert" | "replace" | "visual";
     vi_cmd: string[];
@@ -24,7 +25,6 @@ export type EditorState = {
     vi_insertBuf: string[];
     vi_insertResolve: (() => void) | null;
     vi_yankLinewise: boolean;
-    vi_cursor: "full" | "under" | "vertical";
     vi_lastFindMotion: { name: FindCommandName; arg: string } | null;
     vi_scrollAmount: number;
 
@@ -55,7 +55,7 @@ export function createEditorState(config: Readonly<EditorConfig>): EditorState {
         vi_insertBuf: [""],
         vi_insertResolve: null,
         vi_yankLinewise: false,
-        vi_cursor: "full",
+        cursorStyle: "full",
         vi_lastFindMotion: null,
         vi_scrollAmount: getHalfScreenRows(config),
 
@@ -84,7 +84,7 @@ export function resetState(state: EditorState, config: Readonly<EditorConfig>): 
     state.vi_insertBuf = [];
     state.vi_insertResolve = null;
     state.vi_yankLinewise = false;
-    state.vi_cursor = "full";
+    state.cursorStyle = "full";
     state.vi_lastFindMotion = null;
     state.vi_scrollAmount = getHalfScreenRows(config);
     state.vi_visualSide = "start";

@@ -197,8 +197,8 @@ export class Renderer {
         const text = currLine.text;
         const lineheight = this.lineHeight;
 
-        const isUnder = state.vi_cursor === "under";
-        const isVertical = state.vi_cursor === "vertical";
+        const isUnder = state.cursorStyle === "under";
+        const isVertical = state.cursorStyle === "vertical";
 
         const x =
             (state.logicalWidth - state.logicaloff) * this.halfFontSize + this.lineNumberMargin;
@@ -216,8 +216,8 @@ export class Renderer {
         if (!ch) ch = " ";
         else if (ch.length > 1) throw new Error("ch must be a char or empty char");
 
-        const isUnder = state.vi_cursor === "under";
-        const isVertical = state.vi_cursor === "vertical";
+        const isUnder = state.cursorStyle === "under";
+        const isVertical = state.cursorStyle === "vertical";
 
         const y_ = isUnder ? y + this.lineHeight : y;
         const w = isVertical ? 1 : this.calcWidth(ch);
