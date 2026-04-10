@@ -724,7 +724,7 @@ export class Editor {
             } else if (kind === "continuous") {
                 // 置き換え処理はsetupListenersで行う
                 this.state.vi_mode = "replace";
-                this.state.vi_cursor = "under";
+                this.state.cursorStyle = "under";
             }
         } else if (datatype === "repeat_mot") {
             const lastMotion = this.state.vi_lastFindMotion;
@@ -917,7 +917,7 @@ export class Editor {
             this.vi_moveCursor(MOVE_KEYS.LEFT);
         }
         this.state.vi_mode = "normal";
-        this.state.vi_cursor = "full";
+        this.state.cursorStyle = "full";
         this.state.vi_cmd = [];
         this.state.vi_insertResolve?.();
         this.state.vi_insertResolve = null;
@@ -927,7 +927,7 @@ export class Editor {
 
     private vi_goInsert(): void {
         this.state.vi_mode = "insert";
-        this.state.vi_cursor = "vertical";
+        this.state.cursorStyle = "vertical";
         this.state.vi_insertBuf = [];
     }
 
