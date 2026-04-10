@@ -233,7 +233,7 @@ export class Renderer {
     private drawStatusBar(state: EditorState, text: string): void {
         this.drawStatusBarBg();
 
-        const vi_mode = "-- " + state.vi_mode.toUpperCase() + " --";
+        const vi_mode = "-- " + state.vi_state.mode.toUpperCase() + " --";
         this.drawStatusBarText(0, vi_mode);
 
         this.drawStatusBarText(STATUS_MSG_X, text);
