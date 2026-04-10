@@ -38,7 +38,7 @@ type ViState =
 type NormalState = {
     mode: "normal";
 };
-type VisualState = {
+export type VisualState = {
     mode: "visual";
     rangeSide: "start" | "end";
     visualStart: RC;
