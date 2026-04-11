@@ -21,19 +21,20 @@ export const CommandType = {
 type CommandType = (typeof CommandType)[keyof typeof CommandType];
 
 // prettier-ignore
-export type CommandContext =
-    | { type: typeof CommandType.OPERATOR; count: Count; operator: Operator; innerCount: Count; motion: MotionContext; }
-    | { type: typeof CommandType.INSERT; count: Count; command: InsertCommand }
-    | { type: typeof CommandType.MOTION; count: Count; motion: MotionContext }
-    | { type: typeof CommandType.PUT; count: Count; position: PutPosition }
-    | { type: typeof CommandType.REPLACE; count: Count; mode: ReplaceMode }
-    | { type: typeof CommandType.REPEAT_OPE; count: Count }
-    | { type: typeof CommandType.REPEAT_MOT; count: Count; reverse: boolean }
-    | { type: typeof CommandType.JOIN; count: Count }
-    | { type: typeof CommandType.UNDO; count: Count }
-    | { type: typeof CommandType.REDO; count: Count }
-    | { type: typeof CommandType.SCROLL; count: Count; kind: ScrollKind }
-    | { type: typeof CommandType.VISUAL; count: Count; }
+export type CommandContext = { count: Count } & (
+    | { type: typeof CommandType.OPERATOR; operator: Operator; innerCount: Count; motion: MotionContext; }
+    | { type: typeof CommandType.INSERT; command: InsertCommand }
+    | { type: typeof CommandType.MOTION; motion: MotionContext }
+    | { type: typeof CommandType.PUT; position: PutPosition }
+    | { type: typeof CommandType.REPLACE; mode: ReplaceMode }
+    | { type: typeof CommandType.REPEAT_OPE; }
+    | { type: typeof CommandType.REPEAT_MOT; reverse: boolean }
+    | { type: typeof CommandType.JOIN; }
+    | { type: typeof CommandType.UNDO; }
+    | { type: typeof CommandType.REDO; }
+    | { type: typeof CommandType.SCROLL; kind: ScrollKind }
+    | { type: typeof CommandType.VISUAL; }
+);
 
 export type Count = number | null;
 

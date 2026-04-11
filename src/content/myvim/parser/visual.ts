@@ -93,21 +93,29 @@ export function parseVisualCommand(input: readonly string[]): VisualCmdParseResu
         return { status: ParseStatus.UNKNOWN };
     }
 
-    const noArgCmd = visualCmd.NO_ARG_CMD_MAP[first as "d"]; // firstはstring型であり、Record型のインデックスになれないため型変換
+    if (visualCmd.isOperator(first)) {
+        ctx.next();
+        const command = visualCmd.OPERATOR_TO_CTX[first];
+        return { status: ParseStatus.OK, value: command };
+    }
+
+    if (visualCmd.isIndentOperator(first)) {
+        ctx.next();
+        const command = visualCmd.INDENT_OPERATOR_TO_CTX[first](count);
+        return { status: ParseStatus.OK, value: command };
+    }
+
+    if (visualCmd.isSugar(first)) {
+        ctx.next();
+        const command = visualCmd.SUGAR_TO_CTX[first];
+        return { status: ParseStatus.OK, value: command };
+    }
+
+    const noArgCmd = visualCmd.NO_ARG_CMD_MAP[first as "o"]; // firstはstring型であり、Record型のインデックスになれないため型変換
     if (noArgCmd) {
         return { status: ParseStatus.OK, value: noArgCmd };
     }
 
-    // if (cmd.isOperator(first)) {
-    //     ctx.next();
-    //     const operator = first;
-    //     const command: VisualCmdContext = {
-    //         type: VisualCmdType.OPERATOR,
-    //         operator,
-    //     };
-    //     return { status: ParseStatus.OK, value: command };
-    // }
-    //
     // if (visualCmd.isCaseSwitcher(first)) {
     //     const value: VisualCmdContext = {
     //         type: first === "u" ? VisualCmdType.TO_LOWER : VisualCmdType.TO_UPPER
