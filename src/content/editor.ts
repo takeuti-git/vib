@@ -345,7 +345,10 @@ export class Editor {
         "0": () => this.moveCursorToFirst(),
         "_": () => this.moveCursorToFirstNonWhitespace(),
         "^": () => this.moveCursorToFirstNonWhitespace(),
-        "$": () => this.moveCursorToLast(),
+        "$": () => {
+            this.moveCursorToLast();
+            this.setMaxPreferredWidth();
+        },
         "gg": () => this.moveCursorToBOF(),
         "G": () => this.moveCursorToEOF(),
         "-": () => {
@@ -419,7 +422,9 @@ export class Editor {
         }
     }
 
-    private vi_executeOperator({ operator, range, linewise }: { operator: Operator,range: MotionRange, linewise: boolean }): void {
+    private vi_executeOperator(
+        { operator, range, linewise }: { operator: Operator, range: MotionRange, linewise: boolean }
+    ): void {
         const { lines } = this.state;
         const clipboardBuf: string[] = [];
         this.state.vi_yankLinewise = linewise;
@@ -1301,7 +1306,6 @@ export class Editor {
         this.state.col = end;
         this.state.logicalWidth = calcLogicalWidth(line.text.slice(0, end));
         this.syncPreferredWidth();
-        this.state.preferredWidth = 99999;
     }
 
     private moveCursorToBOF(): void {
@@ -1373,6 +1377,11 @@ export class Editor {
         } else {
             this.moveCursorToRC(this.state.row, this.state.col + distance);
         }
+    }
+
+    /** 上下移動で行末に張り付きながら移動するため非常に高い値を設定する($モーション) */
+    private setMaxPreferredWidth(): void {
+        this.state.preferredWidth = Infinity;
     }
 
     // ------------------------------
