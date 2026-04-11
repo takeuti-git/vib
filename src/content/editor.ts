@@ -503,9 +503,6 @@ export class Editor {
                 // 文字削除でカーソルが行からはみ出た時
                 this.moveCursor(MOVE_KEYS.LEFT);
             }
-            if (operator === "c") {
-                this.vi_goInsert();
-            }
             writeClipboard(clipboardBuf.join("\n"));
         } else if (operator === "y") {
             if (linewise) {
@@ -623,6 +620,9 @@ export class Editor {
             }
             const isLinewise = data.motion.type === "linewise" || range.linewise; // dj/ykのような, motiontypeはcharだがrangeとしては行単位の挙動を持つ場合がある
             this.vi_executeOperator({ operator: data.operator, range, linewise: isLinewise });
+            if (data.operator === "c") {
+                this.vi_goInsert();
+            }
 
         } else if (datatype === "put") {
             const isBefore = data.position === "before";
@@ -809,7 +809,11 @@ export class Editor {
                 linewise: data.linewise,
             };
             this.vi_executeOperator({ operator: data.operator, range, linewise: data.linewise });
-            this.vi_goNormal();
+            if (data.operator === "c") {
+                this.vi_goInsert();
+            } if (data.operator !== "c") {
+                this.vi_goNormal();
+            }
         }
         return 0;
     }
