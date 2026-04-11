@@ -410,8 +410,8 @@ export class Editor {
             for (let i = 0; i < count; i++) fn();
 
         } else if (motiontype === "find") {
+            this.setLastFindMotion(motion);
             const { name, arg } = motion;
-            this.state.vi_lastFindMotion = { name: name, arg };
 
             // 初回のfindMotionは静的にoptionsを取得
             const options = FIND_COMMAND_OPTIONS[name];
@@ -611,8 +611,7 @@ export class Editor {
         } else if (datatype === "operator") {
             const range = getMotionRange(this.state, data);
             if (data.motion.type === "find") {
-                const { name, arg } = data.motion;
-                this.state.vi_lastFindMotion = { name, arg };
+                this.setLastFindMotion(data.motion);
             }
 
             if (!range) {
@@ -764,12 +763,9 @@ export class Editor {
         const datatype = data.type;
         const count = data.count === null ? 1 : data.count;
 
-        if (datatype === "motion") {
-            const motion = data.motion;
-            this.vi_executeMotion(motion, count);
-
-            const start = this.state.vi_state.visualStart;
-            const end = this.state.vi_state.visualEnd;
+        const syncCursorAndVisual = () => {
+            const start = vi_state.visualStart;
+            const end = vi_state.visualEnd;
             const swapStartEnd = () => {
                 // カーソルがどちらかのsideを追い越すようなときに値を入れ替える
                 vi_state.rangeSide = (vi_state.rangeSide === "start") ? "end" : "start";
@@ -778,7 +774,7 @@ export class Editor {
             };
 
             // sync cusror and start/end
-            if (this.state.vi_state.rangeSide === "start") {
+            if (vi_state.rangeSide === "start") {
                 start.row = this.state.row;
                 start.col = this.state.col;
                 if (
@@ -797,6 +793,25 @@ export class Editor {
                     swapStartEnd();
                 }
             }
+        };
+        if (datatype === "motion") {
+            if (data.motion.type === "find") {
+                this.setLastFindMotion(data.motion);
+            }
+            const motion = data.motion;
+            this.vi_executeMotion(motion, count);
+            syncCursorAndVisual();
+
+        } else if (datatype === "repeat_mot") {
+            const lastMotion = this.state.vi_lastFindMotion;
+            if (lastMotion === null) {
+                return 0;
+            }
+            // 入力(";" | ",")によって移動方向が反転するため、動的にoptionsを生成する
+            const optionsFn = FIND_REPEAT_OPTIONS[lastMotion.name];
+            this.moveUntilNextChar(lastMotion.arg, { limit: count, ...optionsFn(data.reverse) });
+            syncCursorAndVisual();
+
         } else if (datatype === "operator") {
             if (this.state.vi_state.mode !== "visual") throw new Error("vi_state.mode should be 'visual'");
             const range: MotionRange = {
@@ -855,6 +870,11 @@ export class Editor {
     private scrollDown(): void {
         const maxRowoff = this.state.lines.length - this.config.screenrows + 1;
         this.state.rowoff = Math.min(maxRowoff, this.state.rowoff + 1);
+    }
+
+    private setLastFindMotion(motion: Extract<MotionContext, { arg: string }>): void {
+        const { name, arg } = motion;
+        this.state.vi_lastFindMotion = { name, arg };
     }
 
     // private vi_processInputClone(input: string[]): void {
