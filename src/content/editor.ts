@@ -762,11 +762,7 @@ export class Editor {
 
         const data = parseResult.value;
         const datatype = data.type;
-        const count = (
-            ("count" in data) ?
-                (data.count === null) ? 1 : data.count
-            : 1
-        );
+        const count = data.count === null ? 1 : data.count;
 
         if (datatype === "motion") {
             const motion = data.motion;
