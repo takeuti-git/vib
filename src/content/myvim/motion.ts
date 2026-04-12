@@ -11,6 +11,21 @@ function isAtLeastTwoArray<T>(array: T[]): array is AtLeastTwoArray<T> {
     return array.length >= 2;
 }
 
+const openingBrackets = ["[", "{", "(", "<"] as const;
+type OpeningBracket = (typeof openingBrackets)[number];
+type ClosingBracket = "]" | "}" | ")" | ">";
+
+function isOpeningBracket(ch: string): ch is OpeningBracket {
+    return openingBrackets.some(v => v === ch);
+}
+
+const OPENING_TO_CLOSING: Record<OpeningBracket, ClosingBracket> = {
+    "[": "]",
+    "{": "}",
+    "(": ")",
+    "<": ">",
+};
+
 const FIRST_NON_WHITESPACE = /\S/;
 
 /** 文字列の中で最初に登場する空白以外の文字の列番号を返す */
@@ -469,7 +484,7 @@ export function getMotionRange(
         }
         case "textobj": {
             const text = currLine.text;
-            const target =
+            const textobjType =
                 motion.name === ")"
                     ? "("
                     : motion.name === "}"
@@ -479,10 +494,10 @@ export function getMotionRange(
                         : motion.name === ">"
                           ? "<"
                           : motion.name;
-            if (target === '"' || target === "'" || target === "`") {
+            if (textobjType === '"' || textobjType === "'" || textobjType === "`") {
                 const filtered: number[] = Array.from(text)
                     .map((ch, i) => {
-                        return ch === target ? i : -1;
+                        return ch === textobjType ? i : -1;
                     })
                     .filter((e) => {
                         return e !== -1;
@@ -529,7 +544,7 @@ export function getMotionRange(
                     start.col++;
                     end.col--;
                 }
-            } else if (target === "w") {
+            } else if (textobjType === "w") {
                 const currChar = text.slice(col, col + 1);
                 const isOnSymbol = isSymbol(currChar);
                 const isOnWhitespace = isWhitespace(currChar);
@@ -552,7 +567,7 @@ export function getMotionRange(
                     if (!checkFunc(ch)) break;
                     start.col--;
                 }
-            } else if (target === "W") {
+            } else if (textobjType === "W") {
                 const currChar = text.slice(col, col + 1);
                 const isOnWhitespace = isWhitespace(currChar);
 
@@ -570,36 +585,87 @@ export function getMotionRange(
                     if (!checkFunc(ch)) break;
                     start.col--;
                 }
-            } else if (target === "[" || target === "{" || target === "(" || target === "<") {
+            } else if (isOpeningBracket(textobjType)) {
                 const currCh = currLine.text[col] ?? " ";
-                const openingCh = target;
-                const closingCh =
-                    target === "[" ? "]" : target === "{" ? "}" : target === "(" ? ")" : ">";
+                const openingCh = textobjType;
+                const closingCh = OPENING_TO_CLOSING[textobjType];
+                const depth = count;
+
+                const setStartEnd = (opening: RC, closing: RC): void => {
+                    start.row = opening.row;
+                    start.col = opening.col;
+                    end.row = closing.row;
+                    end.col = closing.col;
+                };
 
                 if (currCh === openingCh) {
-                    const fwClosing = searchPairCharForward(
-                        lines,
-                        row,
-                        col + 1,
-                        closingCh,
-                        openingCh,
-                    );
-                    if (!fwClosing) return undefined;
-                    end.row = fwClosing.row;
-                    end.col = fwClosing.col;
+                    if (depth === 1) {
+                        const fwClosing = searchPairCharForward(
+                            lines,
+                            row,
+                            col + 1,
+                            closingCh,
+                            openingCh,
+                        );
+                        if (!fwClosing) return undefined;
+                        end.row = fwClosing.row;
+                        end.col = fwClosing.col;
+                    } else {
+                        const bwOpening = searchPairCharBackward(
+                            lines,
+                            row,
+                            col,
+                            openingCh,
+                            closingCh,
+                            depth, // colが目的の文字であるため探索がすぐに終わるはずだが、depthは1より大きいため相殺される
+                        );
+                        if (!bwOpening) return undefined;
+                        const fwClosing = searchPairCharForward(
+                            lines,
+                            row,
+                            col,
+                            closingCh,
+                            openingCh,
+                            depth - 1, // colがpairChであるため,内部でdepthがすぐに加算されるのを相殺
+                        );
+                        if (!fwClosing) return undefined;
+                        setStartEnd(bwOpening, fwClosing);
+                    }
                 } else if (currCh === closingCh) {
-                    const bwOpening = searchPairCharBackward(
-                        lines,
-                        row,
-                        col - 1,
-                        openingCh,
-                        closingCh,
-                    );
-                    if (!bwOpening) return undefined;
-                    start.row = bwOpening.row;
-                    start.col = bwOpening.col;
+                    if (depth === 1) {
+                        const bwOpening = searchPairCharBackward(
+                            lines,
+                            row,
+                            col - 1,
+                            openingCh,
+                            closingCh,
+                        );
+                        if (!bwOpening) return undefined;
+                        start.row = bwOpening.row;
+                        start.col = bwOpening.col;
+                    } else {
+                        const bwOpening = searchPairCharBackward(
+                            lines,
+                            row,
+                            col,
+                            openingCh,
+                            closingCh,
+                            depth - 1, // colがpairChと等しいため,depthがすぐに加算されるのを相殺
+                        );
+                        if (!bwOpening) return undefined;
+                        const fwClosing = searchPairCharForward(
+                            lines,
+                            row,
+                            col,
+                            closingCh,
+                            openingCh,
+                            depth, // colがtargetChであるため探索がすぐに終わるはずだが、ユーザー指定のdepthが1より大きいため相殺される
+                        );
+                        if (!fwClosing) return undefined;
+                        setStartEnd(bwOpening, fwClosing);
+                    }
                 } else {
-                    const bwOpening = searchPairCharBackward(lines, row, col, openingCh, closingCh);
+                    const bwOpening = searchPairCharBackward(lines, row, col, openingCh, closingCh, depth);
                     // 後方に有効なopeningChが見つからなければ、カーソル以降に存在する次の有効なペアの始まりを探索
                     if (bwOpening) {
                         const fwClosing = searchPairCharForward(
@@ -608,12 +674,10 @@ export function getMotionRange(
                             col,
                             closingCh,
                             openingCh,
+                            depth,
                         );
                         if (!fwClosing) return undefined;
-                        start.row = bwOpening.row;
-                        start.col = bwOpening.col;
-                        end.row = fwClosing.row;
-                        end.col = fwClosing.col;
+                        setStartEnd(bwOpening, fwClosing);
                     } else {
                         const fwOpening = searchPairCharForward(
                             lines,
@@ -621,6 +685,7 @@ export function getMotionRange(
                             col,
                             openingCh,
                             closingCh,
+                            depth,
                         );
                         if (!fwOpening) return undefined;
                         const fwClosing = searchPairCharForward(
@@ -631,10 +696,7 @@ export function getMotionRange(
                             openingCh,
                         );
                         if (!fwClosing) return undefined;
-                        start.row = fwOpening.row;
-                        start.col = fwOpening.col;
-                        end.row = fwClosing.row;
-                        end.col = fwClosing.col;
+                        setStartEnd(fwOpening, fwClosing);
                     }
                 }
 
@@ -688,6 +750,9 @@ function* iteratePosition(
     }
 }
 
+/**
+ * initalDepth: 対象範囲となるネストの深さ, 初期値は1
+ */
 function searchPairChar(
     lines: readonly Line[],
     startRow: number,
@@ -695,19 +760,21 @@ function searchPairChar(
     targetCh: string,
     pairCh: string,
     direction: "fw" | "bw",
+    initialDepth = 1,
 ): RC | undefined {
     if (targetCh === pairCh)
         throw new Error(`duplicated arguments: targetCh: "${targetCh}", pairCh: "${pairCh}"`);
     if (targetCh.length !== 1) throw new Error(`targetCh must be a char. targetCh: "${targetCh}"`);
     if (pairCh.length !== 1) throw new Error(`pairCh must be a char. pairCh: "${pairCh}"`);
-    let depth = 0;
+
+    let depth = initialDepth;
 
     for (const { row, col, ch } of iteratePosition(lines, startRow, startCol, direction)) {
         if (ch === targetCh) {
+            depth--;
             if (depth === 0) {
                 return { row, col };
             }
-            depth--;
         } else if (ch === pairCh) {
             depth++;
         }
@@ -723,8 +790,9 @@ function searchPairCharForward(
     startCol: number,
     targetCh: string,
     pairCh: string,
+    initalDepth?: number,
 ) {
-    return searchPairChar(lines, startRow, startCol, targetCh, pairCh, "fw");
+    return searchPairChar(lines, startRow, startCol, targetCh, pairCh, "fw", initalDepth);
 }
 
 /** helper for searchPairChar */
@@ -734,6 +802,7 @@ function searchPairCharBackward(
     startCol: number,
     targetCh: string,
     pairCh: string,
+    initialDepth?: number,
 ) {
-    return searchPairChar(lines, startRow, startCol, targetCh, pairCh, "bw");
+    return searchPairChar(lines, startRow, startCol, targetCh, pairCh, "bw", initialDepth);
 }
