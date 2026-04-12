@@ -822,7 +822,9 @@ export class Editor {
                 const range = getMotionRange(this.state, data.motion, data.count ?? 1);
                 if (!range) return 0;
                 this.moveCursorToRC(range.start.row, range.start.col);
+                vi_state.rangeSide = "start";
                 syncCursorAndVisual(range);
+                vi_state.rangeSide = "end";
                 this.moveCursorToRC(range.end.row, range.end.col);
                 return 0;
             }
