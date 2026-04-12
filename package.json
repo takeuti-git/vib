@@ -10,9 +10,11 @@
     "url": "https://github.com/takeuti-git/vib"
   },
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "build-watch": "vite build --watch",
+    "dev:chrome": "TARGET=chrome vite",
+    "dev:firefox": "TARGET=firefox vite",
+    "build:chrome": "TARGET=chrome vite build",
+    "build:firefox": "TARGET=firefox vite build",
+    "watch:firefox": "TARGET=firefox vite build --watch",
     "preview": "vite preview",
     "lint": "eslint src"
   },
@@ -25,6 +27,7 @@
   "devDependencies": {
     "@crxjs/vite-plugin": "^2.3.0",
     "@eslint/js": "^10.0.1",
+    "@types/node": "^25.6.0",
     "@typescript-eslint/eslint-plugin": "^8.57.2",
     "@typescript-eslint/parser": "^8.57.2",
     "eslint": "^10.1.0",
