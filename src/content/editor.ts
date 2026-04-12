@@ -773,7 +773,7 @@ export class Editor {
         const datatype = data.type;
         const count = data.count === null ? 1 : data.count;
 
-        /** textobjの範囲選択に値を注入したい */
+        /** textobjの範囲を注入できる */
         const syncCursorAndVisual = (range?: { start: RC, end: RC }) => {
             if (range) {
                 vi_state.visualStart = range.start;
@@ -781,14 +781,9 @@ export class Editor {
             }
             const _start = vi_state.visualStart;
             const _end = vi_state.visualEnd;
-            const swapStartEnd = () => {
-                // カーソルがどちらかのsideを追い越すようなときに値を入れ替える
-                vi_state.rangeSide = (vi_state.rangeSide === "start") ? "end" : "start";
-                [_start.row, _end.row] = [_end.row, _start.row];
-                [_start.col, _end.col] = [_end.col, _start.col];
-            };
 
             // sync cusror and start/end
+            // カーソルがどちらかのsideを追い越すようなときに値を入れ替える
             if (vi_state.rangeSide === "start") {
                 _start.row = this.state.row;
                 _start.col = this.state.col;
@@ -796,7 +791,9 @@ export class Editor {
                     (_start.row === _end.row && _start.col > _end.col) ||
                     (_start.row > _end.row)
                 ) {
-                    swapStartEnd();
+                    vi_state.rangeSide = "end";
+                    [_start.row, _end.row] = [_end.row, _start.row];
+                    [_start.col, _end.col] = [_end.col, _start.col];
                 }
             } else {
                 _end.row = this.state.row;
@@ -805,11 +802,19 @@ export class Editor {
                     (_end.row === _start.row && _end.col < _start.col) ||
                     (_end.row < _start.row)
                 ) {
-                    swapStartEnd();
+                    vi_state.rangeSide = "start";
+                    [_start.row, _end.row] = [_end.row, _start.row];
+                    [_start.col, _end.col] = [_end.col, _start.col];
                 }
             }
         };
-        if (datatype === "motion") {
+
+        if (datatype === "switch_side") {
+            const target = (vi_state.rangeSide === "start") ? vi_state.visualEnd : vi_state.visualStart;
+            this.moveCursorToRC(target.row, target.col);
+            vi_state.rangeSide = (vi_state.rangeSide === "start") ? "end" : "start";
+
+        } else if (datatype === "motion") {
             const motion = data.motion;
             if (motion.type === "find") {
                 this.setLastFindMotion(motion);
