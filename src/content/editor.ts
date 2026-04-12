@@ -596,22 +596,19 @@ export class Editor {
                 });
                 // this.state.vi_insertResolveがどこかで呼び出されるまで以下を実行しない
 
-                if (count >= 2 && ["o", "O"].includes(insKind)) {
-                    this.state.vi_insertBuf.push(Editor.VI_ENTER);
-                    this.insertNewLine();
-
+                if (count >= 2 && (insKind === "o" || insKind === "O")) {
+                    this.state.vi_insertBuf.unshift(Editor.VI_ENTER);
+                    this.moveCursorRight(); // 行末を1文字超えた地点に移動する
                     for (let i = 0; i < count - 1; i++) {
                         this.vi_insertBuffer(this.state.vi_insertBuf);
                     }
-
-                    this.deleteRow(this.state.row);
-                    this.moveCursor(MOVE_KEYS.UP);
-                    this.moveCursorToLast();
-                    this.moveCursor(MOVE_KEYS.RIGHT);
+                    this.clampCursor();
                 } else {
+                    this.moveCursorRight();
                     for (let i = 0; i < count - 1; i++) {
                         this.vi_insertBuffer(this.state.vi_insertBuf);
                     }
+                    this.clampCursor();
                 }
                 this.scrollWindow();
                 this.render();
