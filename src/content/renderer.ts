@@ -13,8 +13,6 @@ type SquareContext = {
     connectRight: boolean;
 };
 
-const STATUS_MSG_X = 120;
-
 export class Renderer {
     private readonly config: EditorConfig;
     private readonly canvas: HTMLCanvasElement;
@@ -140,7 +138,7 @@ export class Renderer {
         } --`;
         this.drawStatusBarText(0, vi_mode);
 
-        this.drawStatusBarText(STATUS_MSG_X, text);
+        this.drawStatusBarText(this.calcWidth(vi_mode) + 24, text);
 
         this.drawStatusBarRC(state.row, state.col, state.logicalWidth);
     }
