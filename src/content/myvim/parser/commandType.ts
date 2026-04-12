@@ -33,7 +33,7 @@ export type CommandContext = { count: Count } & (
     | { type: typeof CommandType.UNDO; }
     | { type: typeof CommandType.REDO; }
     | { type: typeof CommandType.SCROLL; kind: ScrollKind }
-    | { type: typeof CommandType.VISUAL; }
+    | { type: typeof CommandType.VISUAL; linemode: boolean; }
 );
 
 export type Count = number | null;

@@ -429,6 +429,7 @@ export class Editor {
     private vi_executeOperator(
         { operator, range, linewise }: { operator: Operator, range: MotionRange, linewise: boolean }
     ): void {
+        console.log({ linewise });
         const { lines } = this.state;
         const clipboardBuf: string[] = [];
         this.state.vi_yankLinewise = linewise;
@@ -744,7 +745,13 @@ export class Editor {
             this.scrollCommandMap[kind](count);
 
         } else if (datatype === "visual") {
-            this.vi_goVisual();
+            const isLinewise = data.linemode;
+            this.vi_goVisual(isLinewise);
+            if (this.state.vi_state.mode !== "visual") throw new Error("vi_state.mode is not visual. call vi_goVisual() before this line");
+            if (this.state.vi_state.linewise) {
+                this.state.vi_state.visualStart.col = 0;
+                this.state.vi_state.visualEnd.col = this.state.lines[this.state.vi_state.visualEnd.row]!.size - 1;
+            }
         }
 
         return 0;
@@ -826,10 +833,15 @@ export class Editor {
                 syncCursorAndVisual(range);
                 vi_state.rangeSide = "end";
                 this.moveCursorToRC(range.end.row, range.end.col);
+                vi_state.linewise = false; // textobj選択が成功したらvisual_lineではなくなる
                 return 0;
             }
             this.vi_executeMotion(motion, count);
             syncCursorAndVisual();
+            if (vi_state.linewise) {
+                vi_state.visualStart.col = 0;
+                vi_state.visualEnd.col = this.state.lines[vi_state.visualEnd.row]!.size - 1;
+            }
 
         } else if (datatype === "repeat_mot") {
             const lastMotion = this.state.vi_lastFindMotion;
@@ -846,9 +858,9 @@ export class Editor {
             const range: MotionRange = {
                 start: this.state.vi_state.visualStart,
                 end: this.state.vi_state.visualEnd,
-                linewise: data.linewise,
+                linewise: false, // このlinewiseは評価しない
             };
-            this.vi_executeOperator({ operator: data.operator, range, linewise: data.linewise });
+            this.vi_executeOperator({ operator: data.operator, range, linewise: vi_state.linewise });
             if (data.operator === "c") {
                 this.vi_goInsert();
             } if (data.operator !== "c") {
@@ -965,12 +977,13 @@ export class Editor {
         this.state.vi_insertBuf = [];
     }
 
-    private vi_goVisual(): void {
+    private vi_goVisual(linewise: boolean): void {
         this.state.vi_state = {
             mode: "visual",
             rangeSide: "start",
             visualStart: { row: this.state.row, col: this.state.col },
             visualEnd: { row: this.state.row, col: this.state.col },
+            linewise,
         };
     }
 

@@ -43,6 +43,7 @@ export type VisualState = {
     rangeSide: "start" | "end";
     visualStart: RC;
     visualEnd: RC;
+    linewise: boolean;
 };
 
 type InsertState = {
