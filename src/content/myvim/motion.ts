@@ -385,9 +385,7 @@ export function getMotionRange(
                 linewise = true;
                 start.row = Math.max(0, start.row - count);
             } else if (motion.name === "h") {
-                if (col === 0) {
-                    return undefined;
-                }
+                if (col === 0) return undefined;
                 start.col = Math.max(0, start.col - count);
                 end.col--;
             } else if (motion.name === "j" || motion.name === "+" || motion.name === "Enter") {
@@ -400,7 +398,7 @@ export function getMotionRange(
                 start.col = getFirstNonWhitespaceCol(currLine.text);
                 end.col = Math.max(0, end.col - 1);
             } else if (motion.name === "$") {
-                end.col = currLine.text.length - 1;
+                end.col = Math.max(0, currLine.size - 1);
             } else if (motion.name === "0") {
                 start.col = 0;
                 end.col = Math.max(0, end.col - 1);
