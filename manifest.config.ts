@@ -1,6 +1,8 @@
 import { defineManifest } from "@crxjs/vite-plugin";
 
-const target = process.env.TARGET;
+// @ts-expect-error i dont wanna install @types/node
+const target = process.env.VITE_TARGET;
+if (!target) throw new Error("meta.env.VITE_TARGET is undefined");
 
 export default defineManifest(() => {
   const isFirefox = target === "firefox";
