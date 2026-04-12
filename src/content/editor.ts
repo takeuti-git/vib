@@ -25,7 +25,10 @@ import { createDiff, toRange } from "./undo";
 import type { ScrollKind } from "./myvim/parser/scroll";
 import type { MotionContext } from "./myvim/parser/motionType";
 import { parseVisualCommand } from "./myvim/parser/visual";
-import type { MotionRange } from "./types/motion";
+import type { MotionRange, RC } from "./types/motion";
+
+/** 角括弧の始まり/左側の文字コード */
+const OPENING_BRACKET = 0x5b;
 
 export class Editor {
     private readonly config: EditorConfig;
@@ -241,7 +244,8 @@ export class Editor {
 
             this.input.value = "";
 
-            if (key === "Escape" || (key === "[" && e.ctrlKey)) {
+            // 括弧の文字をそのまま使うと開発中にvimのtextobjがバグる
+            if (key === "Escape" || (key.codePointAt(0) === OPENING_BRACKET && e.ctrlKey)) {
                 this.vi_goNormal();
                 this.render();
 
@@ -614,7 +618,8 @@ export class Editor {
                 this.setDestElementValue();
             })();
         } else if (datatype === "operator") {
-            const range = getMotionRange(this.state, data);
+            const count = (data.count ?? 1) * (data.innerCount ?? 1);
+            const range = getMotionRange(this.state, data.motion, count);
             if (data.motion.type === "find") {
                 this.setLastFindMotion(data.motion);
             }
@@ -768,42 +773,57 @@ export class Editor {
         const datatype = data.type;
         const count = data.count === null ? 1 : data.count;
 
-        const syncCursorAndVisual = () => {
-            const start = vi_state.visualStart;
-            const end = vi_state.visualEnd;
+        /** textobjの範囲選択に値を注入したい */
+        const syncCursorAndVisual = (range?: { start: RC, end: RC }) => {
+            if (range) {
+                vi_state.visualStart = range.start;
+                vi_state.visualEnd = range.end;
+            }
+            const _start = vi_state.visualStart;
+            const _end = vi_state.visualEnd;
             const swapStartEnd = () => {
                 // カーソルがどちらかのsideを追い越すようなときに値を入れ替える
                 vi_state.rangeSide = (vi_state.rangeSide === "start") ? "end" : "start";
-                [start.row, end.row] = [end.row, start.row];
-                [start.col, end.col] = [end.col, start.col];
+                [_start.row, _end.row] = [_end.row, _start.row];
+                [_start.col, _end.col] = [_end.col, _start.col];
             };
 
             // sync cusror and start/end
             if (vi_state.rangeSide === "start") {
-                start.row = this.state.row;
-                start.col = this.state.col;
+                _start.row = this.state.row;
+                _start.col = this.state.col;
                 if (
-                    (start.row === end.row && start.col > end.col) ||
-                    (start.row > end.row)
+                    (_start.row === _end.row && _start.col > _end.col) ||
+                    (_start.row > _end.row)
                 ) {
                     swapStartEnd();
                 }
             } else {
-                end.row = this.state.row;
-                end.col = this.state.col;
+                _end.row = this.state.row;
+                _end.col = this.state.col;
                 if (
-                    (end.row === start.row && end.col < start.col) ||
-                    (end.row < start.row)
+                    (_end.row === _start.row && _end.col < _start.col) ||
+                    (_end.row < _start.row)
                 ) {
                     swapStartEnd();
                 }
             }
         };
         if (datatype === "motion") {
-            if (data.motion.type === "find") {
-                this.setLastFindMotion(data.motion);
-            }
             const motion = data.motion;
+            if (motion.type === "find") {
+                this.setLastFindMotion(motion);
+            }
+            if (motion.type === "textobj") {
+                // ここでtextobjの範囲取得、カーソル移動、visualStart/Endへの適用を行う
+                console.log(motion);
+                const range = getMotionRange(this.state, data.motion, data.count ?? 1);
+                if (!range) return 0;
+                this.moveCursorToRC(range.start.row, range.start.col);
+                syncCursorAndVisual(range);
+                this.moveCursorToRC(range.end.row, range.end.col);
+                return 0;
+            }
             this.vi_executeMotion(motion, count);
             syncCursorAndVisual();
 

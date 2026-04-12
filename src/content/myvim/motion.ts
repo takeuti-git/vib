@@ -2,7 +2,7 @@ import type { Line } from "../line";
 import type { EditorState } from "../state";
 import type { MotionRange, RC } from "../types/motion";
 import type { FindMoveOptions } from "./findCommand";
-import { CommandType, type CommandContext } from "./parser/commandType";
+import type { MotionContext } from "./parser/motionType";
 import { isSymbol, isWhitespace } from "./symbols";
 
 type AtLeastTwoArray<T> = [T, T, ...T[]];
@@ -350,20 +350,16 @@ export function moveTail(state: EditorState, separator: "word" | "WORD"): Horizo
     return { distance: ctx.distance, destRow: ctx.row, destCol: ctx.col };
 }
 
-export function getMotionRange(state: Readonly<EditorState>, ctx: Readonly<CommandContext>): MotionRange | undefined {
-    if (ctx.type !== CommandType.OPERATOR) {
-        return undefined;
-    }
-    const outerCount = ctx.count === null ? 1 : ctx.count;
-    const innerCount = ctx.innerCount === null ? 1 : ctx.innerCount;
-    const count = outerCount * innerCount;
-
+export function getMotionRange(
+    state: Readonly<EditorState>,
+    motion: Readonly<MotionContext>,
+    count: number,
+): MotionRange | undefined {
     const { row, col, lines } = state;
     const maxRow = lines.length - 1;
     const currLine = lines[row];
     if (!currLine) throw new Error("currLine is undefined");
 
-    const motion = ctx.motion;
     const start: RC = { row, col };
     const end: RC = { row, col };
     let linewise = false;
