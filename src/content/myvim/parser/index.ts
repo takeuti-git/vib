@@ -197,10 +197,11 @@ export function parseCommand(input: readonly string[]): CommandParseResult {
         return { status: ParseStatus.OK, value: command };
     }
 
-    if (first === "v") {
+    if (first === "v" || first === "V") {
         const command: CommandContext = {
             type: CommandType.VISUAL,
             count,
+            linemode: first === "V",
         };
         return { status: ParseStatus.OK, value: command };
     }
