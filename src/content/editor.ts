@@ -73,6 +73,12 @@ export class Editor {
 
     private destElement: HTMLInputElement | HTMLTextAreaElement | null = null;
 
+    private setDestElement(el: HTMLInputElement | HTMLTextAreaElement): boolean {
+        const isSame = el === this.destElement;
+        this.destElement = el;
+        return isSame;
+    }
+
     private syncElementValue(): void {
         if (!this.destElement) {
             return;
@@ -89,61 +95,7 @@ export class Editor {
     }
 
     private setupListeners(): void {
-        document.addEventListener("keydown", (e) => {
-            if (e.altKey && e.code === "KeyV") {
-                e.preventDefault();
-                const activeEl = document.activeElement;
-                if (activeEl === this.input) return;
-
-                if (
-                    activeEl instanceof HTMLInputElement ||
-                    activeEl instanceof HTMLTextAreaElement
-                ) {
-                    showElement(this.container);
-
-                    const isSameElement = activeEl === this.destElement;
-                    this.destElement = activeEl;
-                    this.input.focus();
-
-                    if (!isSameElement) {
-                        resetState(this.state, this.config);
-                    }
-
-                    // getLinesの仕様上、文字列が空でも必ず1要素の配列になる
-                    const newLines = getLines(activeEl.value);
-                    if (newLines.length === 0)
-                        throw new Error("getLines must return array within at least one element");
-
-                    this.state.lines = newLines;
-
-                    if (!isSameElement) {
-                        // 元の文字列の末尾まで移動する
-                        this.moveCursorToEOF();
-                        this.moveCursorToLast();
-                    } else {
-                        this.clampCursor();
-                    }
-                    this.scrollWindow();
-                    this.render();
-                } else {
-                    this.input.focus();
-                }
-                return;
-            }
-
-            if (e.altKey && e.code === "KeyQ") {
-                toggleVisibility();
-                return;
-            }
-        });
-
-        const toggleVisibility = () => {
-            if (this.container.style.visibility === "hidden") {
-                showElement(this.container);
-            } else {
-                hideElement(this.container);
-            }
-        };
+        document.addEventListener("keydown", this.handleDocumentKeydown);
 
         window.addEventListener("resize", this.handleResizeWindow);
 
@@ -207,7 +159,7 @@ export class Editor {
                     this.syncElementValue();
                     this.destElement.focus();
                 }
-                toggleVisibility();
+                this.toggleEditorVisibility();
                 return;
             }
 
@@ -304,6 +256,64 @@ export class Editor {
     private updateCanvas(): void {
         this.renderer.applyConfig();
         this.render();
+    }
+
+    private activateExternalInput(el: HTMLInputElement | HTMLTextAreaElement): void {
+        showElement(this.container);
+
+        const isSameElement = this.setDestElement(el);
+        this.input.focus();
+
+        if (!isSameElement) {
+            resetState(this.state, this.config);
+        }
+        // getLinesの仕様上、文字列が空でも必ず1要素の配列になる
+        const newLines = getLines(el.value);
+        if (newLines.length === 0)
+            throw new Error("getLines must return array within at least one element");
+
+        this.state.lines = newLines;
+
+        if (!isSameElement) {
+            // 元の文字列の末尾まで移動する
+            this.moveCursorToEOF();
+            this.moveCursorToLast();
+        } else {
+            this.clampCursor();
+        }
+        this.scrollWindow();
+        this.render();
+    }
+
+    private handleDocumentKeydown = (e: KeyboardEvent): void => {
+        if (e.altKey && e.code === "KeyV") {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            const activeEl = document.activeElement;
+            if (activeEl === this.input) return;
+
+            if (
+                activeEl instanceof HTMLInputElement ||
+                activeEl instanceof HTMLTextAreaElement
+            ) {
+                this.activateExternalInput(activeEl);
+            } else {
+                this.input.focus();
+            }
+            return;
+        }
+        if (e.altKey && e.code === "KeyQ") {
+            this.toggleEditorVisibility();
+            return;
+        }
+    };
+
+    private toggleEditorVisibility(): void {
+        if (this.container.style.visibility === "hidden") {
+            showElement(this.container);
+        } else {
+            hideElement(this.container);
+        }
     }
 
     private elementValueUpdateTimer: number = 0;
