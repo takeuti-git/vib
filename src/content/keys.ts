@@ -20,3 +20,7 @@ export function getInputFromEvent(event: KeyboardEvent): string {
         return key;
     }
 }
+
+export function isValidKey(key: string): boolean {
+    return key.length === 1 || key === "Enter";
+}

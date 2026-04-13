@@ -2,7 +2,7 @@ import { getFullScreenRows, getHalfScreenRows, type EditorConfig } from "./confi
 import type { Renderer } from "./renderer";
 import { type EditorState, resetState } from "./state";
 import { Line, getLines, joinLines } from "./line";
-import { getInputFromEvent, isFunctionKey, MOVE_KEYS, type MoveKey } from "./keys";
+import { getInputFromEvent, isFunctionKey, isValidKey, MOVE_KEYS, type MoveKey } from "./keys";
 import { hideElement, showElement } from "./dom";
 import { LOGICAL_HALF_WIDTH, calcLogicalWidth, logicalWidthToCol } from "./utils";
 import {
@@ -266,37 +266,22 @@ export class Editor {
         }
 
         // processing
-        if (this.state.vi_state.mode === "normal") {
-            if (key.length > 1 && key !== "Enter") return;
+        if (this.state.vi_state.mode === "normal" || this.state.vi_state.mode === "visual") {
+            if (!isValidKey(key)) return;
             const input = getInputFromEvent(e);
             this.state.vi_cmd.push(input);
 
             if (this.state.vi_cmd.length > 6) {
+                this.resetCmd();
                 this.setStatusMsg("too long");
-                this.resetCmd();
                 return;
             }
-            const result = this.vi_executeNormal(this.state.vi_cmd);
-
-            if (result === 1) {
-                this.setStatusMsg("unknown cmd");
-                this.resetCmd();
-                return;
-            }
-
-            if (result === 2) {
-                this.render();
-                return;
-            }
-
-            if (result === 0) {
-                this.scrollWindow();
-                this.render();
-                this.resetCmd(); // render後にcmdを初期化
-
-                const newText = joinLines(this.state.lines);
-                this.saveDiff(this.state.lastSnapshot, newText);
-            }
+            const result = (
+                this.state.vi_state.mode === "normal"
+                ? this.vi_executeNormal(this.state.vi_cmd)
+                : this.vi_executeVisual(this.state.vi_cmd)
+            );
+            this.executeResult(result);
 
         } else if (this.state.vi_state.mode === "insert") {
             this.processKeypress(e);
@@ -307,40 +292,32 @@ export class Editor {
             this.processKeypress(e, { replace: true });
             this.scrollWindow();
             this.render();
-        } else if (this.state.vi_state.mode === "visual") {
-            if (key.length > 1 && key !== "Enter") return;
-            const input = getInputFromEvent(e);
-            this.state.vi_cmd.push(input);
-
-            if (this.state.vi_cmd.length > 6) {
-                this.setStatusMsg("too long");
-                this.resetCmd();
-                return;
-            }
-            const result = this.vi_executeVisual(this.state.vi_cmd);
-            if (result === 1) {
-                this.setStatusMsg("unknown cmd");
-                this.resetCmd();
-                return;
-            }
-
-            if (result === 2) {
-                this.render();
-                return;
-            }
-
-            if (result === 0) {
-                this.scrollWindow();
-                this.render();
-                this.resetCmd(); // render後にcmdを初期化
-
-                const newText = joinLines(this.state.lines);
-                this.saveDiff(this.state.lastSnapshot, newText);
-            }
         }
 
         this.scheduleElementValueUpdate();
     };
+
+    private executeResult(result: 0 | 1 | 2): void {
+        if (result === 1) {
+            this.setStatusMsg("unknown cmd");
+            this.resetCmd();
+            return;
+        }
+
+        if (result === 2) {
+            this.render();
+            return;
+        }
+
+        if (result === 0) {
+            this.scrollWindow();
+            this.render();
+            this.resetCmd(); // render後にcmdを初期化
+
+            const newText = joinLines(this.state.lines);
+            this.saveDiff(this.state.lastSnapshot, newText);
+        }
+    }
 
     private resizeMap: Record<string, () => void> = {
         ArrowLeft: () => {
