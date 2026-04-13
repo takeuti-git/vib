@@ -35,6 +35,7 @@ export function createCanvas(): HTMLCanvasElement {
 export function createInput(): HTMLInputElement {
     const input = document.createElement("input");
     input.id = "vib-input";
+    input.autocomplete = "off";
     input.style.position = "absolute";
     input.style.top = "0";
     input.style.left = "0";
