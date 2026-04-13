@@ -16,3 +16,11 @@ export class Line {
 export function getLines(text: string): Line[] {
     return text.split("\n").map((line) => new Line(line));
 }
+
+/**
+ * - Line配列のtextを連結した文字列を返す
+ * - sepの初期値は"\n"
+ * */
+export function joinLines(lines: Line[], sep = "\n"): string {
+    return lines.map((l) => l.text).join(sep);
+}

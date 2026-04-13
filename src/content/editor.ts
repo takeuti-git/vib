@@ -1,8 +1,8 @@
 import { getFullScreenRows, getHalfScreenRows, type EditorConfig } from "./config";
 import type { Renderer } from "./renderer";
 import { type EditorState, resetState } from "./state";
-import { Line, getLines } from "./line";
-import { isFunctionKey, MOVE_KEYS, type MoveKey } from "./keys";
+import { Line, getLines, joinLines } from "./line";
+import { getInputFromEvent, isFunctionKey, MOVE_KEYS, type MoveKey } from "./keys";
 import { hideElement, showElement } from "./dom";
 import { LOGICAL_HALF_WIDTH, calcLogicalWidth, logicalWidthToCol } from "./utils";
 import {
@@ -27,7 +27,7 @@ import type { MotionContext } from "./myvim/parser/motionType";
 import { parseVisualCommand } from "./myvim/parser/visual";
 import type { MotionRange, RC } from "./types/motion";
 
-/** 角括弧の始まり/左側の文字コード */
+/** 角括弧の始まりの文字コード */
 const OPENING_BRACKET = 0x5b;
 
 export class Editor {
@@ -83,7 +83,7 @@ export class Editor {
         if (!this.destElement) {
             return;
         }
-        this.destElement.value = this.state.lines.map((l) => l.text).join("\n");
+        this.destElement.value = joinLines(this.state.lines);
         // 入力イベントを発火させる:
         // githubでは入力時にsessionStorageを操作することでPreviewを表示している
         this.destElement.dispatchEvent(
@@ -92,6 +92,13 @@ export class Editor {
                 cancelable: true,
             }),
         );
+    }
+
+    private tryFocusDestElement(): void {
+        if (this.destElement) {
+            this.destElement.focus();
+            this.syncElementValue();
+        }
     }
 
     private setupListeners(): void {
@@ -106,156 +113,16 @@ export class Editor {
 
         this.input.addEventListener("compositionstart", this.handleCompositionStart);
         this.input.addEventListener("compositionend", this.handleCompositionEnd);
-
-        const resizingMap: Record<string, () => void> = {
-            ArrowLeft: () => {
-                this.config.screencols = Math.min(this.config.screencols + 2, 80);
-            },
-            ArrowRight: () => {
-                this.config.screencols = Math.max(
-                    2 + this.config.lineNumberCols,
-                    this.config.screencols - 2,
-                );
-            },
-            ArrowUp: () => {
-                this.config.screenrows = Math.min(this.config.screenrows + 1, 40);
-                this.state.vi_scrollAmount = getHalfScreenRows(this.config);
-            },
-            ArrowDown: () => {
-                this.config.screenrows = Math.max(
-                    1 + this.config.statusBarHeight,
-                    this.config.screenrows - 1,
-                );
-                this.state.vi_scrollAmount = getHalfScreenRows(this.config);
-            },
-        };
-
-        this.input.addEventListener("keydown", (e) => {
-            const key = e.key;
-            if (isFunctionKey(key)) return; // fnキーは通常通り動作させるため早期リターン
-            e.preventDefault();
-            e.stopImmediatePropagation(); // サイト側のkeydownイベントを発火させない
-            if (e.isComposing) return;
-
-            if (e.shiftKey) {
-                const resize = resizingMap[key];
-                if (resize) {
-                    resize();
-                    this.updateCanvas();
-                    return;
-                }
-            }
-
-            if (e.altKey && e.code === "KeyV") {
-                if (this.destElement) {
-                    this.syncElementValue();
-                    this.destElement.focus();
-                }
-                return;
-            }
-
-            if (e.altKey && e.code === "KeyQ") {
-                if (this.destElement) {
-                    this.syncElementValue();
-                    this.destElement.focus();
-                }
-                this.toggleEditorVisibility();
-                return;
-            }
-
-            this.input.value = "";
-
-            // 括弧の文字をそのまま使うと開発中にvimのtextobjがバグる
-            if (key === "Escape" || (key.codePointAt(0) === OPENING_BRACKET && e.ctrlKey)) {
-                this.vi_goNormal();
-                this.render();
-
-                const newText = this.state.lines.map((l) => l.text).join("\n");
-                this.saveDiff(this.state.lastSnapshot, newText);
-                return;
-            }
-
-            // processing
-            if (this.state.vi_state.mode === "normal") {
-                if (key.length > 1 && key !== "Enter") return;
-                const input = e.ctrlKey ? `<C-${key}>` : key;
-                this.state.vi_cmd.push(input);
-
-                if (this.state.vi_cmd.length > 6) {
-                    this.setStatusMsg("too long");
-                    this.state.vi_cmd = [];
-                    return;
-                }
-                const result = this.vi_executeNormal(this.state.vi_cmd);
-
-                if (result === 1) {
-                    this.setStatusMsg("unknown cmd");
-                    this.state.vi_cmd = [];
-                    return;
-                }
-
-                if (result === 2) {
-                    this.render();
-                    return;
-                }
-
-                if (result === 0) {
-                    this.scrollWindow();
-                    this.render();
-                    this.state.vi_cmd = []; // render後にcmdを初期化
-
-                    const newText = this.state.lines.map((l) => l.text).join("\n");
-                    this.saveDiff(this.state.lastSnapshot, newText);
-                }
-
-            } else if (this.state.vi_state.mode === "insert") {
-                this.processKeypress(e);
-                this.scrollWindow();
-                this.render();
-
-            } else if (this.state.vi_state.mode === "replace") {
-                this.processKeypress(e, { replace: true });
-                this.scrollWindow();
-                this.render();
-            } else if (this.state.vi_state.mode === "visual") {
-                if (key.length > 1 && key !== "Enter") return;
-                const input = e.ctrlKey ? `<C-${key}>` : key;
-                this.state.vi_cmd.push(input);
-
-                if (this.state.vi_cmd.length > 6) {
-                    this.setStatusMsg("too long");
-                    this.state.vi_cmd = [];
-                    return;
-                }
-                const result = this.vi_executeVisual(this.state.vi_cmd);
-                if (result === 1) {
-                    this.setStatusMsg("unknown cmd");
-                    this.state.vi_cmd = [];
-                    return;
-                }
-
-                if (result === 2) {
-                    this.render();
-                    return;
-                }
-
-                if (result === 0) {
-                    this.scrollWindow();
-                    this.render();
-                    this.state.vi_cmd = []; // render後にcmdを初期化
-
-                    const newText = this.state.lines.map((l) => l.text).join("\n");
-                    this.saveDiff(this.state.lastSnapshot, newText);
-                }
-            }
-
-            this.scheduleElementValueUpdate();
-        });
+        this.input.addEventListener("keydown", this.handleEditorKeydown);
     }
 
     private updateCanvas(): void {
         this.renderer.applyConfig();
         this.render();
+    }
+
+    private resetCmd(): void {
+        this.state.vi_cmd = [];
     }
 
     private activateExternalInput(el: HTMLInputElement | HTMLTextAreaElement): void {
@@ -357,6 +224,145 @@ export class Editor {
         }
         this.input.value = "";
         this.input.style.zIndex = "-1";
+    };
+
+    private handleEditorKeydown = (e: KeyboardEvent): void => {
+        const key = e.key;
+        if (isFunctionKey(key)) return; // fnキーは通常通り動作させるため早期リターン
+        e.preventDefault();
+        e.stopImmediatePropagation(); // サイト側のkeydownイベントを発火させない
+        if (e.isComposing) return;
+
+        if (e.shiftKey) {
+            const resize = this.resizeMap[key];
+            if (resize) {
+                resize();
+                this.updateCanvas();
+                return;
+            }
+        }
+
+        if (e.altKey && e.code === "KeyV") {
+            this.tryFocusDestElement();
+            return;
+        }
+
+        if (e.altKey && e.code === "KeyQ") {
+            this.tryFocusDestElement();
+            this.toggleEditorVisibility();
+            return;
+        }
+
+        this.input.value = "";
+
+        // 括弧の文字をそのまま使うと開発中にvimのtextobjがバグる
+        if (key === "Escape" || (key.codePointAt(0) === OPENING_BRACKET && e.ctrlKey)) {
+            this.vi_goNormal();
+            this.render();
+
+            const newText = joinLines(this.state.lines);
+            this.saveDiff(this.state.lastSnapshot, newText);
+            return;
+        }
+
+        // processing
+        if (this.state.vi_state.mode === "normal") {
+            if (key.length > 1 && key !== "Enter") return;
+            const input = getInputFromEvent(e);
+            this.state.vi_cmd.push(input);
+
+            if (this.state.vi_cmd.length > 6) {
+                this.setStatusMsg("too long");
+                this.resetCmd();
+                return;
+            }
+            const result = this.vi_executeNormal(this.state.vi_cmd);
+
+            if (result === 1) {
+                this.setStatusMsg("unknown cmd");
+                this.resetCmd();
+                return;
+            }
+
+            if (result === 2) {
+                this.render();
+                return;
+            }
+
+            if (result === 0) {
+                this.scrollWindow();
+                this.render();
+                this.resetCmd(); // render後にcmdを初期化
+
+                const newText = joinLines(this.state.lines);
+                this.saveDiff(this.state.lastSnapshot, newText);
+            }
+
+        } else if (this.state.vi_state.mode === "insert") {
+            this.processKeypress(e);
+            this.scrollWindow();
+            this.render();
+
+        } else if (this.state.vi_state.mode === "replace") {
+            this.processKeypress(e, { replace: true });
+            this.scrollWindow();
+            this.render();
+        } else if (this.state.vi_state.mode === "visual") {
+            if (key.length > 1 && key !== "Enter") return;
+            const input = getInputFromEvent(e);
+            this.state.vi_cmd.push(input);
+
+            if (this.state.vi_cmd.length > 6) {
+                this.setStatusMsg("too long");
+                this.resetCmd();
+                return;
+            }
+            const result = this.vi_executeVisual(this.state.vi_cmd);
+            if (result === 1) {
+                this.setStatusMsg("unknown cmd");
+                this.resetCmd();
+                return;
+            }
+
+            if (result === 2) {
+                this.render();
+                return;
+            }
+
+            if (result === 0) {
+                this.scrollWindow();
+                this.render();
+                this.resetCmd(); // render後にcmdを初期化
+
+                const newText = joinLines(this.state.lines);
+                this.saveDiff(this.state.lastSnapshot, newText);
+            }
+        }
+
+        this.scheduleElementValueUpdate();
+    };
+
+    private resizeMap: Record<string, () => void> = {
+        ArrowLeft: () => {
+            this.config.screencols = Math.min(this.config.screencols + 2, 80);
+        },
+        ArrowRight: () => {
+            this.config.screencols = Math.max(
+                2 + this.config.lineNumberCols,
+                this.config.screencols - 2,
+            );
+        },
+        ArrowUp: () => {
+            this.config.screenrows = Math.min(this.config.screenrows + 1, 40);
+            this.state.vi_scrollAmount = getHalfScreenRows(this.config);
+        },
+        ArrowDown: () => {
+            this.config.screenrows = Math.max(
+                1 + this.config.statusBarHeight,
+                this.config.screenrows - 1,
+            );
+            this.state.vi_scrollAmount = getHalfScreenRows(this.config);
+        },
     };
 
     // ------------------------------
@@ -1540,7 +1546,7 @@ export class Editor {
             result.push(new Line());
         }
         this.state.lines = result;
-        this.state.lastSnapshot = result.map((l) => l.text).join("\n");
+        this.state.lastSnapshot = joinLines(result);
 
         const cursor = (
             this.state.stackPtr === 0
@@ -1583,7 +1589,7 @@ export class Editor {
         while (oldPos < this.state.lines.length) result.push(this.state.lines[oldPos++]!);
 
         this.state.lines = result;
-        this.state.lastSnapshot = result.map((l) => l.text).join("\n");
+        this.state.lastSnapshot = joinLines(result);
 
         const cursor = this.state.cursorStack[this.state.stackPtr];
         if (!cursor) throw new Error("cursor is undefined");
