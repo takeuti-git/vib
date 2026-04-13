@@ -73,7 +73,7 @@ export class Editor {
 
     private destElement: HTMLInputElement | HTMLTextAreaElement | null = null;
 
-    private setDestElementValue(): void {
+    private syncElementValue(): void {
         if (!this.destElement) {
             return;
         }
@@ -89,8 +89,6 @@ export class Editor {
     }
 
     private setupListeners(): void {
-        let setDestElValueTimer: number = 0;
-
         document.addEventListener("keydown", (e) => {
             if (e.altKey && e.code === "KeyV") {
                 e.preventDefault();
@@ -198,7 +196,7 @@ export class Editor {
 
             if (e.altKey && e.code === "KeyV") {
                 if (this.destElement) {
-                    this.setDestElementValue();
+                    this.syncElementValue();
                     this.destElement.focus();
                 }
                 return;
@@ -206,7 +204,7 @@ export class Editor {
 
             if (e.altKey && e.code === "KeyQ") {
                 if (this.destElement) {
-                    this.setDestElementValue();
+                    this.syncElementValue();
                     this.destElement.focus();
                 }
                 toggleVisibility();
@@ -299,15 +297,28 @@ export class Editor {
                 }
             }
 
-            if (setDestElValueTimer) {
-                clearTimeout(setDestElValueTimer);
-            }
-            setDestElValueTimer = setTimeout(this.setDestElementValue.bind(this), 300);
+            this.scheduleElementValueUpdate();
         });
     }
 
+    private updateCanvas(): void {
+        this.renderer.applyConfig();
+        this.render();
+    }
+
+    private elementValueUpdateTimer: number = 0;
+    private scheduleElementValueUpdate = (): void => {
+        if (this.elementValueUpdateTimer) {
+            clearTimeout(this.elementValueUpdateTimer);
+        }
+        this.elementValueUpdateTimer = setTimeout(() => {
+            this.syncElementValue();
+        }, 300);
+    };
+
     private windowResizeTimer: number = 0;
     private handleResizeWindow = (): void => {
+        // ページの拡大率が変化した際に呼び出す
         if (this.windowResizeTimer) {
             clearTimeout(this.windowResizeTimer);
         }
@@ -315,11 +326,6 @@ export class Editor {
             this.updateCanvas();
         }, 500);
     };
-
-    private updateCanvas(): void {
-        this.renderer.applyConfig();
-        this.render();
-    }
 
     private handleCompositionStart = (): void => {
         // 日本語変換が始まったとき
@@ -333,7 +339,7 @@ export class Editor {
             this.insertText(value);
             this.scrollWindow();
             this.render();
-            this.setDestElementValue();
+            this.syncElementValue();
 
             if (value !== "") {
                 this.state.vi_insertBuf.push(value);
@@ -621,7 +627,7 @@ export class Editor {
                 }
                 this.scrollWindow();
                 this.render();
-                this.setDestElementValue();
+                this.syncElementValue();
             })();
         } else if (datatype === "operator") {
             const count = (data.count ?? 1) * (data.innerCount ?? 1);
