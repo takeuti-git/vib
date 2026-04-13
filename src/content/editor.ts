@@ -147,18 +147,7 @@ export class Editor {
             }
         };
 
-        const updateCanvas = () => {
-            this.renderer.applyConfig();
-            this.render();
-        };
-
-        let windowResizeTimer: number = 0;
-        window.addEventListener("resize", () => {
-            if (windowResizeTimer) {
-                clearTimeout(windowResizeTimer);
-            }
-            windowResizeTimer = setTimeout(updateCanvas, 500);
-        });
+        window.addEventListener("resize", this.handleResizeWindow.bind(this));
 
         this.canvas.addEventListener("click", () => {
             this.input.focus();
@@ -220,7 +209,7 @@ export class Editor {
                 const resize = resizingMap[key];
                 if (resize) {
                     resize();
-                    updateCanvas();
+                    this.updateCanvas();
                     return;
                 }
             }
@@ -333,6 +322,21 @@ export class Editor {
             }
             setDestElValueTimer = setTimeout(this.setDestElementValue.bind(this), 300);
         });
+    }
+
+    private windowResizeTimer: number = 0;
+    private handleResizeWindow(): void {
+        if (this.windowResizeTimer) {
+            clearTimeout(this.windowResizeTimer);
+        }
+        this.windowResizeTimer = setTimeout(() => {
+            this.updateCanvas();
+        }, 500);
+    }
+
+    private updateCanvas(): void {
+        this.renderer.applyConfig();
+        this.render();
     }
 
     // ------------------------------
