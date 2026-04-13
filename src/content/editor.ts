@@ -147,33 +147,15 @@ export class Editor {
             }
         };
 
-        window.addEventListener("resize", this.handleResizeWindow.bind(this));
+        window.addEventListener("resize", this.handleResizeWindow);
 
         this.canvas.addEventListener("click", () => {
             this.input.focus();
             this.render();
         });
 
-        this.input.addEventListener("compositionstart", () => {
-            // 日本語変換が始まったとき
-            this.input.style.zIndex = "9999";
-        });
-        this.input.addEventListener("compositionend", () => {
-            // 日本語変換が終わったとき
-            if (this.state.vi_state.mode === "insert") {
-                this.insertText(this.input.value);
-                this.scrollWindow();
-                this.render();
-                this.setDestElementValue();
-
-                const value = this.input.value;
-                if (value !== "") {
-                    this.state.vi_insertBuf.push(value);
-                }
-            }
-            this.input.value = "";
-            this.input.style.zIndex = "-1";
-        });
+        this.input.addEventListener("compositionstart", this.handleCompositionStart);
+        this.input.addEventListener("compositionend", this.handleCompositionEnd);
 
         const resizingMap: Record<string, () => void> = {
             ArrowLeft: () => {
@@ -325,19 +307,41 @@ export class Editor {
     }
 
     private windowResizeTimer: number = 0;
-    private handleResizeWindow(): void {
+    private handleResizeWindow = (): void => {
         if (this.windowResizeTimer) {
             clearTimeout(this.windowResizeTimer);
         }
         this.windowResizeTimer = setTimeout(() => {
             this.updateCanvas();
         }, 500);
-    }
+    };
 
     private updateCanvas(): void {
         this.renderer.applyConfig();
         this.render();
     }
+
+    private handleCompositionStart = (): void => {
+        // 日本語変換が始まったとき
+        this.input.style.zIndex = "99999";
+    };
+
+    private handleCompositionEnd = (): void => {
+        // 日本語変換が終わったとき
+        if (this.state.vi_state.mode === "insert") {
+            const value = this.input.value;
+            this.insertText(value);
+            this.scrollWindow();
+            this.render();
+            this.setDestElementValue();
+
+            if (value !== "") {
+                this.state.vi_insertBuf.push(value);
+            }
+        }
+        this.input.value = "";
+        this.input.style.zIndex = "-1";
+    };
 
     // ------------------------------
     // | processing basic inputs
