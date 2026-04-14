@@ -110,6 +110,7 @@ export class Editor {
             this.input.focus();
             this.render();
         });
+        this.canvas.addEventListener("wheel", this.handleCanvasWheel);
 
         this.input.addEventListener("compositionstart", this.handleCompositionStart);
         this.input.addEventListener("compositionend", this.handleCompositionEnd);
@@ -224,6 +225,21 @@ export class Editor {
         }
         this.input.value = "";
         this.input.style.zIndex = "-1";
+    };
+
+    private handleCanvasWheel = (e: WheelEvent): void => {
+        if (e.deltaY < 0) {
+            // up
+            for (let i = 0; i < 3; i++) {
+                this.scrollUpWithCursor();
+            }
+        } else {
+            // down
+            for (let i = 0; i < 3; i++) {
+                this.scrollDownWithCursor();
+            }
+        }
+        this.render();
     };
 
     private handleEditorKeydown = (e: KeyboardEvent): void => {
@@ -962,10 +978,27 @@ export class Editor {
         this.state.rowoff = Math.max(0, this.state.rowoff - 1);
     }
 
-    /** 1行下にスクロールする */
+    /** 1行下にスクロールする。最終行でスクロールは止まる。 */
     private scrollDown(): void {
         const maxRowoff = this.state.lines.length - this.config.screenrows + 1;
         this.state.rowoff = Math.min(maxRowoff, this.state.rowoff + 1);
+    }
+
+    /** 1行上にスクロールする。もし画面を超えるならカーソルも移動する */
+    private scrollUpWithCursor(): void {
+        this.state.rowoff = Math.max(0, this.state.rowoff - 1);
+        const dest = this.state.rowoff + this.config.screenrows - 1 - this.config.statusBarHeight;
+        if (this.state.row > dest) {
+            this.state.row = dest;
+        }
+    }
+
+    /** 1行下にスクロールする。もし画面を超えるならカーソルも移動する */
+    private scrollDownWithCursor(): void {
+        this.state.rowoff = Math.min(this.state.lines.length - 1, this.state.rowoff + 1);
+        if (this.state.row < this.state.rowoff) {
+            this.state.row = this.state.rowoff;
+        }
     }
 
     private setLastFindMotion(motion: Extract<MotionContext, { arg: string }>): void {
