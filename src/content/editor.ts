@@ -1,8 +1,8 @@
 import { getFullScreenRows, getHalfScreenRows, type EditorConfig } from "./config";
 import type { Renderer } from "./renderer";
 import { type EditorState, resetState } from "./state";
-import { Line, getLines } from "./line";
-import { isFunctionKey, MOVE_KEYS, type MoveKey } from "./keys";
+import { Line, getLines, joinLines } from "./line";
+import { getInputFromEvent, isFunctionKey, isValidKey, MOVE_KEYS, type MoveKey } from "./keys";
 import { hideElement, showElement } from "./dom";
 import { LOGICAL_HALF_WIDTH, calcLogicalWidth, logicalWidthToCol } from "./utils";
 import {
@@ -27,7 +27,7 @@ import type { MotionContext } from "./myvim/parser/motionType";
 import { parseVisualCommand } from "./myvim/parser/visual";
 import type { MotionRange, RC } from "./types/motion";
 
-/** 角括弧の始まり/左側の文字コード */
+/** 角括弧の始まりの文字コード */
 const OPENING_BRACKET = 0x5b;
 
 export class Editor {
@@ -73,11 +73,17 @@ export class Editor {
 
     private destElement: HTMLInputElement | HTMLTextAreaElement | null = null;
 
-    private setDestElementValue(): void {
+    private setDestElement(el: HTMLInputElement | HTMLTextAreaElement): boolean {
+        const isSame = el === this.destElement;
+        this.destElement = el;
+        return isSame;
+    }
+
+    private syncElementValue(): void {
         if (!this.destElement) {
             return;
         }
-        this.destElement.value = this.state.lines.map((l) => l.text).join("\n");
+        this.destElement.value = joinLines(this.state.lines);
         // 入力イベントを発火させる:
         // githubでは入力時にsessionStorageを操作することでPreviewを表示している
         this.destElement.dispatchEvent(
@@ -88,252 +94,253 @@ export class Editor {
         );
     }
 
+    private tryFocusDestElement(): void {
+        if (this.destElement) {
+            this.destElement.focus();
+            this.syncElementValue();
+        }
+    }
+
     private setupListeners(): void {
-        let setDestElValueTimer: number = 0;
+        document.addEventListener("keydown", this.handleDocumentKeydown);
 
-        document.addEventListener("keydown", (e) => {
-            if (e.altKey && e.code === "KeyV") {
-                e.preventDefault();
-                const activeEl = document.activeElement;
-                if (activeEl === this.input) return;
-
-                if (
-                    activeEl instanceof HTMLInputElement ||
-                    activeEl instanceof HTMLTextAreaElement
-                ) {
-                    showElement(this.container);
-
-                    const isSameElement = activeEl === this.destElement;
-                    this.destElement = activeEl;
-                    this.input.focus();
-
-                    if (!isSameElement) {
-                        resetState(this.state, this.config);
-                    }
-
-                    // getLinesの仕様上、文字列が空でも必ず1要素の配列になる
-                    const newLines = getLines(activeEl.value);
-                    if (newLines.length === 0)
-                        throw new Error("getLines must return array within at least one element");
-
-                    this.state.lines = newLines;
-
-                    if (!isSameElement) {
-                        // 元の文字列の末尾まで移動する
-                        this.moveCursorToEOF();
-                        this.moveCursorToLast();
-                    } else {
-                        this.clampCursor();
-                    }
-                    this.scrollWindow();
-                    this.render();
-                } else {
-                    this.input.focus();
-                }
-                return;
-            }
-
-            if (e.altKey && e.code === "KeyQ") {
-                toggleVisibility();
-                return;
-            }
-        });
-
-        const toggleVisibility = () => {
-            if (this.container.style.visibility === "hidden") {
-                showElement(this.container);
-            } else {
-                hideElement(this.container);
-            }
-        };
-
-        const updateCanvas = () => {
-            this.renderer.applyConfig();
-            this.render();
-        };
-
-        let windowResizeTimer: number = 0;
-        window.addEventListener("resize", () => {
-            if (windowResizeTimer) {
-                clearTimeout(windowResizeTimer);
-            }
-            windowResizeTimer = setTimeout(updateCanvas, 500);
-        });
+        window.addEventListener("resize", this.handleResizeWindow);
 
         this.canvas.addEventListener("click", () => {
             this.input.focus();
             this.render();
         });
 
-        this.input.addEventListener("compositionstart", () => {
-            // 日本語変換が始まったとき
-            this.input.style.zIndex = "9999";
-        });
-        this.input.addEventListener("compositionend", () => {
-            // 日本語変換が終わったとき
-            if (this.state.vi_state.mode === "insert") {
-                this.insertText(this.input.value);
-                this.scrollWindow();
-                this.render();
-                this.setDestElementValue();
-
-                const value = this.input.value;
-                if (value !== "") {
-                    this.state.vi_insertBuf.push(value);
-                }
-            }
-            this.input.value = "";
-            this.input.style.zIndex = "-1";
-        });
-
-        const resizingMap: Record<string, () => void> = {
-            ArrowLeft: () => {
-                this.config.screencols = Math.min(this.config.screencols + 2, 80);
-            },
-            ArrowRight: () => {
-                this.config.screencols = Math.max(
-                    2 + this.config.lineNumberCols,
-                    this.config.screencols - 2,
-                );
-            },
-            ArrowUp: () => {
-                this.config.screenrows = Math.min(this.config.screenrows + 1, 40);
-                this.state.vi_scrollAmount = getHalfScreenRows(this.config);
-            },
-            ArrowDown: () => {
-                this.config.screenrows = Math.max(
-                    1 + this.config.statusBarHeight,
-                    this.config.screenrows - 1,
-                );
-                this.state.vi_scrollAmount = getHalfScreenRows(this.config);
-            },
-        };
-
-        this.input.addEventListener("keydown", (e) => {
-            const key = e.key;
-            if (isFunctionKey(key)) return; // fnキーは通常通り動作させるため早期リターン
-            e.preventDefault();
-            e.stopImmediatePropagation(); // サイト側のkeydownイベントを発火させない
-            if (e.isComposing) return;
-
-            if (e.shiftKey) {
-                const resize = resizingMap[key];
-                if (resize) {
-                    resize();
-                    updateCanvas();
-                    return;
-                }
-            }
-
-            if (e.altKey && e.code === "KeyV") {
-                if (this.destElement) {
-                    this.setDestElementValue();
-                    this.destElement.focus();
-                }
-                return;
-            }
-
-            if (e.altKey && e.code === "KeyQ") {
-                if (this.destElement) {
-                    this.setDestElementValue();
-                    this.destElement.focus();
-                }
-                toggleVisibility();
-                return;
-            }
-
-            this.input.value = "";
-
-            // 括弧の文字をそのまま使うと開発中にvimのtextobjがバグる
-            if (key === "Escape" || (key.codePointAt(0) === OPENING_BRACKET && e.ctrlKey)) {
-                this.vi_goNormal();
-                this.render();
-
-                const newText = this.state.lines.map((l) => l.text).join("\n");
-                this.saveDiff(this.state.lastSnapshot, newText);
-                return;
-            }
-
-            // processing
-            if (this.state.vi_state.mode === "normal") {
-                if (key.length > 1 && key !== "Enter") return;
-                const input = e.ctrlKey ? `<C-${key}>` : key;
-                this.state.vi_cmd.push(input);
-
-                if (this.state.vi_cmd.length > 6) {
-                    this.setStatusMsg("too long");
-                    this.state.vi_cmd = [];
-                    return;
-                }
-                const result = this.vi_executeNormal(this.state.vi_cmd);
-
-                if (result === 1) {
-                    this.setStatusMsg("unknown cmd");
-                    this.state.vi_cmd = [];
-                    return;
-                }
-
-                if (result === 2) {
-                    this.render();
-                    return;
-                }
-
-                if (result === 0) {
-                    this.scrollWindow();
-                    this.render();
-                    this.state.vi_cmd = []; // render後にcmdを初期化
-
-                    const newText = this.state.lines.map((l) => l.text).join("\n");
-                    this.saveDiff(this.state.lastSnapshot, newText);
-                }
-
-            } else if (this.state.vi_state.mode === "insert") {
-                this.processKeypress(e);
-                this.scrollWindow();
-                this.render();
-
-            } else if (this.state.vi_state.mode === "replace") {
-                this.processKeypress(e, { replace: true });
-                this.scrollWindow();
-                this.render();
-            } else if (this.state.vi_state.mode === "visual") {
-                if (key.length > 1 && key !== "Enter") return;
-                const input = e.ctrlKey ? `<C-${key}>` : key;
-                this.state.vi_cmd.push(input);
-
-                if (this.state.vi_cmd.length > 6) {
-                    this.setStatusMsg("too long");
-                    this.state.vi_cmd = [];
-                    return;
-                }
-                const result = this.vi_executeVisual(this.state.vi_cmd);
-                if (result === 1) {
-                    this.setStatusMsg("unknown cmd");
-                    this.state.vi_cmd = [];
-                    return;
-                }
-
-                if (result === 2) {
-                    this.render();
-                    return;
-                }
-
-                if (result === 0) {
-                    this.scrollWindow();
-                    this.render();
-                    this.state.vi_cmd = []; // render後にcmdを初期化
-
-                    const newText = this.state.lines.map((l) => l.text).join("\n");
-                    this.saveDiff(this.state.lastSnapshot, newText);
-                }
-            }
-
-            if (setDestElValueTimer) {
-                clearTimeout(setDestElValueTimer);
-            }
-            setDestElValueTimer = setTimeout(this.setDestElementValue.bind(this), 300);
-        });
+        this.input.addEventListener("compositionstart", this.handleCompositionStart);
+        this.input.addEventListener("compositionend", this.handleCompositionEnd);
+        this.input.addEventListener("keydown", this.handleEditorKeydown);
     }
+
+    private updateCanvas(): void {
+        this.renderer.applyConfig();
+        this.render();
+    }
+
+    private resetCmd(): void {
+        this.state.vi_cmd = [];
+    }
+
+    private activateExternalInput(el: HTMLInputElement | HTMLTextAreaElement): void {
+        showElement(this.container);
+
+        const isSameElement = this.setDestElement(el);
+        this.input.focus();
+
+        if (!isSameElement) {
+            resetState(this.state, this.config);
+        }
+        // getLinesの仕様上、文字列が空でも必ず1要素の配列になる
+        const newLines = getLines(el.value);
+        if (newLines.length === 0)
+            throw new Error("getLines must return array within at least one element");
+
+        this.state.lines = newLines;
+
+        if (!isSameElement) {
+            // 元の文字列の末尾まで移動する
+            this.moveCursorToEOF();
+            this.moveCursorToLast();
+        } else {
+            this.clampCursor();
+        }
+        this.scrollWindow();
+        this.render();
+    }
+
+    private handleDocumentKeydown = (e: KeyboardEvent): void => {
+        if (e.altKey && e.code === "KeyV") {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            const activeEl = document.activeElement;
+            if (activeEl === this.input) return;
+
+            if (
+                activeEl instanceof HTMLInputElement ||
+                activeEl instanceof HTMLTextAreaElement
+            ) {
+                this.activateExternalInput(activeEl);
+            } else {
+                this.input.focus();
+            }
+            return;
+        }
+        if (e.altKey && e.code === "KeyQ") {
+            this.toggleEditorVisibility();
+            return;
+        }
+    };
+
+    private toggleEditorVisibility(): void {
+        if (this.container.style.visibility === "hidden") {
+            showElement(this.container);
+        } else {
+            hideElement(this.container);
+        }
+    }
+
+    private elementValueUpdateTimer: number = 0;
+    private scheduleElementValueUpdate = (): void => {
+        if (this.elementValueUpdateTimer) {
+            clearTimeout(this.elementValueUpdateTimer);
+        }
+        this.elementValueUpdateTimer = setTimeout(() => {
+            this.syncElementValue();
+        }, 300);
+    };
+
+    private windowResizeTimer: number = 0;
+    private handleResizeWindow = (): void => {
+        // ページの拡大率が変化した際に呼び出す
+        if (this.windowResizeTimer) {
+            clearTimeout(this.windowResizeTimer);
+        }
+        this.windowResizeTimer = setTimeout(() => {
+            this.updateCanvas();
+        }, 500);
+    };
+
+    private handleCompositionStart = (): void => {
+        // 日本語変換が始まったとき
+        this.input.style.zIndex = "99999";
+    };
+
+    private handleCompositionEnd = (): void => {
+        // 日本語変換が終わったとき
+        if (this.state.vi_state.mode === "insert") {
+            const value = this.input.value;
+            this.insertText(value);
+            this.scrollWindow();
+            this.render();
+            this.syncElementValue();
+
+            if (value !== "") {
+                this.state.vi_insertBuf.push(value);
+            }
+        }
+        this.input.value = "";
+        this.input.style.zIndex = "-1";
+    };
+
+    private handleEditorKeydown = (e: KeyboardEvent): void => {
+        const key = e.key;
+        if (isFunctionKey(key)) return; // fnキーは通常通り動作させるため早期リターン
+        e.preventDefault();
+        e.stopImmediatePropagation(); // サイト側のkeydownイベントを発火させない
+        if (e.isComposing) return;
+
+        if (e.shiftKey) {
+            const resize = this.resizeMap[key];
+            if (resize) {
+                resize();
+                this.updateCanvas();
+                return;
+            }
+        }
+
+        if (e.altKey && e.code === "KeyV") {
+            this.tryFocusDestElement();
+            return;
+        }
+
+        if (e.altKey && e.code === "KeyQ") {
+            this.tryFocusDestElement();
+            this.toggleEditorVisibility();
+            return;
+        }
+
+        this.input.value = "";
+
+        // 括弧の文字をそのまま使うと開発中にvimのtextobjがバグる
+        if (key === "Escape" || (key.codePointAt(0) === OPENING_BRACKET && e.ctrlKey)) {
+            this.vi_goNormal();
+            this.render();
+
+            const newText = joinLines(this.state.lines);
+            this.saveDiff(this.state.lastSnapshot, newText);
+            return;
+        }
+
+        // processing
+        if (this.state.vi_state.mode === "normal" || this.state.vi_state.mode === "visual") {
+            if (!isValidKey(key)) return;
+            const input = getInputFromEvent(e);
+            this.state.vi_cmd.push(input);
+
+            if (this.state.vi_cmd.length > 6) {
+                this.resetCmd();
+                this.setStatusMsg("too long");
+                return;
+            }
+            const result = (
+                this.state.vi_state.mode === "normal"
+                ? this.vi_executeNormal(this.state.vi_cmd)
+                : this.vi_executeVisual(this.state.vi_cmd)
+            );
+            this.executeResult(result);
+
+        } else if (this.state.vi_state.mode === "insert") {
+            this.processKeypress(e);
+            this.scrollWindow();
+            this.render();
+
+        } else if (this.state.vi_state.mode === "replace") {
+            this.processKeypress(e, { replace: true });
+            this.scrollWindow();
+            this.render();
+        }
+
+        this.scheduleElementValueUpdate();
+    };
+
+    private executeResult(result: 0 | 1 | 2): void {
+        if (result === 1) {
+            this.setStatusMsg("unknown cmd");
+            this.resetCmd();
+            return;
+        }
+
+        if (result === 2) {
+            this.render();
+            return;
+        }
+
+        if (result === 0) {
+            this.scrollWindow();
+            this.render();
+            this.resetCmd(); // render後にcmdを初期化
+
+            const newText = joinLines(this.state.lines);
+            this.saveDiff(this.state.lastSnapshot, newText);
+        }
+    }
+
+    private resizeMap: Record<string, () => void> = {
+        ArrowLeft: () => {
+            this.config.screencols = Math.min(this.config.screencols + 2, 80);
+        },
+        ArrowRight: () => {
+            this.config.screencols = Math.max(
+                2 + this.config.lineNumberCols,
+                this.config.screencols - 2,
+            );
+        },
+        ArrowUp: () => {
+            this.config.screenrows = Math.min(this.config.screenrows + 1, 40);
+            this.state.vi_scrollAmount = getHalfScreenRows(this.config);
+        },
+        ArrowDown: () => {
+            this.config.screenrows = Math.max(
+                1 + this.config.statusBarHeight,
+                this.config.screenrows - 1,
+            );
+            this.state.vi_scrollAmount = getHalfScreenRows(this.config);
+        },
+    };
 
     // ------------------------------
     // | processing basic inputs
@@ -613,7 +620,7 @@ export class Editor {
                 }
                 this.scrollWindow();
                 this.render();
-                this.setDestElementValue();
+                this.syncElementValue();
             })();
         } else if (datatype === "operator") {
             const count = (data.count ?? 1) * (data.innerCount ?? 1);
@@ -1516,7 +1523,7 @@ export class Editor {
             result.push(new Line());
         }
         this.state.lines = result;
-        this.state.lastSnapshot = result.map((l) => l.text).join("\n");
+        this.state.lastSnapshot = joinLines(result);
 
         const cursor = (
             this.state.stackPtr === 0
@@ -1559,7 +1566,7 @@ export class Editor {
         while (oldPos < this.state.lines.length) result.push(this.state.lines[oldPos++]!);
 
         this.state.lines = result;
-        this.state.lastSnapshot = result.map((l) => l.text).join("\n");
+        this.state.lastSnapshot = joinLines(result);
 
         const cursor = this.state.cursorStack[this.state.stackPtr];
         if (!cursor) throw new Error("cursor is undefined");

@@ -11,3 +11,16 @@ export const MOVE_KEYS = {
 } as const;
 
 export type MoveKey = keyof typeof MOVE_KEYS;
+
+export function getInputFromEvent(event: KeyboardEvent): string {
+    const key = event.key;
+    if (event.ctrlKey) {
+        return `<C-${key}>`;
+    } else {
+        return key;
+    }
+}
+
+export function isValidKey(key: string): boolean {
+    return key.length === 1 || key === "Enter";
+}
