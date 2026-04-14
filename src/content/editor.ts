@@ -111,6 +111,7 @@ export class Editor {
             this.render();
         });
         this.canvas.addEventListener("wheel", this.handleCanvasWheel);
+        this.canvas.addEventListener("mousedown", this.handleCanvasMousedown);
 
         this.input.addEventListener("compositionstart", this.handleCompositionStart);
         this.input.addEventListener("compositionend", this.handleCompositionEnd);
@@ -239,6 +240,35 @@ export class Editor {
                 this.scrollDownWithCursor();
             }
         }
+        this.render();
+    };
+
+    /** Canvas要素内でのクリック座標を用いてカーソルを移動する */
+    private handleCanvasMousedown = (e: MouseEvent): void => {
+        const charWidth = this.config.baseFontSize / 2;
+        const lineNumberWidth = this.config.lineNumberCols * charWidth;
+        const lineHeight = this.config.baseFontSize + this.config.lineHeightPadding;
+
+        const clickX = e.offsetX - lineNumberWidth;
+        const clickY = e.offsetY;
+
+        const targetRow = Math.floor(clickY / lineHeight) + this.state.rowoff;
+
+        const targetLine = this.state.lines[targetRow] ?? this.state.lines[this.state.lines.length - 1] as Line;
+        const startCol = logicalWidthToCol(this.state.logicaloff, targetLine.text);
+        const hiddenTextWidth = calcLogicalWidth(targetLine.text.slice(0, startCol));
+        const cursorLogiWidth = (
+            Math.floor(clickX / charWidth) + hiddenTextWidth
+            + (this.state.logicaloff !== hiddenTextWidth ? 1 : 0) // 全角文字が画面間にある状態のずれを解決する
+        );
+        const targetCol = logicalWidthToCol(cursorLogiWidth, targetLine.text);
+
+        this.state.row = targetRow;
+        this.state.col = targetCol;
+        this.state.logicalWidth = calcLogicalWidth(targetLine.text.slice(0, targetCol));
+        this.clampCursor(); // 存在する行を超えたクリックに対応
+        this.state.preferredWidth = cursorLogiWidth; // clampCursorがprefを更新するため実行順に注意
+        this.scrollWindow();
         this.render();
     };
 
@@ -1454,10 +1484,10 @@ export class Editor {
     }
 
     private moveCursorToRC(row: number, col: number) {
+        const destLine = this.state.lines[row];
+        if (!destLine) throw new Error(`lines[${row}] is undefined`);
         this.state.row = row;
         this.state.col = col;
-        const destLine = this.state.lines[row];
-        if (!destLine) throw new Error("destLine is undefined");
         this.state.logicalWidth = calcLogicalWidth(destLine.text.slice(0, col));
         this.syncPreferredWidth();
     }
