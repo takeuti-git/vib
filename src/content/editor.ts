@@ -240,6 +240,7 @@ export class Editor {
                 this.scrollDownWithCursor();
             }
         }
+        this.scrollWindow();
         this.render();
     };
 
@@ -266,8 +267,8 @@ export class Editor {
         this.state.row = targetRow;
         this.state.col = targetCol;
         this.state.logicalWidth = calcLogicalWidth(targetLine.text.slice(0, targetCol));
+        this.state.preferredWidth = cursorLogiWidth;
         this.clampCursor(); // 存在する行を超えたクリックに対応
-        this.state.preferredWidth = cursorLogiWidth; // clampCursorがprefを更新するため実行順に注意
         this.scrollWindow();
         this.render();
     };
@@ -704,13 +705,13 @@ export class Editor {
                     for (let i = 0; i < count - 1; i++) {
                         this.vi_insertBuffer(this.state.vi_insertBuf);
                     }
-                    this.clampCursor();
+                    this.vi_moveCursor(MOVE_KEYS.LEFT);
                 } else {
                     this.moveCursorRight();
                     for (let i = 0; i < count - 1; i++) {
                         this.vi_insertBuffer(this.state.vi_insertBuf);
                     }
-                    this.clampCursor();
+                    this.vi_moveCursor(MOVE_KEYS.LEFT);
                 }
                 this.scrollWindow();
                 this.render();
@@ -1003,21 +1004,23 @@ export class Editor {
         this.state.rowoff = Math.min(maxRowoff, this.state.rowoff + 1);
     }
 
-    /** 1行上にスクロールする。もし画面を超えるならカーソルも移動する */
+    /** 1行上にスクロールする。カーソルが画面を超えるなら追従する */
     private scrollUpWithCursor(): void {
         this.state.rowoff = Math.max(0, this.state.rowoff - 1);
         const dest = this.state.rowoff + this.config.screenrows - 1 - this.config.statusBarHeight;
         if (this.state.row > dest) {
-            this.state.row = dest;
+            this.moveCursorUp();
         }
+        this.clampCursorCol();
     }
 
-    /** 1行下にスクロールする。もし画面を超えるならカーソルも移動する */
+    /** 1行下にスクロールする。カーソルが画面を超えるなら追従する */
     private scrollDownWithCursor(): void {
         this.state.rowoff = Math.min(this.state.lines.length - 1, this.state.rowoff + 1);
         if (this.state.row < this.state.rowoff) {
-            this.state.row = this.state.rowoff;
+            this.moveCursorDown();
         }
+        this.clampCursorCol();
     }
 
     private pageUp(): void {
@@ -1347,7 +1350,9 @@ export class Editor {
     // ------------------------------
 
     private get currentLine(): Line {
-        return this.state.lines[this.state.row] as Line;
+        const currLine = this.state.lines[this.state.row];
+        if (!currLine) throw new Error(`currentLine is undefined. lines[${this.state.row}]`);
+        return currLine;
     }
 
     private get nextLine(): Line | undefined {
@@ -1498,15 +1503,28 @@ export class Editor {
      * - 行はあるが文字がない場合は0文字目に移動する
      * */
     private clampCursor(): void {
+        this.clampCursorRow();
+        this.clampCursorCol();
+    }
+
+    /** preferredWidthを変更しない */
+    private clampCursorRow(): void {
         const maybeLine = this.state.lines[this.state.row];
         if (!maybeLine) {
             // カーソルの位置に行が存在しない場合
             this.state.row = this.state.lines.length - 1;
         }
+    }
+
+    /** preferredWidthを変更しない */
+    private clampCursorCol(): void {
         const maybeChar = this.currentLine.text[this.state.col];
         if (!maybeChar) {
-            // カーソルの位置に文字が存在しない場合
-            this.moveCursorToLast();
+            // カーソルの位置に行は存在するが、文字が存在しない場合
+            const line = this.currentLine;
+            const col = line.isEmpty() ? 0 : line.size - 1;
+            this.state.col = col;
+            this.state.logicalWidth = calcLogicalWidth(line.text.slice(0, col));
         }
     }
 
