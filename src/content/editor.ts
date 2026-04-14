@@ -3,7 +3,7 @@ import type { Renderer } from "./renderer";
 import { type EditorState, resetState } from "./state";
 import { Line, getLines, joinLines } from "./line";
 import { getInputFromEvent, isFunctionKey, isValidKey, MOVE_KEYS, type MoveKey } from "./keys";
-import { hideElement, showElement } from "./dom";
+import { hideElement, setElementFontsize, showElement } from "./dom";
 import { LOGICAL_HALF_WIDTH, calcLogicalWidth, logicalWidthToCol } from "./utils";
 import {
     getCountToNextChar,
@@ -253,6 +253,17 @@ export class Editor {
             return;
         }
 
+        // フォントサイズの拡大
+        if (e.ctrlKey && e.code === "Equal") {
+            this.increaseFontsize();
+            return;
+        }
+        // フォントサイズの縮小
+        if (e.ctrlKey && e.code === "Minus") {
+            this.decreaseFontsize();
+            return;
+        }
+
         this.input.value = "";
 
         // 括弧の文字をそのまま使うと開発中にvimのtextobjがバグる
@@ -341,6 +352,43 @@ export class Editor {
             this.state.vi_scrollAmount = getHalfScreenRows(this.config);
         },
     };
+
+    private getCurrentHeight = () => this.config.screenrows * (this.config.baseFontSize + this.config.lineHeightPadding);
+    private getCurrentWidth = () => this.config.screencols * this.config.baseFontSize / 2;
+
+    private increaseFontsize(): void {
+        const oldHeight = this.getCurrentHeight();
+        const oldWidth = this.getCurrentWidth();
+
+        this.config.baseFontSize += 2;
+        while (this.getCurrentHeight() > oldHeight) {
+            this.config.screenrows--;
+        }
+        while (this.getCurrentWidth() > oldWidth) {
+            this.config.screencols--;
+        }
+
+        setElementFontsize(this.input, this.config.baseFontSize);
+        this.renderer.applyConfig();
+        this.render();
+    }
+
+    private decreaseFontsize(): void {
+        const oldHeight = this.getCurrentHeight();
+        const oldWidth = this.getCurrentWidth();
+
+        this.config.baseFontSize -= 2;
+        while (this.getCurrentHeight() < oldHeight) {
+            this.config.screenrows++;
+        }
+        while (this.getCurrentWidth() < oldWidth) {
+            this.config.screencols++;
+        }
+
+        setElementFontsize(this.input, this.config.baseFontSize);
+        this.renderer.applyConfig();
+        this.render();
+}
 
     // ------------------------------
     // | processing basic inputs

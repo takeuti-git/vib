@@ -32,7 +32,7 @@ export function createCanvas(): HTMLCanvasElement {
     return canvas;
 }
 
-export function createInput(): HTMLInputElement {
+export function createInput(fontsize: number): HTMLInputElement {
     const input = document.createElement("input");
     input.id = "vib-input";
     input.autocomplete = "off";
@@ -42,10 +42,11 @@ export function createInput(): HTMLInputElement {
     input.style.zIndex = "-1";
     input.style.width = "fit-content";
     input.style.maxWidth = "100%";
-    input.style.padding = "2px";
+    input.style.padding = "0";
     input.style.margin = "0";
     input.style.outline = "none";
     input.style.border = "4px ridge";
+    input.style.fontSize = `${fontsize}px`;
     return input;
 }
 
@@ -57,4 +58,11 @@ export function showElement(element: HTMLElement) {
 export function hideElement(element: HTMLElement) {
     element.style.visibility = "hidden";
     element.style.display = "none";
+}
+
+/**
+ * - px単位のfontsizeを設定する
+ * */
+export function setElementFontsize(element: HTMLElement, value: number): void {
+    element.style.fontSize = `${value}px`;
 }
