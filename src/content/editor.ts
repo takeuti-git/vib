@@ -3,7 +3,7 @@ import type { Renderer } from "./renderer";
 import { type EditorState, resetState } from "./state";
 import { Line, getLines, joinLines } from "./line";
 import { getInputFromEvent, isFunctionKey, isValidKey, MOVE_KEYS, type MoveKey } from "./keys";
-import { hideElement, showElement } from "./dom";
+import { hideElement, setElementFontsize, showElement } from "./dom";
 import { LOGICAL_HALF_WIDTH, calcLogicalWidth, logicalWidthToCol } from "./utils";
 import {
     getCountToNextChar,
@@ -368,6 +368,7 @@ export class Editor {
             this.config.screencols--;
         }
 
+        setElementFontsize(this.input, this.config.baseFontSize);
         this.renderer.applyConfig();
         this.render();
     }
@@ -384,6 +385,7 @@ export class Editor {
             this.config.screencols++;
         }
 
+        setElementFontsize(this.input, this.config.baseFontSize);
         this.renderer.applyConfig();
         this.render();
 }
