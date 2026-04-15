@@ -745,15 +745,18 @@ export class Editor {
                     } else {
                         this.insertNewLineNext();
                     }
+                    const destRow = this.state.row; // put実行後の移動用に保存しておく
 
                     for (let i = 0; i < count; i++) {
-                        for (const line of lines) {
-                            this.currentLine.text = line;
-                            this.insertNewLineNext();
+                        for (let j = 0; j < lines.length; j++) {
+                            this.currentLine.text = lines[j]!;
+                            if (j !== lines.length - 1) {
+                                this.insertNewLineNext();
+                            }
                         }
                     }
-                    this.deleteRow(this.state.row); // ループで増えすぎた行を削除
-                    this.state.row--;
+                    this.moveCursorToRC(destRow, 0);
+                    this.moveCursorToFirstNonWhitespace();
                 } else {
                     const delta = isBefore ? 0 : 1; // p/Pの1文字分のずれ
                     const currLine = this.currentLine;
@@ -1293,6 +1296,7 @@ export class Editor {
     }
 
     private insertNewLineCurrent(): void {
+        // 現在のrowに新しい行を作成する。rowは変更せず同じ行位置のまま
         this.insertRow(this.state.row, "");
         this.state.col = 0;
         this.state.logicalWidth = 0;
