@@ -738,7 +738,7 @@ export class Editor {
             readClipboard().then((text) => {
                 if (text === null) return;
 
-                const lines = text.split("\n");
+                const lines = text.split(/\r?\n/);
                 if (this.state.vi_yankLinewise) {
                     if (isBefore) {
                         this.insertNewLineCurrent();

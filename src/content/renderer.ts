@@ -261,6 +261,20 @@ export class Renderer {
     }
 
     private drawChar(x: number, y: number, ch: string): void {
+        if (ch === "\r") {
+            this.ctx.fillStyle = "red";
+            this.ctx.fillRect(x, y - this.halfLineHeight, this.halfFontSize, this.lineHeight);
+            this.ctx.fillStyle = "white";
+            this.ctx.fillText("R", x, y);
+            return;
+        }
+        if (ch === "\n") {
+            this.ctx.fillStyle = "blue";
+            this.ctx.fillRect(x, y - this.halfLineHeight, this.halfFontSize, this.lineHeight);
+            this.ctx.fillStyle = "white";
+            this.ctx.fillText("N", x, y);
+            return;
+        }
         this.ctx.fillStyle = this.config.colors.text.normal;
         this.ctx.fillText(ch, x, y);
     }
