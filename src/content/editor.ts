@@ -4,7 +4,7 @@ import { type EditorState, resetState } from "./state";
 import { Line, getLines, joinLines } from "./line";
 import { getInputFromEvent, isFunctionKey, isValidKey, MOVE_KEYS, type MoveKey } from "./keys";
 import { hideElement, setElementFontsize, showElement } from "./dom";
-import { LOGICAL_HALF_WIDTH, calcLogicalWidth, logicalWidthToCol } from "./utils";
+import { LOGICAL_HALF_WIDTH, calcLogicalWidth, getCountUntilNonWhitespace, logicalWidthToCol } from "./utils";
 import {
     getCountToNextChar,
     getFirstNonWhitespaceCol,
@@ -1279,28 +1279,17 @@ export class Editor {
         const currLine = this.currentLine;
         const textBefore = currLine.text.slice(0, this.state.col);
         const textAfter = currLine.text.slice(this.state.col);
+
         currLine.text = textBefore;
-        this.state.row++;
-        this.state.col = 0;
-        this.state.logicalWidth = 0;
-        this.syncPreferredWidth();
-        this.insertRow(this.state.row, textAfter);
+        this.insertRow(this.state.row + 1, textAfter, this.state.row);
     }
 
     private insertNewLineNext(): void {
-        this.insertRow(this.state.row + 1, "");
-        this.state.row += 1;
-        this.state.col = 0;
-        this.state.logicalWidth = 0;
-        this.syncPreferredWidth();
+        this.insertRow(this.state.row + 1, "", this.state.row);
     }
 
     private insertNewLineCurrent(): void {
-        // 現在のrowに新しい行を作成する。rowは変更せず同じ行位置のまま
-        this.insertRow(this.state.row, "");
-        this.state.col = 0;
-        this.state.logicalWidth = 0;
-        this.syncPreferredWidth();
+        this.insertRow(this.state.row, "", this.state.row);
     }
 
     private insertText(text: string, { replace = false } = {}): void {
@@ -1371,9 +1360,28 @@ export class Editor {
         this.state.preferredWidth = this.state.logicalWidth;
     }
 
-    private insertRow(row: number, text: string): void {
+    /** appendedRow: インデント調整の参照元となる行数 */
+    private insertRow(row: number, text: string, appendedRow?: number): void {
         if (row < 0 || row > this.state.lines.length) return;
-        this.state.lines.splice(row, 0, new Line(text));
+
+        const newLine = new Line();
+        if (appendedRow) {
+            const appendedLine = this.state.lines[appendedRow];
+            if (!appendedLine) throw new Error(`appendingLine is undefined. lines[${appendedRow}]`);
+            const whitespaceCount = getCountUntilNonWhitespace(appendedLine.text);
+            newLine.text = " ".repeat(whitespaceCount) + text;
+            this.state.row = row;
+            this.state.col = whitespaceCount;
+            this.state.logicalWidth = whitespaceCount;
+            this.syncPreferredWidth();
+        } else {
+            newLine.text = text;
+            this.state.row = row;
+            this.state.col = 0;
+            this.state.logicalWidth = 0;
+            this.syncPreferredWidth();
+        }
+        this.state.lines.splice(row, 0, newLine);
     }
 
     private deleteRow(row: number): void {
@@ -1382,17 +1390,9 @@ export class Editor {
         const len = this.state.lines.length;
         if (len === 0) {
             this.insertRow(0, "");
-            this.state.col = 0;
-            this.state.logicalWidth = 0;
-            this.syncPreferredWidth();
+            this.moveCursorToFirst();
             return;
         }
-        // if (this.state.row === row && row !== 0) {
-        //     const prevLine = this.prevLine!;
-        //     this.recalcColWidth(prevLine);
-        // } else {
-        //     this.recalcColWidth(this.currentLine);
-        // }
     }
 
     private appendTextToLine(line: Line, text: string): void {

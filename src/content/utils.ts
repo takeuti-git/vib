@@ -29,3 +29,15 @@ export function logicalWidthToCol(logicalWidth: number, text: string): number {
     }
     return col;
 }
+
+/** 文字列の先頭から半角の空白文字数を計算する。見つからない場合は0を返す */
+export function getCountUntilNonWhitespace(text: string): number {
+    let count = 0;
+    for (const ch of text) {
+        if (ch !== " ") {
+            break;
+        }
+        count++;
+    }
+    return count;
+}
