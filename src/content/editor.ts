@@ -1365,7 +1365,7 @@ export class Editor {
         if (row < 0 || row > this.state.lines.length) return;
 
         const newLine = new Line();
-        if (appendedRow) {
+        if (this.config.autoIndent && appendedRow) {
             const appendedLine = this.state.lines[appendedRow];
             if (!appendedLine) throw new Error(`appendingLine is undefined. lines[${appendedRow}]`);
             const whitespaceCount = getCountUntilNonWhitespace(appendedLine.text);

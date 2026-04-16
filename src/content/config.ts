@@ -28,6 +28,7 @@ export type EditorConfig = {
     statusBarHeight: number;
 
     tabstop: number; // >=1
+    autoIndent: boolean;
 
     lineNumbers: LineNumberMode;
     lineNumberCols: number;
@@ -50,6 +51,7 @@ export function createEditorConfig(): EditorConfig {
         statusBarHeight: 1,
 
         tabstop: 4,
+        autoIndent: true,
 
         lineNumbers: "relative",
         lineNumberCols: 5,
