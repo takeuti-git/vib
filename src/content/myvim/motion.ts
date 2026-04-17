@@ -1,6 +1,7 @@
 import type { Line } from "../line";
 import type { EditorState } from "../state";
 import type { MotionRange, RC } from "../types/motion";
+import { getCountUntilNonWhitespace } from "../utils";
 import type { FindMoveOptions } from "./findCommand";
 import type { MotionContext } from "./parser/motionType";
 import { isSymbol, isWhitespace } from "./symbols";
@@ -25,13 +26,6 @@ const OPENING_TO_CLOSING: Record<OpeningBracket, ClosingBracket> = {
     "(": ")",
     "<": ">",
 };
-
-const FIRST_NON_WHITESPACE = /\S/;
-
-/** 文字列の中で最初に登場する空白以外の文字の列番号を返す */
-export function getFirstNonWhitespaceCol(text: string): number {
-    return text.search(FIRST_NON_WHITESPACE);
-}
 
 /** viのf motion: 対象の文字と同じ位置までの移動量を求める */
 export function getCountToNextChar(
@@ -395,7 +389,7 @@ export function getMotionRange(
                 end.col = Math.min(end.col + count - 1, currLine.size - 1);
                 end.col = Math.max(0, end.col);
             } else if (motion.name === "^" || motion.name === "_") {
-                start.col = getFirstNonWhitespaceCol(currLine.text);
+                start.col = getCountUntilNonWhitespace(currLine.text);
                 end.col = Math.max(0, end.col - 1);
             } else if (motion.name === "$") {
                 end.col = Math.max(0, currLine.size - 1);

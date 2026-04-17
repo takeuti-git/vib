@@ -1,9 +1,17 @@
 import { getHalfScreenRows, type EditorConfig } from "./config";
 import { Line } from "./line";
 import type { FindCommandName } from "./myvim/findCommand";
-import type { Operator } from "./myvim/parser/command";
+import type { InsertCommand, Operator } from "./myvim/parser/command";
 import type { MotionContext } from "./myvim/parser/motionType";
 import type { RC } from "./types/motion";
+
+type RepeatableCmd = { count: number } & (
+    | { type: "operator", operator: Exclude<Operator, "y">, motion: MotionContext }
+    | { type: "insert", insertKind: InsertCommand }
+    | { type: "put" }
+    | { type: "join" }
+);
+
 
 export type EditorState = {
     row: number; // 現在の行数
@@ -23,7 +31,7 @@ export type EditorState = {
 
     vi_state: ViState;
     vi_cmd: string[];
-    vi_lastCmd: { count: number, operator: Exclude<Operator, "y">, motion: MotionContext | null } | null;
+    vi_lastCmd: RepeatableCmd | null;
     vi_insertBuf: string[];
     vi_insertResolve: (() => void) | null;
     vi_yankLinewise: boolean;
