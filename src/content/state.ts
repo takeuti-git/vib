@@ -1,6 +1,8 @@
 import { getHalfScreenRows, type EditorConfig } from "./config";
 import { Line } from "./line";
 import type { FindCommandName } from "./myvim/findCommand";
+import type { Operator } from "./myvim/parser/command";
+import type { MotionContext } from "./myvim/parser/motionType";
 import type { RC } from "./types/motion";
 
 export type EditorState = {
@@ -21,7 +23,7 @@ export type EditorState = {
 
     vi_state: ViState;
     vi_cmd: string[];
-    vi_lastCmd: string[];
+    vi_lastCmd: { count: number, operator: Exclude<Operator, "y">, motion: MotionContext | null } | null;
     vi_insertBuf: string[];
     vi_insertResolve: (() => void) | null;
     vi_yankLinewise: boolean;
@@ -44,6 +46,8 @@ export type VisualState = {
     visualStart: RC;
     visualEnd: RC;
     linewise: boolean;
+    charCount: number;
+    lineCount: number;
 };
 
 type InsertState = {
@@ -72,7 +76,7 @@ export function createEditorState(config: Readonly<EditorConfig>): EditorState {
 
         vi_state: { mode: "normal" },
         vi_cmd: [],
-        vi_lastCmd: [],
+        vi_lastCmd: null,
         vi_insertBuf: [""],
         vi_insertResolve: null,
         vi_yankLinewise: false,
@@ -97,7 +101,7 @@ export function resetState(state: EditorState, config: Readonly<EditorConfig>): 
     state.diffDirty = false;
     state.vi_state = { mode: "normal" };
     state.vi_cmd = [];
-    state.vi_lastCmd = [];
+    state.vi_lastCmd = null;
     state.vi_insertBuf = [];
     state.vi_insertResolve = null;
     state.vi_yankLinewise = false;

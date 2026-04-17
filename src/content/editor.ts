@@ -25,7 +25,7 @@ import { createDiff, toRange } from "./undo";
 import type { ScrollKind } from "./myvim/parser/scroll";
 import type { MotionContext } from "./myvim/parser/motionType";
 import { parseVisualCommand } from "./myvim/parser/visual";
-import type { MotionRange, RC } from "./types/motion";
+import type { TextRange } from "./types/motion";
 
 /** 角括弧の始まりの文字コード */
 const OPENING_BRACKET = 0x5b;
@@ -274,6 +274,7 @@ export class Editor {
     };
 
     private handleEditorKeydown = (e: KeyboardEvent): void => {
+        console.log(this.state.vi_lastCmd);
         const key = e.key;
         if (isFunctionKey(key)) return; // fnキーは通常通り動作させるため早期リターン
         e.preventDefault();
@@ -352,6 +353,10 @@ export class Editor {
             this.render();
         }
 
+        if (this.state.vi_state.mode === "visual") {
+            console.log(this.state.vi_state.charCount);
+            console.log(this.state.vi_state.lineCount);
+        }
         this.scheduleElementValueUpdate();
     };
 
@@ -529,7 +534,7 @@ export class Editor {
     }
 
     private vi_executeOperator(
-        { operator, range, linewise }: { operator: Operator, range: MotionRange, linewise: boolean }
+        { operator, range, linewise }: { operator: Operator, range: TextRange, linewise: boolean }
     ): void {
         console.log({ linewise });
         const { lines } = this.state;
@@ -723,6 +728,10 @@ export class Editor {
             if (data.motion.type === "find") {
                 this.setLastFindMotion(data.motion);
             }
+            if (data.operator !== "y") {
+                // ヤンクは繰り返しの対象にならない
+                this.state.vi_lastCmd = { count, operator: data.operator, motion: data.motion };
+            }
 
             if (!range) {
                 return 0;
@@ -836,6 +845,26 @@ export class Editor {
             // 入力(";" | ",")によって移動方向が反転するため、動的にoptionsを生成する
             const optionsFn = FIND_REPEAT_OPTIONS[lastMotion.name];
             this.moveUntilNextChar(lastMotion.arg, { limit: count, ...optionsFn(data.reverse) });
+        } else if (datatype === "repeat_ope") {
+            if (!this.state.vi_lastCmd) return 0;
+            // this.vi_repeatOperator(this.state.vi_lastCmd);
+            const lastCmd = this.state.vi_lastCmd;
+            const motion = lastCmd.motion;
+
+            lastCmd.count = data.count ? data.count : lastCmd.count; // 指定がある場合のみcountを上書きする
+
+            if (motion) {
+                const range = getMotionRange(this.state, motion, lastCmd.count);
+                if (!range) return 0;
+                this.vi_executeOperator({ operator: lastCmd.operator, range, linewise: range.linewise });
+                if (lastCmd.operator === "c") {
+                    this.vi_insertBuffer(this.state.vi_insertBuf);
+                    this.vi_moveCursor(MOVE_KEYS.LEFT);
+                }
+            } else {
+                //
+            }
+
         } else if (datatype === "undo") {
             for (let i = 0; i < count; i++) this.undo();
 
@@ -883,7 +912,7 @@ export class Editor {
         const count = data.count === null ? 1 : data.count;
 
         /** textobjの範囲を注入できる */
-        const syncCursorAndVisual = (range?: { start: RC, end: RC }) => {
+        const syncCursorAndVisual = (range?: TextRange) => {
             if (range) {
                 vi_state.visualStart = range.start;
                 vi_state.visualEnd = range.end;
@@ -929,9 +958,7 @@ export class Editor {
                 this.setLastFindMotion(motion);
             }
             if (motion.type === "textobj") {
-                // ここでtextobjの範囲取得、カーソル移動、visualStart/Endへの適用を行う
-                console.log(motion);
-                const range = getMotionRange(this.state, data.motion, data.count ?? 1);
+                const range = getMotionRange(this.state, data.motion, count);
                 if (!range) return 0;
                 this.moveCursorToRC(range.start.row, range.start.col);
                 vi_state.rangeSide = "start";
@@ -939,6 +966,8 @@ export class Editor {
                 vi_state.rangeSide = "end";
                 this.moveCursorToRC(range.end.row, range.end.col);
                 vi_state.linewise = false; // textobj選択が成功したらvisual_lineではなくなる
+                vi_state.charCount = this.getCharCount({ start: vi_state.visualStart, end: vi_state.visualEnd });
+                vi_state.lineCount = this.getLineCount({ start: vi_state.visualStart, end: vi_state.visualEnd });
                 return 0;
             }
             this.vi_executeMotion(motion, count);
@@ -947,6 +976,8 @@ export class Editor {
                 vi_state.visualStart.col = 0;
                 vi_state.visualEnd.col = this.state.lines[vi_state.visualEnd.row]!.size - 1;
             }
+            vi_state.charCount = this.getCharCount({ start: vi_state.visualStart, end: vi_state.visualEnd });
+            vi_state.lineCount = this.getLineCount({ start: vi_state.visualStart, end: vi_state.visualEnd });
 
         } else if (datatype === "repeat_mot") {
             const lastMotion = this.state.vi_lastFindMotion;
@@ -960,16 +991,36 @@ export class Editor {
 
         } else if (datatype === "operator") {
             if (this.state.vi_state.mode !== "visual") throw new Error("vi_state.mode should be 'visual'");
-            const range: MotionRange = {
+            const range: TextRange = {
                 start: this.state.vi_state.visualStart,
                 end: this.state.vi_state.visualEnd,
-                linewise: false, // このlinewiseは評価しない
             };
             this.vi_executeOperator({ operator: data.operator, range, linewise: vi_state.linewise });
             if (data.operator === "c") {
                 this.vi_goInsert();
-            } if (data.operator !== "c") {
+            } else {
                 this.vi_goNormal();
+            }
+
+            // 繰り返しの登録
+            if (data.operator !== "y") {
+                const operator = data.operator;
+                if (vi_state.linewise) {
+                    // 行単位の範囲は既存の型で代替できる
+                    const motion: MotionContext = {
+                        type: "linewise",
+                        name: "line",
+                    };
+                    this.state.vi_lastCmd = { count: vi_state.lineCount, operator, motion };
+                } else {
+                    const motion: MotionContext = {
+                        type: "offset_char",
+                        lineCount: vi_state.lineCount,
+                        charCount: vi_state.charCount,
+                        destCol: vi_state.visualEnd.col,
+                    };
+                    this.state.vi_lastCmd = { count, operator, motion };
+                }
             }
         }
         return 0;
@@ -1109,6 +1160,8 @@ export class Editor {
             visualStart: { row: this.state.row, col: this.state.col },
             visualEnd: { row: this.state.row, col: this.state.col },
             linewise,
+            charCount: linewise ? this.currentLine.size : 1,
+            lineCount: 1,
         };
     }
 
@@ -1560,6 +1613,29 @@ export class Editor {
     /** 上下移動で行末に張り付きながら移動するため非常に高い値を設定する($モーション) */
     private setMaxPreferredWidth(): void {
         this.state.preferredWidth = Infinity;
+    }
+
+    private getCharCount(range: TextRange): number {
+        if (range.start.row === range.end.row) {
+            return range.end.col - range.start.col + 1;
+        } else {
+            const startrow = this.state.lines[range.start.row]!.text.slice(range.start.col).length;
+            const endrow = this.state.lines[range.end.row]!.text.slice(0, range.end.col + 1).length;
+            let middlerows = 0;
+            for (let i = range.start.row + 1; i < range.end.row; i++) {
+                const ln = this.state.lines[i] as Line;
+                if (ln.isEmpty()) {
+                    middlerows++;
+                } else {
+                    middlerows += ln.size;
+                }
+            }
+            return startrow + middlerows + endrow;
+        }
+    }
+
+    private getLineCount(range: TextRange): number {
+        return range.end.row - range.start.row + 1;
     }
 
     // ------------------------------

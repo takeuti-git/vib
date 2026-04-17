@@ -3,8 +3,11 @@ export type RC = {
     col: number;
 };
 
-export type MotionRange = {
+export type TextRange = {
     start: RC;
     end: RC;
+};
+
+export type MotionRange = TextRange & {
     linewise: boolean;
 };

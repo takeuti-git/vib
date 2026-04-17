@@ -714,6 +714,15 @@ export function getMotionRange(
             }
             break;
         }
+        case "offset_char": {
+            if (motion.lineCount === 1) {
+                end.col += motion.charCount - 1; // -1: 現在の文字を相殺する
+            } else {
+                end.row = Math.min(lines.length - 1, end.row + motion.lineCount - 1); // 現在の行を相殺する
+                end.col = motion.destCol;
+            }
+            break;
+        }
     }
 
     if (start.row === -1 || start.col === -1 || end.row === -1 || end.col === -1) {
