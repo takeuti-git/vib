@@ -712,6 +712,32 @@ export class Editor {
     }
 
     /**
+     * - count=1 またはcount=2なら1行分を結合する
+     * - count>=3ならcount-1行分を結合する
+     * */
+    private vi_executeJoin(count: number): void {
+        if (count === 1 || count === 2) {
+            count = 1;
+        } else {
+            count--;
+        }
+
+        for (let i = 0; i < count; i++) {
+            const nextLine = this.nextLine;
+            if (!nextLine) break;
+
+            if (!this.currentLine.isEmpty()) {
+                this.appendTextToLine(this.currentLine, " ");
+            }
+            this.moveCursorToLast();
+
+            const appending = nextLine.text.trimStart();
+            this.appendTextToLine(this.currentLine, appending);
+            this.deleteRow(this.state.row + 1);
+        }
+    }
+
+    /**
      * - 0: complete
      * - 1: doesn't exists
      * - 2: exists but incomplete
@@ -732,6 +758,7 @@ export class Editor {
 
         const data = parseResult.value;
         const datatype = data.type;
+        /** always 1 or more */
         const count = data.count === null ? 1 : data.count;
 
         if (datatype === "motion") {
@@ -826,16 +853,11 @@ export class Editor {
                 this.render();
             });
         } else if (datatype === "join") {
-            for (let i = 0; i < count; i++) {
-                const nextLine = this.nextLine;
-                if (!nextLine) break;
-                this.appendTextToLine(this.currentLine, " ");
-                this.moveCursorToLast();
+            // joinにおけるcountはlinewiseにように働く
+            // count=1なら1行の結合、count=2でも1行の結合になる
+            this.vi_executeJoin(count);
+            this.state.vi_lastCmd = { type: "join", count };
 
-                const appending = nextLine.text.trimStart();
-                this.appendTextToLine(this.currentLine, appending);
-                this.deleteRow(this.state.row + 1);
-            }
         } else if (datatype === "replace") {
             const kind = data.mode.kind;
             if (kind === "single") {
@@ -884,11 +906,10 @@ export class Editor {
                 }
             } else if (lastCmd.type === "insert") {
                 this.vi_executeInsertImmediately(lastCmd.insertKind, lastCmd.count);
-
             } else if (lastCmd.type === "put") {
                 // TODO
             } else if (lastCmd.type === "join") {
-                // TODO
+                this.vi_executeJoin(lastCmd.count);
             }
 
         } else if (datatype === "undo") {
@@ -1767,6 +1788,7 @@ export class Editor {
         );
         if (!cursor) throw new Error("cursor is undefined");
         this.moveCursorToRC(cursor.row, cursor.col);
+        this.clampCursor();
     }
 
     private applyForward(diffLines: string[]): void {
