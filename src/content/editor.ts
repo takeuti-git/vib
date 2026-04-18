@@ -7,7 +7,6 @@ import { hideElement, setElementFontsize, showElement } from "./dom";
 import { LOGICAL_HALF_WIDTH, calcLogicalWidth, getCountUntilNonWhitespace, logicalWidthToCol } from "./utils";
 import {
     getCountToNextChar,
-    getFirstNonWhitespaceCol,
     getMotionRange,
     moveForward,
     moveTail,
@@ -25,7 +24,7 @@ import { createDiff, toRange } from "./undo";
 import type { ScrollKind } from "./myvim/parser/scroll";
 import type { MotionContext } from "./myvim/parser/motionType";
 import { parseVisualCommand } from "./myvim/parser/visual";
-import type { MotionRange, RC } from "./types/motion";
+import type { TextRange } from "./types/motion";
 
 /** 角括弧の始まりの文字コード */
 const OPENING_BRACKET = 0x5b;
@@ -528,10 +527,67 @@ export class Editor {
         }
     }
 
+    private vi_executeInsertImmediately(insertKind: InsertCommand, count: number): void {
+        this.insertMap[insertKind]();
+        if ((insertKind === "a" || insertKind === "A") && !this.isAtLineTail()) {
+            this.moveCursor(MOVE_KEYS.RIGHT);
+        }
+        if (count >= 2 && (insertKind === "o" || insertKind === "O")) {
+            for (let i = 0; i < count; i++) {
+                this.vi_insertBuffer(this.state.vi_insertBuf);
+                if (i !== count -1) this.insertNewLine();
+            }
+        } else {
+            for (let i = 0; i < count; i++) {
+                this.vi_insertBuffer(this.state.vi_insertBuf);
+            }
+        }
+        this.vi_moveCursor(MOVE_KEYS.LEFT);
+        this.scrollWindow();
+        this.render();
+        this.syncElementValue();
+    }
+
+    private vi_executeInsert(insertKind: InsertCommand, count: number): void {
+        this.insertMap[insertKind]();
+
+        this.disableSaveDiff = true; // insertへの移行入力は差分として扱わない
+
+        if ((insertKind === "a" || insertKind === "A") && !this.isAtLineTail()) {
+            this.moveCursor(MOVE_KEYS.RIGHT);
+        }
+        this.vi_goInsert();
+
+        (async () => {
+            await new Promise<void>((resolve) => {
+                this.state.vi_insertResolve = resolve;
+            });
+            // this.state.vi_insertResolveがどこかで呼び出されるまで以下を実行しない
+
+            if (count >= 2 && (insertKind === "o" || insertKind === "O")) {
+                const insertBufLines = [Editor.VI_ENTER, ...this.state.vi_insertBuf];
+                this.moveCursorRight(); // 行末を1文字超えた地点に移動する
+                for (let i = 0; i < count - 1; i++) {
+                    this.vi_insertBuffer(insertBufLines);
+                }
+                this.vi_moveCursor(MOVE_KEYS.LEFT);
+            } else {
+                this.moveCursorRight();
+                for (let i = 0; i < count - 1; i++) {
+                    this.vi_insertBuffer(this.state.vi_insertBuf);
+                }
+                this.vi_moveCursor(MOVE_KEYS.LEFT);
+            }
+            this.scrollWindow();
+            this.render();
+            this.syncElementValue();
+            this.state.vi_lastCmd = { type: "insert", count, insertKind };
+        })();
+    }
+
     private vi_executeOperator(
-        { operator, range, linewise }: { operator: Operator, range: MotionRange, linewise: boolean }
+        { operator, range, linewise }: { operator: Operator, range: TextRange, linewise: boolean }
     ): void {
-        console.log({ linewise });
         const { lines } = this.state;
         const clipboardBuf: string[] = [];
         this.state.vi_yankLinewise = linewise;
@@ -656,6 +712,97 @@ export class Editor {
     }
 
     /**
+     * - count=1 またはcount=2なら1行分を結合する
+     * - count>=3ならcount-1行分を結合する
+     * */
+    private vi_executeJoin(count: number): void {
+        if (count === 1 || count === 2) {
+            count = 1;
+        } else {
+            count--;
+        }
+
+        for (let i = 0; i < count; i++) {
+            const nextLine = this.nextLine;
+            if (!nextLine) break;
+
+            if (!this.currentLine.isEmpty()) {
+                this.appendTextToLine(this.currentLine, " ");
+            }
+            this.moveCursorToLast();
+
+            const appending = nextLine.text.trimStart();
+            this.appendTextToLine(this.currentLine, appending);
+            this.deleteRow(this.state.row + 1);
+        }
+    }
+
+    private vi_executePut(count: number, position: "after" | "before"): void {
+        const isBefore = position === "before";
+        readClipboard().then((text) => {
+            if (text === null) return;
+
+            const lines = text.split(/\r?\n/);
+            if (this.state.vi_yankLinewise) {
+                if (isBefore) {
+                    this.insertNewLineCurrent();
+                } else {
+                    this.insertNewLineNext();
+                }
+                const destRow = this.state.row; // put実行後の移動用に保存しておく
+
+                for (let i = 0; i < count; i++) {
+                    for (const ln of lines) {
+                        this.currentLine.text = ln;
+                        this.insertNewLineNext();
+                    }
+                    this.deleteRow(this.state.row);
+                }
+                this.moveCursorToRC(destRow, 0);
+                this.moveCursorToFirstNonWhitespace();
+            } else {
+                const delta = isBefore ? 0 : 1; // p/Pの1文字分のずれ
+                const currLine = this.currentLine;
+                const currCol = this.state.col;
+                if (lines.length === 1) {
+                    // 改行が含まれない文字列をペーストする
+                    const before = currLine.text.slice(0, currCol + delta);
+                    const after = currLine.text.slice(currCol + delta);
+                    currLine.text = before + text + after;
+                    const moveAmount = isBefore ? text.length - 1 : text.length;
+                    for (let i = 0; i < moveAmount; i++) this.vi_moveCursor(MOVE_KEYS.RIGHT);
+                } else {
+                    // 改行を含む文字列をペーストする
+                    const firstClipText = lines[0] as string;
+                    const lastClipText = lines[lines.length - 1] as string;
+
+                    const currLineTail = currLine.text.slice(currCol + delta);
+
+                    // 最初と最後の行の文字列は先に処理
+                    currLine.text = currLine.text.slice(0, currCol + delta) + firstClipText;
+                    const lastLineText = lastClipText + currLineTail;
+                    this.insertRow(this.state.row + 1, lastLineText);
+                    if (delta === 1) this.vi_moveCursor(MOVE_KEYS.RIGHT);
+
+                    const newLineCount = lines.length - 1;
+                    if (newLineCount >= 2) {
+                        // クリップボードに改行が2回以上あるとき、完全新規行に文字列を代入
+                        for (let i = 0; i < newLineCount - 1; i++) {
+                            const row = this.state.row + 1 + i;
+                            const text = lines[i + 1];
+                            if (text === undefined)
+                                throw new Error("clipboard text is undefined");
+                            this.insertRow(row, text);
+                        }
+                    }
+                }
+            }
+            this.scrollWindow();
+            this.render();
+        });
+    }
+
+    /**
      * - 0: complete
      * - 1: doesn't exists
      * - 2: exists but incomplete
@@ -676,6 +823,7 @@ export class Editor {
 
         const data = parseResult.value;
         const datatype = data.type;
+        /** always 1 or more */
         const count = data.count === null ? 1 : data.count;
 
         if (datatype === "motion") {
@@ -683,45 +831,17 @@ export class Editor {
             this.vi_executeMotion(motion, count);
 
         } else if (datatype === "insert") {
-            const insKind = data.command;
-            this.insertMap[insKind]();
+            this.vi_executeInsert(data.command, count);
 
-            this.disableSaveDiff = true; // insertへの移行入力は差分として扱わない
-
-            if ((insKind === "a" || insKind === "A") && !this.isAtLineTail()) {
-                this.moveCursor(MOVE_KEYS.RIGHT);
-            }
-            this.vi_goInsert();
-
-            (async () => {
-                await new Promise<void>((resolve) => {
-                    this.state.vi_insertResolve = resolve;
-                });
-                // this.state.vi_insertResolveがどこかで呼び出されるまで以下を実行しない
-
-                if (count >= 2 && (insKind === "o" || insKind === "O")) {
-                    this.state.vi_insertBuf.unshift(Editor.VI_ENTER);
-                    this.moveCursorRight(); // 行末を1文字超えた地点に移動する
-                    for (let i = 0; i < count - 1; i++) {
-                        this.vi_insertBuffer(this.state.vi_insertBuf);
-                    }
-                    this.vi_moveCursor(MOVE_KEYS.LEFT);
-                } else {
-                    this.moveCursorRight();
-                    for (let i = 0; i < count - 1; i++) {
-                        this.vi_insertBuffer(this.state.vi_insertBuf);
-                    }
-                    this.vi_moveCursor(MOVE_KEYS.LEFT);
-                }
-                this.scrollWindow();
-                this.render();
-                this.syncElementValue();
-            })();
         } else if (datatype === "operator") {
             const count = (data.count ?? 1) * (data.innerCount ?? 1);
             const range = getMotionRange(this.state, data.motion, count);
             if (data.motion.type === "find") {
                 this.setLastFindMotion(data.motion);
+            }
+            if (data.operator !== "y") {
+                // ヤンクは繰り返しの対象にならない
+                this.state.vi_lastCmd = { type: "operator", count, operator: data.operator, motion: data.motion };
             }
 
             if (!range) {
@@ -734,80 +854,15 @@ export class Editor {
             }
 
         } else if (datatype === "put") {
-            const isBefore = data.position === "before";
-            readClipboard().then((text) => {
-                if (text === null) return;
+            this.vi_executePut(count, data.position);
+            this.state.vi_lastCmd = { type: "put", count, position: data.position };
 
-                const lines = text.split(/\r?\n/);
-                if (this.state.vi_yankLinewise) {
-                    if (isBefore) {
-                        this.insertNewLineCurrent();
-                    } else {
-                        this.insertNewLineNext();
-                    }
-                    const destRow = this.state.row; // put実行後の移動用に保存しておく
-
-                    for (let i = 0; i < count; i++) {
-                        for (let j = 0; j < lines.length; j++) {
-                            this.currentLine.text = lines[j]!;
-                            if (j !== lines.length - 1) {
-                                this.insertNewLineNext();
-                            }
-                        }
-                    }
-                    this.moveCursorToRC(destRow, 0);
-                    this.moveCursorToFirstNonWhitespace();
-                } else {
-                    const delta = isBefore ? 0 : 1; // p/Pの1文字分のずれ
-                    const currLine = this.currentLine;
-                    const currCol = this.state.col;
-                    if (lines.length === 1) {
-                        // 改行が含まれない文字列をペーストする
-                        const before = currLine.text.slice(0, currCol + delta);
-                        const after = currLine.text.slice(currCol + delta);
-                        currLine.text = before + text + after;
-                        const moveAmount = isBefore ? text.length - 1 : text.length;
-                        for (let i = 0; i < moveAmount; i++) this.vi_moveCursor(MOVE_KEYS.RIGHT);
-                    } else {
-                        // 改行を含む文字列をペーストする
-                        const firstClipText = lines[0] as string;
-                        const lastClipText = lines[lines.length - 1] as string;
-
-                        const currLineTail = currLine.text.slice(currCol + delta);
-
-                        // 最初と最後の行の文字列は先に処理
-                        currLine.text = currLine.text.slice(0, currCol + delta) + firstClipText;
-                        const lastLineText = lastClipText + currLineTail;
-                        this.insertRow(this.state.row + 1, lastLineText);
-                        if (delta === 1) this.vi_moveCursor(MOVE_KEYS.RIGHT);
-
-                        const newLineCount = lines.length - 1;
-                        if (newLineCount >= 2) {
-                            // クリップボードに改行が2回以上あるとき、完全新規行に文字列を代入
-                            for (let i = 0; i < newLineCount - 1; i++) {
-                                const row = this.state.row + 1 + i;
-                                const text = lines[i + 1];
-                                if (text === undefined)
-                                    throw new Error("clipboard text is undefined");
-                                this.insertRow(row, text);
-                            }
-                        }
-                    }
-                }
-                this.scrollWindow();
-                this.render();
-            });
         } else if (datatype === "join") {
-            for (let i = 0; i < count; i++) {
-                const nextLine = this.nextLine;
-                if (!nextLine) break;
-                this.appendTextToLine(this.currentLine, " ");
-                this.moveCursorToLast();
+            // joinにおけるcountはlinewiseにように働く
+            // count=1なら1行の結合、count=2でも1行の結合になる
+            this.vi_executeJoin(count);
+            this.state.vi_lastCmd = { type: "join", count };
 
-                const appending = nextLine.text.trimStart();
-                this.appendTextToLine(this.currentLine, appending);
-                this.deleteRow(this.state.row + 1);
-            }
         } else if (datatype === "replace") {
             const kind = data.mode.kind;
             if (kind === "single") {
@@ -836,6 +891,32 @@ export class Editor {
             // 入力(";" | ",")によって移動方向が反転するため、動的にoptionsを生成する
             const optionsFn = FIND_REPEAT_OPTIONS[lastMotion.name];
             this.moveUntilNextChar(lastMotion.arg, { limit: count, ...optionsFn(data.reverse) });
+        } else if (datatype === "repeat_ope") {
+            if (!this.state.vi_lastCmd) return 0;
+            // this.vi_repeatOperator(this.state.vi_lastCmd);
+            const lastCmd = this.state.vi_lastCmd;
+
+            if (data.count) {
+                // TODO: lastcmd.countを上書きできるかのフラグが必要, visualで選択した内容は上書きできない
+                lastCmd.count = data.count; // 指定がある場合のみcountを上書きする
+            }
+
+            if (lastCmd.type === "operator") {
+                const range = getMotionRange(this.state, lastCmd.motion, lastCmd.count);
+                if (!range) return 0;
+                this.vi_executeOperator({ operator: lastCmd.operator, range, linewise: range.linewise });
+                if (lastCmd.operator === "c") {
+                    this.vi_insertBuffer(this.state.vi_insertBuf);
+                    this.vi_moveCursor(MOVE_KEYS.LEFT);
+                }
+            } else if (lastCmd.type === "insert") {
+                this.vi_executeInsertImmediately(lastCmd.insertKind, lastCmd.count);
+            } else if (lastCmd.type === "put") {
+                this.vi_executePut(lastCmd.count, lastCmd.position);
+            } else if (lastCmd.type === "join") {
+                this.vi_executeJoin(lastCmd.count);
+            }
+
         } else if (datatype === "undo") {
             for (let i = 0; i < count; i++) this.undo();
 
@@ -866,7 +947,6 @@ export class Editor {
         if (this.state.vi_state.mode !== "visual") throw new Error("vi_state.mode should be 'visual'");
         const vi_state = this.state.vi_state; // クロージャで使うためnarrow後にローカル変数にバインド
         const parseResult = parseVisualCommand(input);
-        console.log(parseResult);
 
         if (parseResult.status === "unknown") {
             console.log("its unknown");
@@ -883,7 +963,7 @@ export class Editor {
         const count = data.count === null ? 1 : data.count;
 
         /** textobjの範囲を注入できる */
-        const syncCursorAndVisual = (range?: { start: RC, end: RC }) => {
+        const syncCursorAndVisual = (range?: TextRange) => {
             if (range) {
                 vi_state.visualStart = range.start;
                 vi_state.visualEnd = range.end;
@@ -929,9 +1009,7 @@ export class Editor {
                 this.setLastFindMotion(motion);
             }
             if (motion.type === "textobj") {
-                // ここでtextobjの範囲取得、カーソル移動、visualStart/Endへの適用を行う
-                console.log(motion);
-                const range = getMotionRange(this.state, data.motion, data.count ?? 1);
+                const range = getMotionRange(this.state, data.motion, count);
                 if (!range) return 0;
                 this.moveCursorToRC(range.start.row, range.start.col);
                 vi_state.rangeSide = "start";
@@ -939,6 +1017,8 @@ export class Editor {
                 vi_state.rangeSide = "end";
                 this.moveCursorToRC(range.end.row, range.end.col);
                 vi_state.linewise = false; // textobj選択が成功したらvisual_lineではなくなる
+                vi_state.charCount = this.getCharCount({ start: vi_state.visualStart, end: vi_state.visualEnd });
+                vi_state.lineCount = this.getLineCount({ start: vi_state.visualStart, end: vi_state.visualEnd });
                 return 0;
             }
             this.vi_executeMotion(motion, count);
@@ -947,6 +1027,8 @@ export class Editor {
                 vi_state.visualStart.col = 0;
                 vi_state.visualEnd.col = this.state.lines[vi_state.visualEnd.row]!.size - 1;
             }
+            vi_state.charCount = this.getCharCount({ start: vi_state.visualStart, end: vi_state.visualEnd });
+            vi_state.lineCount = this.getLineCount({ start: vi_state.visualStart, end: vi_state.visualEnd });
 
         } else if (datatype === "repeat_mot") {
             const lastMotion = this.state.vi_lastFindMotion;
@@ -960,16 +1042,36 @@ export class Editor {
 
         } else if (datatype === "operator") {
             if (this.state.vi_state.mode !== "visual") throw new Error("vi_state.mode should be 'visual'");
-            const range: MotionRange = {
+            const range: TextRange = {
                 start: this.state.vi_state.visualStart,
                 end: this.state.vi_state.visualEnd,
-                linewise: false, // このlinewiseは評価しない
             };
             this.vi_executeOperator({ operator: data.operator, range, linewise: vi_state.linewise });
             if (data.operator === "c") {
                 this.vi_goInsert();
-            } if (data.operator !== "c") {
+            } else {
                 this.vi_goNormal();
+            }
+
+            // 繰り返しの登録
+            if (data.operator !== "y") {
+                const operator = data.operator;
+                if (vi_state.linewise) {
+                    // 行単位の範囲は既存の型で代替できる
+                    const motion: MotionContext = {
+                        type: "linewise",
+                        name: "line",
+                    };
+                    this.state.vi_lastCmd = { type: "operator", count, operator, motion };
+                } else {
+                    const motion: MotionContext = {
+                        type: "offset_char",
+                        lineCount: vi_state.lineCount,
+                        charCount: vi_state.charCount,
+                        destCol: vi_state.visualEnd.col,
+                    };
+                    this.state.vi_lastCmd = { type: "operator", count, operator, motion };
+                }
             }
         }
         return 0;
@@ -1109,6 +1211,8 @@ export class Editor {
             visualStart: { row: this.state.row, col: this.state.col },
             visualEnd: { row: this.state.row, col: this.state.col },
             linewise,
+            charCount: linewise ? this.currentLine.size : 1,
+            lineCount: 1,
         };
     }
 
@@ -1459,7 +1563,7 @@ export class Editor {
 
     private moveCursorToFirstNonWhitespace(): void {
         const line = this.currentLine;
-        const start = getFirstNonWhitespaceCol(line.text);
+        const start = getCountUntilNonWhitespace(line.text);
         this.state.col = start;
         this.state.logicalWidth = calcLogicalWidth(line.text.slice(0, start));
         this.syncPreferredWidth();
@@ -1560,6 +1664,29 @@ export class Editor {
     /** 上下移動で行末に張り付きながら移動するため非常に高い値を設定する($モーション) */
     private setMaxPreferredWidth(): void {
         this.state.preferredWidth = Infinity;
+    }
+
+    private getCharCount(range: TextRange): number {
+        if (range.start.row === range.end.row) {
+            return range.end.col - range.start.col + 1;
+        } else {
+            const startrow = this.state.lines[range.start.row]!.text.slice(range.start.col).length;
+            const endrow = this.state.lines[range.end.row]!.text.slice(0, range.end.col + 1).length;
+            let middlerows = 0;
+            for (let i = range.start.row + 1; i < range.end.row; i++) {
+                const ln = this.state.lines[i] as Line;
+                if (ln.isEmpty()) {
+                    middlerows++;
+                } else {
+                    middlerows += ln.size;
+                }
+            }
+            return startrow + middlerows + endrow;
+        }
+    }
+
+    private getLineCount(range: TextRange): number {
+        return range.end.row - range.start.row + 1;
     }
 
     // ------------------------------
@@ -1666,6 +1793,7 @@ export class Editor {
         );
         if (!cursor) throw new Error("cursor is undefined");
         this.moveCursorToRC(cursor.row, cursor.col);
+        this.clampCursor();
     }
 
     private applyForward(diffLines: string[]): void {
