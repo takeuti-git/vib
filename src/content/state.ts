@@ -8,7 +8,7 @@ import type { RC } from "./types/motion";
 type RepeatableCmd = { count: number } & (
     | { type: "operator", operator: Exclude<Operator, "y">, motion: MotionContext }
     | { type: "insert", insertKind: InsertCommand }
-    | { type: "put" }
+    | { type: "put", position: "before" | "after" }
     | { type: "join" }
 );
 

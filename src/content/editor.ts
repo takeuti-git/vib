@@ -737,6 +737,71 @@ export class Editor {
         }
     }
 
+    private vi_executePut(count: number, position: "after" | "before"): void {
+        const isBefore = position === "before";
+        readClipboard().then((text) => {
+            if (text === null) return;
+
+            const lines = text.split(/\r?\n/);
+            if (this.state.vi_yankLinewise) {
+                if (isBefore) {
+                    this.insertNewLineCurrent();
+                } else {
+                    this.insertNewLineNext();
+                }
+                const destRow = this.state.row; // put実行後の移動用に保存しておく
+
+                for (let i = 0; i < count; i++) {
+                    for (const ln of lines) {
+                        this.currentLine.text = ln;
+                        this.insertNewLineNext();
+                    }
+                    this.deleteRow(this.state.row);
+                }
+                this.moveCursorToRC(destRow, 0);
+                this.moveCursorToFirstNonWhitespace();
+            } else {
+                const delta = isBefore ? 0 : 1; // p/Pの1文字分のずれ
+                const currLine = this.currentLine;
+                const currCol = this.state.col;
+                if (lines.length === 1) {
+                    // 改行が含まれない文字列をペーストする
+                    const before = currLine.text.slice(0, currCol + delta);
+                    const after = currLine.text.slice(currCol + delta);
+                    currLine.text = before + text + after;
+                    const moveAmount = isBefore ? text.length - 1 : text.length;
+                    for (let i = 0; i < moveAmount; i++) this.vi_moveCursor(MOVE_KEYS.RIGHT);
+                } else {
+                    // 改行を含む文字列をペーストする
+                    const firstClipText = lines[0] as string;
+                    const lastClipText = lines[lines.length - 1] as string;
+
+                    const currLineTail = currLine.text.slice(currCol + delta);
+
+                    // 最初と最後の行の文字列は先に処理
+                    currLine.text = currLine.text.slice(0, currCol + delta) + firstClipText;
+                    const lastLineText = lastClipText + currLineTail;
+                    this.insertRow(this.state.row + 1, lastLineText);
+                    if (delta === 1) this.vi_moveCursor(MOVE_KEYS.RIGHT);
+
+                    const newLineCount = lines.length - 1;
+                    if (newLineCount >= 2) {
+                        // クリップボードに改行が2回以上あるとき、完全新規行に文字列を代入
+                        for (let i = 0; i < newLineCount - 1; i++) {
+                            const row = this.state.row + 1 + i;
+                            const text = lines[i + 1];
+                            if (text === undefined)
+                                throw new Error("clipboard text is undefined");
+                            this.insertRow(row, text);
+                        }
+                    }
+                }
+            }
+            this.scrollWindow();
+            this.render();
+        });
+    }
+
     /**
      * - 0: complete
      * - 1: doesn't exists
@@ -789,69 +854,9 @@ export class Editor {
             }
 
         } else if (datatype === "put") {
-            const isBefore = data.position === "before";
-            readClipboard().then((text) => {
-                if (text === null) return;
+            this.vi_executePut(count, data.position);
+            this.state.vi_lastCmd = { type: "put", count, position: data.position };
 
-                const lines = text.split(/\r?\n/);
-                if (this.state.vi_yankLinewise) {
-                    if (isBefore) {
-                        this.insertNewLineCurrent();
-                    } else {
-                        this.insertNewLineNext();
-                    }
-                    const destRow = this.state.row; // put実行後の移動用に保存しておく
-
-                    for (let i = 0; i < count; i++) {
-                        for (let j = 0; j < lines.length; j++) {
-                            this.currentLine.text = lines[j]!;
-                            if (j !== lines.length - 1) {
-                                this.insertNewLineNext();
-                            }
-                        }
-                    }
-                    this.moveCursorToRC(destRow, 0);
-                    this.moveCursorToFirstNonWhitespace();
-                } else {
-                    const delta = isBefore ? 0 : 1; // p/Pの1文字分のずれ
-                    const currLine = this.currentLine;
-                    const currCol = this.state.col;
-                    if (lines.length === 1) {
-                        // 改行が含まれない文字列をペーストする
-                        const before = currLine.text.slice(0, currCol + delta);
-                        const after = currLine.text.slice(currCol + delta);
-                        currLine.text = before + text + after;
-                        const moveAmount = isBefore ? text.length - 1 : text.length;
-                        for (let i = 0; i < moveAmount; i++) this.vi_moveCursor(MOVE_KEYS.RIGHT);
-                    } else {
-                        // 改行を含む文字列をペーストする
-                        const firstClipText = lines[0] as string;
-                        const lastClipText = lines[lines.length - 1] as string;
-
-                        const currLineTail = currLine.text.slice(currCol + delta);
-
-                        // 最初と最後の行の文字列は先に処理
-                        currLine.text = currLine.text.slice(0, currCol + delta) + firstClipText;
-                        const lastLineText = lastClipText + currLineTail;
-                        this.insertRow(this.state.row + 1, lastLineText);
-                        if (delta === 1) this.vi_moveCursor(MOVE_KEYS.RIGHT);
-
-                        const newLineCount = lines.length - 1;
-                        if (newLineCount >= 2) {
-                            // クリップボードに改行が2回以上あるとき、完全新規行に文字列を代入
-                            for (let i = 0; i < newLineCount - 1; i++) {
-                                const row = this.state.row + 1 + i;
-                                const text = lines[i + 1];
-                                if (text === undefined)
-                                    throw new Error("clipboard text is undefined");
-                                this.insertRow(row, text);
-                            }
-                        }
-                    }
-                }
-                this.scrollWindow();
-                this.render();
-            });
         } else if (datatype === "join") {
             // joinにおけるcountはlinewiseにように働く
             // count=1なら1行の結合、count=2でも1行の結合になる
@@ -907,7 +912,7 @@ export class Editor {
             } else if (lastCmd.type === "insert") {
                 this.vi_executeInsertImmediately(lastCmd.insertKind, lastCmd.count);
             } else if (lastCmd.type === "put") {
-                // TODO
+                this.vi_executePut(lastCmd.count, lastCmd.position);
             } else if (lastCmd.type === "join") {
                 this.vi_executeJoin(lastCmd.count);
             }
