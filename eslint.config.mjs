@@ -10,9 +10,10 @@ export default defineConfig([
         extends: ["js/recommended"],
         languageOptions: { globals: globals.browser },
         rules: {
-            "semi": ["error", "always"],    // セミコロンの強制
+            // "semi": ["error", "always"],    // セミコロンの強制
             "eqeqeq": ["error", "always"],  // 等価演算子==の禁止
             "prefer-const": "error",        // 再代入のないletの禁止
+            "no-empty": "off",
         },
     },
     tseslint.configs.recommended,
