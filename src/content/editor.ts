@@ -4,7 +4,7 @@ import { type EditorState, resetState } from "./state";
 import { Line, getLines, joinLines } from "./line";
 import { getInputFromEvent, isFunctionKey, isValidKey, MOVE_KEYS, type MoveKey } from "./keys";
 import { hideElement, setElementFontsize, showElement } from "./dom";
-import { LOGICAL_HALF_WIDTH, calcLogicalWidth, getCountUntilNonWhitespace, logicalWidthToCol } from "./utils";
+import { LOGICAL_HALF_WIDTH, addFirstWhitespace, calcLogicalWidth, getCountUntilNonWhitespace, logicalWidthToCol, removeFirstWhitespace } from "./utils";
 import {
     getCountToNextChar,
     getMotionRange,
@@ -708,6 +708,21 @@ export class Editor {
                 }
             }
             writeClipboard(clipboardBuf.join("\n"));
+        } else if (operator === "<" || operator === ">") {
+            const targetLines = lines.slice(range.start.row, range.end.row + 1);
+            console.log(targetLines);
+            if (operator === "<") {
+                for (const ln of targetLines) {
+                    ln.text = removeFirstWhitespace(ln.text, this.config.tabstop);
+                }
+            } else {
+                for (const ln of targetLines) {
+                    ln.text = addFirstWhitespace(ln.text, this.config.tabstop);
+                }
+            }
+            this.clampCursorCol();
+            this.moveCursorToRC(range.start.row, this.state.col);
+            this.syncPreferredWidth();
         }
     }
 

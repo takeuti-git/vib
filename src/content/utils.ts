@@ -41,3 +41,18 @@ export function getCountUntilNonWhitespace(text: string): number {
     }
     return count;
 }
+
+export function removeFirstWhitespace(text: string, count = 1): string {
+    let i = 0;
+    for (; i < text.length; i++) {
+        if (text[i] === " " && i < count) {
+            continue;
+        }
+        break;
+    }
+    return text.slice(i);
+}
+
+export function addFirstWhitespace(text: string, count = 1): string {
+    return " ".repeat(count) + text;
+}
