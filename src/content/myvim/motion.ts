@@ -359,6 +359,10 @@ export function moveTail(state: EditorState, separator: "word" | "WORD"): Horizo
     return { distance: ctx.distance, destRow: ctx.row, destCol: ctx.col };
 }
 
+/**
+ * - 包含・排他的範囲を返す
+ * - linewiseならend.row+1, そうでないならend.col+1
+ **/
 export function getMotionRange(
     state: Readonly<EditorState>,
     motion: Readonly<MotionContext>,
@@ -722,6 +726,13 @@ export function getMotionRange(
     if (start.row === -1 || start.col === -1 || end.row === -1 || end.col === -1) {
         console.error(start, end);
         throw new Error("unexpected negative value");
+    }
+
+    // 排他的範囲に調整する
+    if (linewise) {
+        end.row++;
+    } else {
+        end.col++;
     }
 
     return { start, end, linewise };

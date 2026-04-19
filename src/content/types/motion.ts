@@ -3,9 +3,19 @@ export type RC = {
     col: number;
 };
 
+export type InclusivePos = {
+    row: number;
+    col: number;
+}
+
+export type ExclusivePos = {
+    row: number;
+    col: number;
+};
+
 export type TextRange = {
-    start: RC;
-    end: RC;
+    start: InclusivePos;
+    end: ExclusivePos;
 };
 
 export type MotionRange = TextRange & {
