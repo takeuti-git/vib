@@ -410,15 +410,15 @@ export class Renderer {
     }
 
     private inVisualRange(visualState: VisualState, row: number, col: number): boolean {
-        const start = visualState.visualStart;
-        const end = visualState.visualEnd;
-        if (row < start.row || row > end.row) {
+        const first = visualState.visualFirst;
+        const last = visualState.visualLast;
+        if (row < first.row || row > last.row) {
             // 完全に対象外の範囲が除かれる
             return false;
         }
         if (
-            (row === start.row && col < start.col) ||
-            (row === end.row && col > end.col)
+            (row === first.row && col < first.col) ||
+            (row === last.row && col > last.col)
         ) {
             // 行内前後の範囲が除かれる
             return false;

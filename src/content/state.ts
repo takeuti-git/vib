@@ -3,7 +3,7 @@ import { Line } from "./line";
 import type { FindCommandName } from "./myvim/findCommand";
 import type { InsertCommand, Operator } from "./myvim/parser/command";
 import type { MotionContext } from "./myvim/parser/motionType";
-import type { RC } from "./types/motion";
+import type { InclusivePos, Position } from "./types/motion";
 
 type RepeatableCmd = { count: number } & (
     | { type: "operator", operator: Exclude<Operator, "y">, motion: MotionContext }
@@ -24,7 +24,7 @@ export type EditorState = {
     lines: Line[];
     lastSnapshot: string;
     diffStack: string[];
-    cursorStack: RC[];
+    cursorStack: Position[];
     stackPtr: number;
     diffDirty: boolean;
     cursorStyle: "full" | "under" | "vertical";
@@ -50,9 +50,9 @@ type NormalState = {
 };
 export type VisualState = {
     mode: "visual";
-    rangeSide: "start" | "end";
-    visualStart: RC;
-    visualEnd: RC;
+    rangeSide: "first" | "last";
+    visualFirst: InclusivePos;
+    visualLast: InclusivePos;
     linewise: boolean;
     charCount: number;
     lineCount: number;

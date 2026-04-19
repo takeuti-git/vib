@@ -3,6 +3,11 @@ export type RC = {
     col: number;
 };
 
+export type Position = {
+    row: number;
+    col: number;
+};
+
 export type InclusivePos = {
     row: number;
     col: number;
@@ -14,7 +19,7 @@ export type ExclusivePos = {
 };
 
 export type TextRange = {
-    start: InclusivePos;
+    begin: InclusivePos;
     end: ExclusivePos;
 };
 
