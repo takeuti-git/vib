@@ -721,7 +721,6 @@ export class Editor {
             }
             this.clampCursorCol();
             this.moveCursorToRC(range.start.row, this.state.col);
-            this.syncPreferredWidth();
         }
     }
 
