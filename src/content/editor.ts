@@ -710,7 +710,6 @@ export class Editor {
             writeClipboard(clipboardBuf.join("\n"));
         } else if (operator === "<" || operator === ">") {
             const targetLines = lines.slice(range.start.row, range.end.row + 1);
-            console.log(targetLines);
             if (operator === "<") {
                 for (const ln of targetLines) {
                     ln.text = removeFirstWhitespace(ln.text, this.config.tabstop);
@@ -1067,16 +1066,28 @@ export class Editor {
                 start: this.state.vi_state.visualStart,
                 end: this.state.vi_state.visualEnd,
             };
-            this.vi_executeOperator({ operator: data.operator, range, linewise: vi_state.linewise });
-            if (data.operator === "c") {
+            const operator = data.operator;
+            this.vi_executeOperator({ operator, range, linewise: vi_state.linewise });
+
+            if (operator === "c") {
                 this.vi_goInsert();
             } else {
                 this.vi_goNormal();
             }
 
+            // yankは繰り返さない
+            if (operator === "y") return 0;
+
             // 繰り返しの登録
-            if (data.operator !== "y") {
-                const operator = data.operator;
+            if (operator === ">" || operator === "<") {
+                const count = range.end.row - range.start.row + 1;
+                // インデントコマンドの繰り返しにmotionは必要ではないが仮で定義する
+                const motion: MotionContext = {
+                    type: "linewise",
+                    name: "line",
+                };
+                this.state.vi_lastCmd = { type: "operator", count, operator, motion };
+            } else {
                 if (vi_state.linewise) {
                     // 行単位の範囲は既存の型で代替できる
                     const motion: MotionContext = {
