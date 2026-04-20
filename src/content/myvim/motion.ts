@@ -1,6 +1,6 @@
 import type { Line } from "../line";
 import type { EditorState } from "../state";
-import type { MotionRange, RC } from "../types/motion";
+import type { InclusivePos, MotionRange, Position } from "../types/motion";
 import { getCountUntilNonWhitespace } from "../utils";
 import type { FindMoveOptions } from "./findCommand";
 import type { MotionContext } from "./parser/motionType";
@@ -359,6 +359,10 @@ export function moveTail(state: EditorState, separator: "word" | "WORD"): Horizo
     return { distance: ctx.distance, destRow: ctx.row, destCol: ctx.col };
 }
 
+/**
+ * - 包含・排他的範囲を返す
+ * - linewiseならend.row+1, そうでないならend.col+1
+ **/
 export function getMotionRange(
     state: Readonly<EditorState>,
     motion: Readonly<MotionContext>,
@@ -369,18 +373,18 @@ export function getMotionRange(
     const currLine = lines[row];
     if (!currLine) throw new Error("currLine is undefined");
 
-    const start: RC = { row, col };
-    const end: RC = { row, col };
+    const begin: InclusivePos = { row, col };
+    const end:   InclusivePos = { row, col };
     let linewise = false;
 
     switch (motion.type) {
         case "char": {
             if (motion.name === "k" || motion.name === "-") {
                 linewise = true;
-                start.row = Math.max(0, start.row - count);
+                begin.row = Math.max(0, begin.row - count);
             } else if (motion.name === "h") {
                 if (col === 0) return undefined;
-                start.col = Math.max(0, start.col - count);
+                begin.col = Math.max(0, begin.col - count);
                 end.col--;
             } else if (motion.name === "j" || motion.name === "+" || motion.name === "Enter") {
                 linewise = true;
@@ -389,16 +393,16 @@ export function getMotionRange(
                 end.col = Math.min(end.col + count - 1, currLine.size - 1);
                 end.col = Math.max(0, end.col);
             } else if (motion.name === "^" || motion.name === "_") {
-                start.col = getCountUntilNonWhitespace(currLine.text);
+                begin.col = getCountUntilNonWhitespace(currLine.text);
                 end.col = Math.max(0, end.col - 1);
             } else if (motion.name === "$") {
                 end.col = Math.max(0, currLine.size - 1);
             } else if (motion.name === "0") {
-                start.col = 0;
+                begin.col = 0;
                 end.col = Math.max(0, end.col - 1);
             } else if (motion.name === "gg") {
                 linewise = true;
-                start.row = 0;
+                begin.row = 0;
             } else if (motion.name === "G") {
                 linewise = true;
                 end.row = state.lines.length - 1;
@@ -413,8 +417,8 @@ export function getMotionRange(
                 // b/B motionは複数行にまたがることがある
                 const sep = motion.name === "b" ? "word" : "WORD";
                 const { destRow, destCol } = moveBackward(state, sep);
-                start.row = destRow;
-                start.col = destCol;
+                begin.row = destRow;
+                begin.col = destCol;
                 if (state.col === 0) {
                     end.row = Math.max(0, end.row - 1);
                     const prevLn = state.lines[end.row];
@@ -451,7 +455,7 @@ export function getMotionRange(
                     reverse: true,
                 });
                 if (!distance) return undefined;
-                start.col -= distance;
+                begin.col -= distance;
                 end.col--;
             } else if (motion.name === "t") {
                 const text = currLine.text.slice(col + 1);
@@ -469,7 +473,7 @@ export function getMotionRange(
                     stopBefore: true,
                 });
                 if (!distance) return undefined;
-                start.col -= distance;
+                begin.col -= distance;
                 end.col--;
             }
             break;
@@ -513,13 +517,13 @@ export function getMotionRange(
                     return undefined;
                 } else if (col < Math.min(...filtered)) {
                     // カーソルが行の先頭にいるとき
-                    start.col = filtered[0];
+                    begin.col = filtered[0];
                     end.col = filtered[1];
                 } else if (idx === -1) {
                     // カーソルがペアに挟まれているとき
                     for (let i = 0; i < filtered.length; i++) {
                         if (filtered[i]! > col) {
-                            start.col = filtered[i - 1] as number;
+                            begin.col = filtered[i - 1] as number;
                             end.col = filtered[i] as number;
                             break;
                         }
@@ -529,11 +533,11 @@ export function getMotionRange(
                     end.col = filtered[idx + 1] as number;
                 } else if (isOnRightSide) {
                     // カーソルがペアの後側に重なっているとき
-                    start.col = filtered[idx - 1] as number;
+                    begin.col = filtered[idx - 1] as number;
                 }
 
                 if (motion.inner) {
-                    start.col++;
+                    begin.col++;
                     end.col--;
                 }
             } else if (textobjType === "w") {
@@ -557,7 +561,7 @@ export function getMotionRange(
                     // カーソルから左方向に探索
                     const ch = text[i] as string;
                     if (!checkFunc(ch)) break;
-                    start.col--;
+                    begin.col--;
                 }
             } else if (textobjType === "W") {
                 const currChar = text.slice(col, col + 1);
@@ -575,7 +579,7 @@ export function getMotionRange(
                 for (let i = col - 1; i >= 0; i--) {
                     const ch = text[i] as string;
                     if (!checkFunc(ch)) break;
-                    start.col--;
+                    begin.col--;
                 }
             } else if (isOpeningBracket(textobjType)) {
                 const currCh = currLine.text[col] ?? " ";
@@ -583,9 +587,9 @@ export function getMotionRange(
                 const closingCh = OPENING_TO_CLOSING[textobjType];
                 const depth = count;
 
-                const setStartEnd = (opening: RC, closing: RC): void => {
-                    start.row = opening.row;
-                    start.col = opening.col;
+                const setStartEnd = (opening: Position, closing: Position): void => {
+                    begin.row = opening.row;
+                    begin.col = opening.col;
                     end.row = closing.row;
                     end.col = closing.col;
                 };
@@ -633,8 +637,8 @@ export function getMotionRange(
                             closingCh,
                         );
                         if (!bwOpening) return undefined;
-                        start.row = bwOpening.row;
-                        start.col = bwOpening.col;
+                        begin.row = bwOpening.row;
+                        begin.col = bwOpening.col;
                     } else {
                         const bwOpening = searchPairCharBackward(
                             lines,
@@ -693,12 +697,12 @@ export function getMotionRange(
                 }
 
                 if (motion.inner) {
-                    start.col++;
+                    begin.col++;
                     end.col--;
                     // 溢れるなら
-                    if (start.col === lines[start.row]!.size) {
-                        start.row++;
-                        start.col = 0;
+                    if (begin.col === lines[begin.row]!.size) {
+                        begin.row++;
+                        begin.col = 0;
                     }
                     if (end.col === -1) {
                         end.row--;
@@ -719,12 +723,19 @@ export function getMotionRange(
         }
     }
 
-    if (start.row === -1 || start.col === -1 || end.row === -1 || end.col === -1) {
-        console.error(start, end);
+    if (begin.row === -1 || begin.col === -1 || end.row === -1 || end.col === -1) {
+        console.error(begin, end);
         throw new Error("unexpected negative value");
     }
 
-    return { start, end, linewise };
+    // 排他的範囲に調整する
+    if (linewise) {
+        end.row++;
+    } else {
+        end.col++;
+    }
+
+    return { begin, end, linewise };
 }
 
 function* iteratePosition(
@@ -762,7 +773,7 @@ function searchPairChar(
     pairCh: string,
     direction: "fw" | "bw",
     initialDepth = 1,
-): RC | undefined {
+): Position | undefined {
     if (targetCh === pairCh)
         throw new Error(`duplicated arguments: targetCh: "${targetCh}", pairCh: "${pairCh}"`);
     if (targetCh.length !== 1) throw new Error(`targetCh must be a char. targetCh: "${targetCh}"`);
