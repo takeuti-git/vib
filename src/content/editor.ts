@@ -997,15 +997,18 @@ export class Editor {
 
         /** textobjの範囲を注入できる */
         const syncCursorAndVisual = (range?: TextRange) => {
-            if (range) {
-                if (vi_state.linewise !== false) throw new Error("vi_state.linewise must be false at this point");
-                vi_state.rangeSide = "last";
-                vi_state.visualFirst = range.begin;
-                // getMotionRangeの範囲はend.colを排他的範囲で返すため包括的範囲に変換する
-                vi_state.visualLast = { row: range.end.row, col: range.end.col - 1 };
-            }
             const first = vi_state.visualFirst;
-            const end = vi_state.visualLast;
+            const last = vi_state.visualLast;
+
+            if (range) {
+                if (vi_state.linewise !== false)
+                    throw new Error("vi_state.linewise must be false at this point");
+                vi_state.rangeSide = "first";
+                first.row = range.end.row;
+                first.col = range.end.col;
+                last.row  = range.end.row;
+                last.col  = range.end.col - 1; // getMotionRangeはend.colを排他的範囲で返すため包括的範囲に変換する
+            }
 
             // sync cusror and first/last
             // カーソルがどちらかのsideを追い越すようなときに値を入れ替える
@@ -1013,23 +1016,23 @@ export class Editor {
                 first.row = this.state.row;
                 first.col = this.state.col;
                 if (
-                    (first.row === end.row && first.col > end.col) ||
-                    (first.row > end.row)
+                    (first.row === last.row && first.col > last.col) ||
+                    (first.row > last.row)
                 ) {
                     vi_state.rangeSide = "last";
-                    [first.row, end.row] = [end.row, first.row];
-                    [first.col, end.col] = [end.col, first.col];
+                    [first.row, last.row] = [last.row, first.row];
+                    [first.col, last.col] = [last.col, first.col];
                 }
             } else {
-                end.row = this.state.row;
-                end.col = this.state.col;
+                last.row = this.state.row;
+                last.col = this.state.col;
                 if (
-                    (end.row === first.row && end.col < first.col) ||
-                    (end.row < first.row)
+                    (last.row === first.row && last.col < first.col) ||
+                    (last.row < first.row)
                 ) {
                     vi_state.rangeSide = "first";
-                    [first.row, end.row] = [end.row, first.row];
-                    [first.col, end.col] = [end.col, first.col];
+                    [first.row, last.row] = [last.row, first.row];
+                    [first.col, last.col] = [last.col, first.col];
                 }
             }
         };
