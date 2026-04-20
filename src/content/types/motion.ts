@@ -1,8 +1,3 @@
-export type RC = {
-    row: number;
-    col: number;
-};
-
 export type Position = {
     row: number;
     col: number;

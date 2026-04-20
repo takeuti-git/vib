@@ -632,7 +632,7 @@ export class Editor {
                 }
             } else {
                 // カーソル位置を対象範囲の先頭に移動する
-                this.moveCursorToRC(range.begin.row, range.begin.col);
+                this.moveCursorToPos(range.begin.row, range.begin.col);
 
                 if (range.begin.row === range.end.row) {
                     // 同一行内の操作
@@ -693,7 +693,7 @@ export class Editor {
                 });
             } else {
                 // カーソル位置を対象範囲の先頭に移動する
-                this.moveCursorToRC(range.begin.row, range.begin.col);
+                this.moveCursorToPos(range.begin.row, range.begin.col);
 
                 if (range.begin.row === range.end.row) {
                     // 単一行内の操作
@@ -734,7 +734,7 @@ export class Editor {
                 }
             }
             this.clampCursorCol();
-            this.moveCursorToRC(range.begin.row, this.state.col);
+            this.moveCursorToPos(range.begin.row, this.state.col);
         }
     }
 
@@ -785,7 +785,7 @@ export class Editor {
                     }
                     this.deleteRow(this.state.row);
                 }
-                this.moveCursorToRC(destRow, 0);
+                this.moveCursorToPos(destRow, 0);
                 this.moveCursorToFirstNonWhitespace();
             } else {
                 const delta = isBefore ? 0 : 1; // p/Pの1文字分のずれ
@@ -826,7 +826,7 @@ export class Editor {
                                 this.insertRow(row, text);
                             }
                         }
-                        this.moveCursorToRC(destRow, destCol);
+                        this.moveCursorToPos(destRow, destCol);
                     }
                 }
             }
@@ -1036,7 +1036,7 @@ export class Editor {
 
         if (datatype === "switch_side") {
             const dest = (vi_state.rangeSide === "first") ? vi_state.visualLast : vi_state.visualFirst;
-            this.moveCursorToRC(dest.row, dest.col);
+            this.moveCursorToPos(dest.row, dest.col);
             vi_state.rangeSide = (vi_state.rangeSide === "first") ? "last" : "first";
 
         } else if (datatype === "motion") {
@@ -1048,9 +1048,9 @@ export class Editor {
                 const range = getMotionRange(this.state, data.motion, count);
                 if (!range) return 0;
                 vi_state.linewise = false; // textobj選択が成功したらvisual_lineではなくなる
-                this.moveCursorToRC(range.begin.row, range.begin.col);
+                this.moveCursorToPos(range.begin.row, range.begin.col);
                 syncCursorAndVisual(range);
-                this.moveCursorToRC(range.end.row, range.end.col - 1);
+                this.moveCursorToPos(range.end.row, range.end.col - 1);
                 vi_state.charCount = this.getCharCount(vi_state.visualFirst, vi_state.visualLast);
                 vi_state.lineCount = this.getLineCount(vi_state.visualFirst, vi_state.visualLast);
                 return 0;
@@ -1643,7 +1643,7 @@ export class Editor {
         this.state.logicalWidth = calcLogicalWidth(destLine.text.slice(0, col));
     }
 
-    private moveCursorToRC(row: number, col: number) {
+    private moveCursorToPos(row: number, col: number) {
         const destLine = this.state.lines[row];
         if (!destLine) throw new Error(`lines[${row}] is undefined`);
         this.state.row = row;
@@ -1702,9 +1702,9 @@ export class Editor {
         if (!distance) return;
 
         if (reverse) {
-            this.moveCursorToRC(this.state.row, this.state.col - distance);
+            this.moveCursorToPos(this.state.row, this.state.col - distance);
         } else {
-            this.moveCursorToRC(this.state.row, this.state.col + distance);
+            this.moveCursorToPos(this.state.row, this.state.col + distance);
         }
     }
 
@@ -1839,7 +1839,7 @@ export class Editor {
             : this.state.cursorStack[this.state.stackPtr]
         );
         if (!cursor) throw new Error("cursor is undefined");
-        this.moveCursorToRC(cursor.row, cursor.col);
+        this.moveCursorToPos(cursor.row, cursor.col);
         this.clampCursor();
     }
 
@@ -1879,6 +1879,6 @@ export class Editor {
 
         const cursor = this.state.cursorStack[this.state.stackPtr];
         if (!cursor) throw new Error("cursor is undefined");
-        this.moveCursorToRC(cursor.row, cursor.col);
+        this.moveCursorToPos(cursor.row, cursor.col);
     }
 }

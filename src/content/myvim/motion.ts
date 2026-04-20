@@ -1,6 +1,6 @@
 import type { Line } from "../line";
 import type { EditorState } from "../state";
-import type { InclusivePos, MotionRange, RC } from "../types/motion";
+import type { InclusivePos, MotionRange, Position } from "../types/motion";
 import { getCountUntilNonWhitespace } from "../utils";
 import type { FindMoveOptions } from "./findCommand";
 import type { MotionContext } from "./parser/motionType";
@@ -587,7 +587,7 @@ export function getMotionRange(
                 const closingCh = OPENING_TO_CLOSING[textobjType];
                 const depth = count;
 
-                const setStartEnd = (opening: RC, closing: RC): void => {
+                const setStartEnd = (opening: Position, closing: Position): void => {
                     begin.row = opening.row;
                     begin.col = opening.col;
                     end.row = closing.row;
@@ -773,7 +773,7 @@ function searchPairChar(
     pairCh: string,
     direction: "fw" | "bw",
     initialDepth = 1,
-): RC | undefined {
+): Position | undefined {
     if (targetCh === pairCh)
         throw new Error(`duplicated arguments: targetCh: "${targetCh}", pairCh: "${pairCh}"`);
     if (targetCh.length !== 1) throw new Error(`targetCh must be a char. targetCh: "${targetCh}"`);
