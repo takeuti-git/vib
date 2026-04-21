@@ -1121,6 +1121,11 @@ export class Editor {
                     this.state.vi_lastCmd = { type: "operator", count, operator, motion };
                 }
             }
+        } else if (datatype === "put") {
+            // レジスタが空でも実行する, その場合空文字に置き換える
+            console.log(parseResult);
+            console.log("exec put cmd");
+            console.log(data.type, data.count, data.writeRegister);
         }
         return 0;
     }

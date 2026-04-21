@@ -4,7 +4,6 @@ import { isDigitChar } from "../utils";
 import { CommandType, type CommandContext } from "./commandType";
 import { MotionType, type MotionContext } from "./motionType";
 import { ParseStatus, type MotionParseResult, type ParserContext, type VisualCmdParseResult } from "./parseStatus";
-import { STANDALONE_MAP } from "./standalone";
 import { VisualCmdType, type VisualCmdContext } from "./visualType";
 
 export function parseVisualCommand(input: readonly string[]): VisualCmdParseResult {
@@ -139,6 +138,10 @@ export function parseVisualCommand(input: readonly string[]): VisualCmdParseResu
         return { status: ParseStatus.OK, value };
     }
 
+    if (visualCmd.isPutCommand(first)) {
+        const value = visualCmd.PUT_CMD_MAP[first](count ?? 1);
+        return { status: ParseStatus.OK, value };
+    }
     // if (cmd.isStandalone(first)) {
     //     ctx.next();
     //     const handler = STANDALONE_MAP[first];
