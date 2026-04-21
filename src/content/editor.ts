@@ -1149,8 +1149,11 @@ export class Editor {
                 writeClipboard(saved);
             }
             this.vi_goNormal();
-            this.scrollWindow();
-            this.render();
+
+        } else if (datatype === "join") {
+            this.moveCursorToPos(vi_state.visualFirst.row, vi_state.visualFirst.col);
+            this.vi_executeJoin(vi_state.lineCount);
+            this.vi_goNormal();
         }
         return 0;
     }
