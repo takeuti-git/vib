@@ -115,20 +115,6 @@ export function parseVisualCommand(input: readonly string[]): VisualCmdParseResu
         return { status: ParseStatus.OK, value: noArgCmd };
     }
 
-    // if (visualCmd.isCaseSwitcher(first)) {
-    //     const value: VisualCmdContext = {
-    //         type: first === "u" ? VisualCmdType.TO_LOWER : VisualCmdType.TO_UPPER
-    //     };
-    //     return { status: ParseStatus.OK, value };
-    // }
-    //
-    // if (visualCmd.isSideSwitcher(first)) {
-    //     const value: VisualCmdContext = {
-    //         type: VisualCmdType.SWITCH_SIDE
-    //     };
-    //     return { status: ParseStatus.OK, value };
-    // }
-
     if (visualCmd.isInsertCommand(first)) {
         const value: VisualCmdContext = {
             type: VisualCmdType.INSERT,
@@ -139,14 +125,17 @@ export function parseVisualCommand(input: readonly string[]): VisualCmdParseResu
     }
 
     if (visualCmd.isPutCommand(first)) {
-        const value = visualCmd.PUT_CMD_MAP[first](count ?? 1);
+        const value = visualCmd.PUT_CMD_MAP[first](count);
         return { status: ParseStatus.OK, value };
     }
-    // if (cmd.isStandalone(first)) {
-    //     ctx.next();
-    //     const handler = STANDALONE_MAP[first];
-    //     return handler(ctx, count);
-    // }
+
+    if (visualCmd.isReplaceCommand(first)) {
+        ctx.next();
+        const arg = ctx.next();
+        if (!arg) return { status: ParseStatus.PENDING };
+        const value = visualCmd.REPLACE_CMD_MAP[first](count, arg);
+        return { status: ParseStatus.OK, value };
+    }
 
     // 以上の処理のどれにも当てはまらないときは移動入力として解析する
     const result = parseMotion();

@@ -49,6 +49,12 @@ export function isPutCommand(ch: string): ch is PutCommand {
     return putCommands.some(v => v === ch);
 }
 
+const replaceCommmands = ["r"] as const;
+type ReplaceCommand = (typeof replaceCommmands)[number];
+export function isReplaceCommand(ch: string): ch is ReplaceCommand {
+    return replaceCommmands.some(v => v === ch);
+}
+
 // prettier-ignore
 export const VisualCmdType = {
     OPERATOR:    "operator",
@@ -98,9 +104,13 @@ export const NO_ARG_CMD_MAP: Record<SideSwitcher | CaseSwitcher | JoinCommand, V
     "J": noCount({ type: VisualCmdType.JOIN }),
 };
 
-export const PUT_CMD_MAP: Record<PutCommand, (count: number) => VisualCmdContext> = {
+export const PUT_CMD_MAP: Record<PutCommand, (count: Count) => VisualCmdContext> = {
     p: (count) => ({ type: VisualCmdType.PUT, count, writeRegister: true }),
     P: (count) => ({ type: VisualCmdType.PUT, count, writeRegister: false }),
+};
+
+export const REPLACE_CMD_MAP: Record<ReplaceCommand, (count: Count, arg: string) => VisualCmdContext> = {
+    r: (count, arg) => ({ type: VisualCmdType.REPLACE, count, char: arg }),
 };
 
 export type VisalCmdType = (typeof VisualCmdType)[keyof typeof VisualCmdType];
