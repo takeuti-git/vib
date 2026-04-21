@@ -599,9 +599,14 @@ export class Editor {
         })();
     }
 
+    /** 返り値: 文字列, 削除/変更/ヤンクの対象を改行コードで連結 */
     private vi_executeOperator(
-        { operator, range, linewise }: { operator: Operator, range: TextRange, linewise: boolean }
-    ): void {
+        {
+            operator, range, linewise, writeRegister = true
+        }: {
+            operator: Operator, range: TextRange, linewise: boolean, writeRegister?: boolean
+        }
+    ): string {
         const { lines } = this.state;
         const clipboardBuf: string[] = [];
         this.state.vi_yankLinewise = linewise;
@@ -685,7 +690,12 @@ export class Editor {
                 // 文字削除でカーソルが行からはみ出た時
                 this.moveCursor(MOVE_KEYS.LEFT);
             }
-            writeClipboard(clipboardBuf.join("\n"));
+            const savedText = clipboardBuf.join("\n");
+            if (writeRegister) {
+                writeClipboard(savedText);
+            }
+            return savedText;
+
         } else if (operator === "y") {
             if (linewise) {
                 lines.slice(range.begin.row, range.end.row).forEach((l) => {
@@ -721,7 +731,10 @@ export class Editor {
                     clipboardBuf.push(endRow.text.slice(0, range.end.col));
                 }
             }
-            writeClipboard(clipboardBuf.join("\n"));
+            const savedText = clipboardBuf.join("\n");
+            writeClipboard(savedText);
+            return savedText;
+
         } else if (operator === "<" || operator === ">") {
             const targetLines = lines.slice(range.begin.row, range.end.row);
             if (operator === "<") {
@@ -736,6 +749,8 @@ export class Editor {
             this.clampCursorCol();
             this.moveCursorToPos(range.begin.row, this.state.col);
         }
+
+        return "";
     }
 
     /**
@@ -1121,6 +1136,21 @@ export class Editor {
                     this.state.vi_lastCmd = { type: "operator", count, operator, motion };
                 }
             }
+        } else if (datatype === "put") {
+            // レジスタが空でも実行する, その場合空文字に置き換える
+            const saved = this.vi_executeOperator({
+                operator: "d",
+                range: toExclusiveTextRange(vi_state.visualFirst, vi_state.visualLast, vi_state.linewise),
+                linewise: vi_state.linewise,
+                writeRegister: false,
+            });
+            this.vi_executePut(count, "before");
+            if (data.writeRegister) {
+                writeClipboard(saved);
+            }
+            this.vi_goNormal();
+            this.scrollWindow();
+            this.render();
         }
         return 0;
     }

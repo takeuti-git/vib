@@ -31,7 +31,7 @@ export function isInsertCommand(ch: string): ch is VIS_InsertCommand {
     return insertCommands.some(v => v === ch);
 }
 
-const sugars = ["s", "x", "X", "D", "C", "Y"] as const;
+const sugars = ["s", "x", "X", "D", "C", "Y", "R", "S"] as const;
 type VIS_Sugar = (typeof sugars)[number];
 export function isSugar(ch: string): ch is VIS_Sugar {
     return sugars.some(v => v === ch);
@@ -41,6 +41,12 @@ const joinCommands = ["J"] as const;
 type JoinCommand = (typeof joinCommands)[number];
 export function isJoinCommand(ch: string): ch is JoinCommand {
     return joinCommands.some(v => v === ch);
+}
+
+const putCommands = ["p", "P"] as const;
+type PutCommand = (typeof putCommands)[number];
+export function isPutCommand(ch: string): ch is PutCommand {
+    return putCommands.some(v => v === ch);
 }
 
 // prettier-ignore
@@ -78,6 +84,8 @@ export const SUGAR_TO_CTX: Record<VIS_Sugar, Readonly<VisualCmdContext>> = {
     "X": noCount({ type: VisualCmdType.OPERATOR, operator: "d", linewise: true }),
     "D": noCount({ type: VisualCmdType.OPERATOR, operator: "d", linewise: true }),
     "C": noCount({ type: VisualCmdType.OPERATOR, operator: "c", linewise: true }),
+    "R": noCount({ type: VisualCmdType.OPERATOR, operator: "c", linewise: true }),
+    "S": noCount({ type: VisualCmdType.OPERATOR, operator: "c", linewise: true }),
     "Y": noCount({ type: VisualCmdType.OPERATOR, operator: "y", linewise: true }),
 };
 
@@ -90,13 +98,9 @@ export const NO_ARG_CMD_MAP: Record<SideSwitcher | CaseSwitcher | JoinCommand, V
     "J": noCount({ type: VisualCmdType.JOIN }),
 };
 
-const visualStandalones = ["p", "P"] as const;
-type VisualStandalone = (typeof visualStandalones)[number];
-
-export const VISUAL_STANDALONE_MAP: Record<VisualStandalone, (count: number) => VisualCmdContext> = {
-    p: (count) => ({ type: VisualCmdType.PUT, count }),
-    P: (count) => ({ type: VisualCmdType.PUT, count }),
-    // R: (_, count) => ({ type: VisualCmdType.REPLACE }),
+export const PUT_CMD_MAP: Record<PutCommand, (count: number) => VisualCmdContext> = {
+    p: (count) => ({ type: VisualCmdType.PUT, count, writeRegister: true }),
+    P: (count) => ({ type: VisualCmdType.PUT, count, writeRegister: false }),
 };
 
 export type VisalCmdType = (typeof VisualCmdType)[keyof typeof VisualCmdType];
@@ -104,8 +108,8 @@ export type VisalCmdType = (typeof VisualCmdType)[keyof typeof VisualCmdType];
 export type VisualCmdContext = { count: Count } & (
     | { type: typeof VisualCmdType.OPERATOR; operator: Operator | IndentOperator; linewise: boolean; }
     | { type: typeof VisualCmdType.INSERT; command: VIS_InsertCommand; }
-    | { type: typeof VisualCmdType.MOTION; motion: MotionContext }
-    | { type: typeof VisualCmdType.PUT; }
+    | { type: typeof VisualCmdType.MOTION; motion: MotionContext; }
+    | { type: typeof VisualCmdType.PUT; writeRegister: boolean; } /* 実行後に選択範囲をレジスタに書きこむか */
     | { type: typeof VisualCmdType.REPLACE; char: string; }
     | { type: typeof VisualCmdType.REPEAT_MOT; reverse: boolean; }
     | { type: typeof VisualCmdType.JOIN; }
