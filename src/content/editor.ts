@@ -1,6 +1,6 @@
 import { getFullScreenRows, getHalfScreenRows, type EditorConfig } from "./config";
 import type { Renderer } from "./renderer";
-import { type EditorState, resetState } from "./state";
+import { type EditorState, resetState, type VisualState } from "./state";
 import { Line, getLines, joinLines } from "./line";
 import { getInputFromEvent, isFunctionKey, isValidKey, MOVE_KEYS, type MoveKey } from "./keys";
 import { hideElement, setElementFontsize, showElement } from "./dom";
@@ -1156,35 +1156,63 @@ export class Editor {
             this.vi_goNormal();
 
         } else if (datatype === "replace") {
-            const linesIterator = this.iterateRange(vi_state.visualFirst.row, vi_state.visualLast.row);
-            for (const { line, index } of linesIterator) {
-                const isFirst = (index === vi_state.visualFirst.row);
-                const isLast  = (index === vi_state.visualLast.row);
-                const orig = line.text;
-                if (isFirst && isLast) {
-                    const firstHalf = orig.slice(0, vi_state.visualFirst.col);
-                    const middle = data.char.repeat(vi_state.visualLast.col - vi_state.visualFirst.col + 1);
-                    const lastHalf = orig.slice(vi_state.visualFirst.col + vi_state.charCount);
-                    line.text = firstHalf + middle + lastHalf;
-                } else if (isFirst) {
-                    const firstHalf = orig.slice(0, vi_state.visualFirst.col);
-                    const lastHalf = data.char.repeat(orig.length - firstHalf.length);
-                    line.text = firstHalf + lastHalf;
-                } else if (isLast) {
-                    const firstHalf = data.char.repeat(vi_state.visualLast.col + 1);
-                    const lastHalf = orig.slice(vi_state.visualLast.col + 1);
-                    line.text = firstHalf + lastHalf;
-                } else {
-                    const lineLen = orig.length;
-                    line.text = data.char.repeat(lineLen);
-                }
-            }
-            this.moveCursorToPos(vi_state.visualFirst.row, vi_state.visualFirst.col);
-            this.vi_goNormal();
+            this.applyVisualTransform(vi_state, (selected) => {
+                return data.char.repeat(selected.length);
+            });
         }
         return 0;
     }
 
+    private applyVisualTransform(
+        vi_state: VisualState,
+        transform: (selected: string) => string,
+    ): void {
+        const lines = this.iterateRange(vi_state.visualFirst.row, vi_state.visualLast.row);
+        for (const { line, index } of lines) {
+            const { prefix, selected, suffix } =
+                this.getLineSegments(line, index, vi_state.visualFirst, vi_state.visualLast);
+            line.text = prefix + transform(selected) + suffix;
+        }
+        this.moveCursorToPos(vi_state.visualFirst.row, vi_state.visualFirst.col);
+        this.vi_goNormal();
+    }
+
+    private getLineSegments(
+        line: Line,
+        index: number,
+        first: InclusivePos,
+        last: InclusivePos,
+    ): { prefix: string, selected: string, suffix: string } {
+        const isFirst = (index === first.row);
+        const isLast  = (index === last.row);
+        const text = line.text;
+
+        if (isFirst && isLast) {
+            const prefix = text.slice(0, first.col);
+            const selected = text.slice(first.col, last.col + 1);
+            const suffix = text.slice(last.col + 1);
+            return { prefix, selected, suffix };
+
+        } else if (isFirst) {
+            const prefix = text.slice(0, first.col);
+            const selected = text.slice(first.col);
+            const suffix = "";
+            return { prefix, selected, suffix };
+
+        } else if (isLast) {
+            const prefix = "";
+            const selected = text.slice(0, last.col + 1);
+            const suffix = text.slice(last.col + 1);
+            return { prefix, selected, suffix };
+
+        } else {
+            const prefix = "";
+            const selected = text;
+            const suffix = "";
+            return { prefix, selected, suffix };
+
+        }
+    }
 
     private *iterateRange(
         firstRow: number,
