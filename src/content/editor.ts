@@ -1154,6 +1154,34 @@ export class Editor {
             this.moveCursorToPos(vi_state.visualFirst.row, vi_state.visualFirst.col);
             this.vi_executeJoin(vi_state.lineCount);
             this.vi_goNormal();
+
+        } else if (datatype === "replace") {
+            for (let i = vi_state.visualFirst.row; i <= vi_state.visualLast.row; i++) {
+                const line = this.state.lines[i];
+                if (!line) throw new Error(`lines[${i}] is undefined`);
+                const isFirst = (i === vi_state.visualFirst.row);
+                const isLast  = (i === vi_state.visualLast.row);
+                const orig = line.text;
+                if (isFirst && isLast) {
+                    const firstHalf = orig.slice(0, vi_state.visualFirst.col);
+                    const middle = data.char.repeat(vi_state.visualLast.col - vi_state.visualFirst.col + 1);
+                    const lastHalf = orig.slice(vi_state.visualFirst.col + vi_state.charCount);
+                    line.text = firstHalf + middle + lastHalf;
+                } else if (isFirst) {
+                    const firstHalf = orig.slice(0, vi_state.visualFirst.col);
+                    const lastHalf = data.char.repeat(orig.length - firstHalf.length);
+                    line.text = firstHalf + lastHalf;
+                } else if (isLast) {
+                    const firstHalf = data.char.repeat(vi_state.visualLast.col + 1);
+                    const lastHalf = orig.slice(vi_state.visualLast.col + 1);
+                    line.text = firstHalf + lastHalf;
+                } else {
+                    const lineLen = orig.length;
+                    line.text = data.char.repeat(lineLen);
+                }
+            }
+            this.moveCursorToPos(vi_state.visualFirst.row, vi_state.visualFirst.col);
+            this.vi_goNormal();
         }
         return 0;
     }
