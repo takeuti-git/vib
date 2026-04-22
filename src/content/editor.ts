@@ -1159,6 +1159,14 @@ export class Editor {
             this.applyVisualTransform(vi_state, (selected) => {
                 return data.char.repeat(selected.length);
             });
+        } else if (datatype === "to_lower") {
+            this.applyVisualTransform(vi_state, (selected) => {
+                return selected.toLowerCase();
+            });
+        } else if (datatype === "to_upper") {
+            this.applyVisualTransform(vi_state, (selected) => {
+                return selected.toUpperCase();
+            });
         }
         return 0;
     }
