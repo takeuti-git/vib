@@ -19,7 +19,7 @@ export function isSideSwitcher(ch: string): ch is SideSwitcher {
     return sideSwitchers.some(v => v === ch);
 }
 
-const caseSwitchers = ["u", "U"] as const;
+const caseSwitchers = ["u", "U", "~"] as const;
 type CaseSwitcher = (typeof caseSwitchers)[number];
 export function isCaseSwitcher(ch: string): ch is CaseSwitcher {
     return caseSwitchers.some(v => v === ch);
@@ -57,17 +57,18 @@ export function isReplaceCommand(ch: string): ch is ReplaceCommand {
 
 // prettier-ignore
 export const VisualCmdType = {
-    OPERATOR:    "operator",
-    INSERT:      "insert",
-    MOTION:      "motion",
-    PUT:         "put",
-    REPLACE:     "replace",
-    REPEAT_MOT:  "repeat_mot",
-    JOIN:        "join",
-    TO_LOWER:    "to_lower",
-    TO_UPPER:    "to_upper",
-    SWITCH_SIDE: "switch_side",
-    SCROLL:      "scroll",
+    OPERATOR:     "operator",
+    INSERT:       "insert",
+    MOTION:       "motion",
+    PUT:          "put",
+    REPLACE:      "replace",
+    REPEAT_MOT:   "repeat_mot",
+    JOIN:         "join",
+    TO_LOWER:     "to_lower",
+    TO_UPPER:     "to_upper",
+    REVERSE_CASE: "reverse_case",
+    SWITCH_SIDE:  "switch_side",
+    SCROLL:       "scroll",
 } as const;
 
 const noCount = <T extends Omit<VisualCmdContext, "count">>(ctx: T) => 
@@ -101,6 +102,7 @@ export const NO_ARG_CMD_MAP: Record<SideSwitcher | CaseSwitcher | JoinCommand, V
     "O": noCount({ type: VisualCmdType.SWITCH_SIDE }),
     "u": noCount({ type: VisualCmdType.TO_LOWER }),
     "U": noCount({ type: VisualCmdType.TO_UPPER }),
+    "~": noCount({ type: VisualCmdType.REVERSE_CASE }),
     "J": noCount({ type: VisualCmdType.JOIN }),
 };
 
@@ -125,6 +127,7 @@ export type VisualCmdContext = { count: Count } & (
     | { type: typeof VisualCmdType.JOIN; }
     | { type: typeof VisualCmdType.TO_LOWER; }
     | { type: typeof VisualCmdType.TO_UPPER; }
+    | { type: typeof VisualCmdType.REVERSE_CASE; }
     | { type: typeof VisualCmdType.SWITCH_SIDE; }
     | { type: typeof VisualCmdType.SCROLL; kind: ScrollKind; }
 );
