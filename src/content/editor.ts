@@ -1,6 +1,6 @@
 import { getFullScreenRows, getHalfScreenRows, type EditorConfig } from "./config";
 import type { Renderer } from "./renderer";
-import { type EditorState, resetState } from "./state";
+import { type EditorState, resetState, type VisualState } from "./state";
 import { Line, getLines, joinLines } from "./line";
 import { getInputFromEvent, isFunctionKey, isValidKey, MOVE_KEYS, type MoveKey } from "./keys";
 import { hideElement, setElementFontsize, showElement } from "./dom";
@@ -1154,8 +1154,89 @@ export class Editor {
             this.moveCursorToPos(vi_state.visualFirst.row, vi_state.visualFirst.col);
             this.vi_executeJoin(vi_state.lineCount);
             this.vi_goNormal();
+
+        } else if (datatype === "replace") {
+            this.applyVisualTransform(vi_state, (selected) => {
+                return data.arg.repeat(selected.length);
+            });
+        } else if (datatype === "to_lower") {
+            this.applyVisualTransform(vi_state, (selected) => {
+                return selected.toLowerCase();
+            });
+        } else if (datatype === "to_upper") {
+            this.applyVisualTransform(vi_state, (selected) => {
+                return selected.toUpperCase();
+            });
+        } else if (datatype === "reverse_case") {
+            this.applyVisualTransform(vi_state, (selected) => {
+                return [...selected].map((ch) => (
+                    ch !== ch.toLowerCase() ? ch.toLowerCase() : ch.toUpperCase()
+                )).join("");
+            });
         }
         return 0;
+    }
+
+    private applyVisualTransform(
+        vi_state: VisualState,
+        transform: (selected: string) => string,
+    ): void {
+        const lines = this.iterateRange(vi_state.visualFirst.row, vi_state.visualLast.row);
+        for (const { line, index } of lines) {
+            const { prefix, selected, suffix } =
+                this.getLineSegments(line, index, vi_state.visualFirst, vi_state.visualLast);
+            line.text = prefix + transform(selected) + suffix;
+        }
+        this.moveCursorToPos(vi_state.visualFirst.row, vi_state.visualFirst.col);
+        this.vi_goNormal();
+    }
+
+    private getLineSegments(
+        line: Line,
+        index: number,
+        first: InclusivePos,
+        last: InclusivePos,
+    ): { prefix: string, selected: string, suffix: string } {
+        const isFirst = (index === first.row);
+        const isLast  = (index === last.row);
+        const text = line.text;
+
+        if (isFirst && isLast) {
+            const prefix = text.slice(0, first.col);
+            const selected = text.slice(first.col, last.col + 1);
+            const suffix = text.slice(last.col + 1);
+            return { prefix, selected, suffix };
+
+        } else if (isFirst) {
+            const prefix = text.slice(0, first.col);
+            const selected = text.slice(first.col);
+            const suffix = "";
+            return { prefix, selected, suffix };
+
+        } else if (isLast) {
+            const prefix = "";
+            const selected = text.slice(0, last.col + 1);
+            const suffix = text.slice(last.col + 1);
+            return { prefix, selected, suffix };
+
+        } else {
+            const prefix = "";
+            const selected = text;
+            const suffix = "";
+            return { prefix, selected, suffix };
+
+        }
+    }
+
+    private *iterateRange(
+        firstRow: number,
+        lastRow: number
+    ): Generator<{ line: Line, index: number}> {
+        for (let i = firstRow; i <= lastRow; i++) {
+            const line = this.state.lines[i];
+            if (!line) throw new Error(`lines[${i}] is undefined`);
+            yield { line, index: i };
+        }
     }
 
     private scrollCommandMap: Record<ScrollKind, (count: number) => void> = {

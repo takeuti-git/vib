@@ -19,7 +19,7 @@ export function isSideSwitcher(ch: string): ch is SideSwitcher {
     return sideSwitchers.some(v => v === ch);
 }
 
-const caseSwitchers = ["u", "U"] as const;
+const caseSwitchers = ["u", "U", "~"] as const;
 type CaseSwitcher = (typeof caseSwitchers)[number];
 export function isCaseSwitcher(ch: string): ch is CaseSwitcher {
     return caseSwitchers.some(v => v === ch);
@@ -49,19 +49,26 @@ export function isPutCommand(ch: string): ch is PutCommand {
     return putCommands.some(v => v === ch);
 }
 
+const replaceCommmands = ["r"] as const;
+type ReplaceCommand = (typeof replaceCommmands)[number];
+export function isReplaceCommand(ch: string): ch is ReplaceCommand {
+    return replaceCommmands.some(v => v === ch);
+}
+
 // prettier-ignore
 export const VisualCmdType = {
-    OPERATOR:    "operator",
-    INSERT:      "insert",
-    MOTION:      "motion",
-    PUT:         "put",
-    REPLACE:     "replace",
-    REPEAT_MOT:  "repeat_mot",
-    JOIN:        "join",
-    TO_LOWER:    "to_lower",
-    TO_UPPER:    "to_upper",
-    SWITCH_SIDE: "switch_side",
-    SCROLL:      "scroll",
+    OPERATOR:     "operator",
+    INSERT:       "insert",
+    MOTION:       "motion",
+    PUT:          "put",
+    REPLACE:      "replace",
+    REPEAT_MOT:   "repeat_mot",
+    JOIN:         "join",
+    TO_LOWER:     "to_lower",
+    TO_UPPER:     "to_upper",
+    REVERSE_CASE: "reverse_case",
+    SWITCH_SIDE:  "switch_side",
+    SCROLL:       "scroll",
 } as const;
 
 const noCount = <T extends Omit<VisualCmdContext, "count">>(ctx: T) => 
@@ -95,12 +102,17 @@ export const NO_ARG_CMD_MAP: Record<SideSwitcher | CaseSwitcher | JoinCommand, V
     "O": noCount({ type: VisualCmdType.SWITCH_SIDE }),
     "u": noCount({ type: VisualCmdType.TO_LOWER }),
     "U": noCount({ type: VisualCmdType.TO_UPPER }),
+    "~": noCount({ type: VisualCmdType.REVERSE_CASE }),
     "J": noCount({ type: VisualCmdType.JOIN }),
 };
 
-export const PUT_CMD_MAP: Record<PutCommand, (count: number) => VisualCmdContext> = {
+export const PUT_CMD_MAP: Record<PutCommand, (count: Count) => VisualCmdContext> = {
     p: (count) => ({ type: VisualCmdType.PUT, count, writeRegister: true }),
     P: (count) => ({ type: VisualCmdType.PUT, count, writeRegister: false }),
+};
+
+export const REPLACE_CMD_MAP: Record<ReplaceCommand, (count: Count, arg: string) => VisualCmdContext> = {
+    r: (count, arg) => ({ type: VisualCmdType.REPLACE, count, arg }),
 };
 
 export type VisalCmdType = (typeof VisualCmdType)[keyof typeof VisualCmdType];
@@ -110,11 +122,12 @@ export type VisualCmdContext = { count: Count } & (
     | { type: typeof VisualCmdType.INSERT; command: VIS_InsertCommand; }
     | { type: typeof VisualCmdType.MOTION; motion: MotionContext; }
     | { type: typeof VisualCmdType.PUT; writeRegister: boolean; } /* 実行後に選択範囲をレジスタに書きこむか */
-    | { type: typeof VisualCmdType.REPLACE; char: string; }
+    | { type: typeof VisualCmdType.REPLACE; arg: string; }
     | { type: typeof VisualCmdType.REPEAT_MOT; reverse: boolean; }
     | { type: typeof VisualCmdType.JOIN; }
     | { type: typeof VisualCmdType.TO_LOWER; }
     | { type: typeof VisualCmdType.TO_UPPER; }
+    | { type: typeof VisualCmdType.REVERSE_CASE; }
     | { type: typeof VisualCmdType.SWITCH_SIDE; }
     | { type: typeof VisualCmdType.SCROLL; kind: ScrollKind; }
 );
