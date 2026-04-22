@@ -206,6 +206,14 @@ export function parseCommand(input: readonly string[]): CommandParseResult {
         return { status: ParseStatus.OK, value: command };
     }
 
+    if (cmd.isCaseSwitcher(first)) {
+        const command: CommandContext = {
+            type: CommandType.SWITCH_CASE,
+            count,
+        };
+        return { status: ParseStatus.OK, value : command };
+    }
+
     // 以上の処理のどれにも当てはまらないときは移動入力として解析する
     const result = parseMotion();
     if (result.status !== ParseStatus.OK) {
