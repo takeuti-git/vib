@@ -43,6 +43,12 @@ function toExclusiveTextRange(start: InclusivePos, end: InclusivePos, linewise: 
     }
 }
 
+function swapCase(text: string): string {
+    return [...text].map((ch) => (
+        ch !== ch.toLowerCase() ? ch.toLowerCase() : ch.toUpperCase()
+    )).join("");
+}
+
 export class Editor {
     private readonly config: EditorConfig;
     private readonly state: EditorState;
@@ -986,6 +992,20 @@ export class Editor {
                 this.state.vi_state.visualFirst.col = 0;
                 this.state.vi_state.visualLast.col = this.currentLine.size - 1;
             }
+        } else if (datatype === "switch_case") {
+            const line = this.currentLine;
+            const prefix = line.text.slice(0, this.state.col);
+            const target = line.text.slice(this.state.col, this.state.col + count);
+            const suffix = line.text.slice(this.state.col + count);
+
+            line.text = prefix + swapCase(target) + suffix;
+
+            const destCol = (
+                (line.text.length <= this.state.col + count)
+                ? line.text.length - 1
+                : this.state.col + count
+            );
+            this.moveCursorToPos(this.state.row, destCol);
         }
 
         return 0;
@@ -1168,11 +1188,7 @@ export class Editor {
                 return selected.toUpperCase();
             });
         } else if (datatype === "reverse_case") {
-            this.applyVisualTransform(vi_state, (selected) => {
-                return [...selected].map((ch) => (
-                    ch !== ch.toLowerCase() ? ch.toLowerCase() : ch.toUpperCase()
-                )).join("");
-            });
+            this.applyVisualTransform(vi_state, swapCase);
         }
         return 0;
     }
