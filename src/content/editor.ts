@@ -1156,11 +1156,10 @@ export class Editor {
             this.vi_goNormal();
 
         } else if (datatype === "replace") {
-            for (let i = vi_state.visualFirst.row; i <= vi_state.visualLast.row; i++) {
-                const line = this.state.lines[i];
-                if (!line) throw new Error(`lines[${i}] is undefined`);
-                const isFirst = (i === vi_state.visualFirst.row);
-                const isLast  = (i === vi_state.visualLast.row);
+            const linesIterator = this.iterateRange(vi_state.visualFirst.row, vi_state.visualLast.row);
+            for (const { line, index } of linesIterator) {
+                const isFirst = (index === vi_state.visualFirst.row);
+                const isLast  = (index === vi_state.visualLast.row);
                 const orig = line.text;
                 if (isFirst && isLast) {
                     const firstHalf = orig.slice(0, vi_state.visualFirst.col);
@@ -1184,6 +1183,18 @@ export class Editor {
             this.vi_goNormal();
         }
         return 0;
+    }
+
+
+    private *iterateRange(
+        firstRow: number,
+        lastRow: number
+    ): Generator<{ line: Line, index: number}> {
+        for (let i = firstRow; i <= lastRow; i++) {
+            const line = this.state.lines[i];
+            if (!line) throw new Error(`lines[${i}] is undefined`);
+            yield { line, index: i };
+        }
     }
 
     private scrollCommandMap: Record<ScrollKind, (count: number) => void> = {
