@@ -1167,6 +1167,12 @@ export class Editor {
             this.applyVisualTransform(vi_state, (selected) => {
                 return selected.toUpperCase();
             });
+        } else if (datatype === "reverse_case") {
+            this.applyVisualTransform(vi_state, (selected) => {
+                return [...selected].map((ch) => (
+                    ch !== ch.toLowerCase() ? ch.toLowerCase() : ch.toUpperCase()
+                )).join("");
+            });
         }
         return 0;
     }
