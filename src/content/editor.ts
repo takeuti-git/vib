@@ -1157,7 +1157,7 @@ export class Editor {
 
         } else if (datatype === "replace") {
             this.applyVisualTransform(vi_state, (selected) => {
-                return data.char.repeat(selected.length);
+                return data.arg.repeat(selected.length);
             });
         } else if (datatype === "to_lower") {
             this.applyVisualTransform(vi_state, (selected) => {

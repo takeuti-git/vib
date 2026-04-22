@@ -110,7 +110,7 @@ export const PUT_CMD_MAP: Record<PutCommand, (count: Count) => VisualCmdContext>
 };
 
 export const REPLACE_CMD_MAP: Record<ReplaceCommand, (count: Count, arg: string) => VisualCmdContext> = {
-    r: (count, arg) => ({ type: VisualCmdType.REPLACE, count, char: arg }),
+    r: (count, arg) => ({ type: VisualCmdType.REPLACE, count, arg }),
 };
 
 export type VisalCmdType = (typeof VisualCmdType)[keyof typeof VisualCmdType];
@@ -120,7 +120,7 @@ export type VisualCmdContext = { count: Count } & (
     | { type: typeof VisualCmdType.INSERT; command: VIS_InsertCommand; }
     | { type: typeof VisualCmdType.MOTION; motion: MotionContext; }
     | { type: typeof VisualCmdType.PUT; writeRegister: boolean; } /* 実行後に選択範囲をレジスタに書きこむか */
-    | { type: typeof VisualCmdType.REPLACE; char: string; }
+    | { type: typeof VisualCmdType.REPLACE; arg: string; }
     | { type: typeof VisualCmdType.REPEAT_MOT; reverse: boolean; }
     | { type: typeof VisualCmdType.JOIN; }
     | { type: typeof VisualCmdType.TO_LOWER; }
