@@ -382,13 +382,17 @@ export function getMotionRange(
             if (motion.name === "k" || motion.name === "-") {
                 linewise = true;
                 begin.row = Math.max(0, begin.row - count);
+                begin.col = 0;
+                end.col = Math.max(0, lines[end.row]!.size - 1);
             } else if (motion.name === "h") {
                 if (col === 0) return undefined;
                 begin.col = Math.max(0, begin.col - count);
                 end.col--;
             } else if (motion.name === "j" || motion.name === "+" || motion.name === "Enter") {
                 linewise = true;
+                begin.col = 0;
                 end.row = Math.min(end.row + count, maxRow);
+                end.col = Math.max(0, lines[end.row]!.size - 1);
             } else if (motion.name === "l") {
                 end.col = Math.min(end.col + count - 1, currLine.size - 1);
                 end.col = Math.max(0, end.col);
@@ -403,9 +407,13 @@ export function getMotionRange(
             } else if (motion.name === "gg") {
                 linewise = true;
                 begin.row = 0;
+                begin.col = 0;
+                end.col = Math.max(0, lines[end.row]!.size - 1);
             } else if (motion.name === "G") {
                 linewise = true;
+                begin.col = 0;
                 end.row = state.lines.length - 1;
+                end.col = Math.max(0, lines[end.row]!.size - 1);
             } else if (motion.name === "w" || motion.name === "W") {
                 // w/W motionは絶対に複数行を対象範囲にしない
                 const sep = motion.name === "w" ? "word" : "WORD";
@@ -439,7 +447,9 @@ export function getMotionRange(
         }
         case "linewise": {
             linewise = true;
+            begin.col = 0;
             end.row = Math.min(end.row + count - 1, maxRow);
+            end.col = Math.max(0, lines[end.row]!.size - 1);
             break;
         }
         case "find": {
