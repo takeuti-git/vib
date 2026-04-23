@@ -214,6 +214,124 @@ export function parseCommand(input: readonly string[]): CommandParseResult {
         return { status: ParseStatus.OK, value : command };
     }
 
+    if (first === "g") {
+        ctx.next(); // firstを消費する
+
+        if (!ctx.read()) { // gの次の文字がないなら保留
+            return { status: ParseStatus.PENDING };
+        }
+
+        const second = ctx.next();
+
+        if (second === "g") {
+            // 最初の行に移動する
+            const command: CommandContext = {
+                type: CommandType.MOTION,
+                count,
+                motion: { type: MotionType.CHAR, name: "gg" },
+            };
+            return { status: ParseStatus.OK, value: command };
+        } else if (second === "u" || second === "U") {
+            // {count}gu{count}{motion}: motionの範囲を小文字に変換する, gugu / guuなら現在行を小文字にする
+            // {count}gU{count}{motion}: motionの範囲を大文字に変換する, gUgU / gUUなら現在行を大文字にする
+            if (!ctx.read()) {
+                return { status: ParseStatus.PENDING };
+            }
+
+            const innerCountStr = ctx.eatDigits();
+            if (innerCountStr === "0") {
+                const command: CommandContext = {
+                    type: CommandType.TO_LOWER,
+                    count,
+                    innerCount: null,
+                    motion: { type: MotionType.CHAR, name: "0" },
+                };
+                return { status: ParseStatus.OK, value: command };
+            }
+            const innerCount: Count = (innerCountStr === "") ? null : parseInt(innerCountStr, 10);
+
+            const afterInnerCount = ctx.read();
+            if (!afterInnerCount) {
+                return { status: ParseStatus.PENDING };
+            }
+
+            const third = ctx.read();
+            if (second === "u") {
+                // guの状態
+                if (third === "g") {
+                    ctx.next();
+                    // gugの状態, 次にuしか期待しない
+                    const fourth = ctx.read();
+                    if (!fourth) {
+                        return { status: ParseStatus.PENDING };
+                    }
+                    if (fourth !== "u") {
+                        return { status: ParseStatus.UNKNOWN };
+                    }
+                    // [0-9]*gu[0-9]*guの状態
+                    const command: CommandContext = {
+                        type: CommandType.TO_LOWER,
+                        count,
+                        innerCount,
+                        motion: { type: "linewise", name: "line" }
+                    };
+                    return { status: ParseStatus.OK, value: command };
+
+                } else if (third === "u") {
+                    // guuの状態
+                    const command: CommandContext = {
+                        type: CommandType.TO_LOWER,
+                        count,
+                        innerCount,
+                        motion: { type: "linewise", name: "line" },
+                    };
+                    return { status: ParseStatus.OK, value: command };
+                }
+                // ここに到達する = gugu / guuに当てはまらなかった = 任意のモーションを見る
+            } else if (second === "U") {
+                if (third === "g") {
+                    ctx.next();
+                    const fourth = ctx.read();
+                    if (!fourth) {
+                        return { status: ParseStatus.PENDING };
+                    }
+                    if (fourth !== "U") {
+                        return { status: ParseStatus.UNKNOWN };
+                    }
+                    const command: CommandContext = {
+                        type: CommandType.TO_UPPER,
+                        count,
+                        innerCount,
+                        motion: { type: "linewise", name: "line" }
+                    };
+                    return { status: ParseStatus.OK, value: command };
+                } else if (third === "U") {
+                    // gUUの状態
+                    const command: CommandContext = {
+                        type: CommandType.TO_UPPER,
+                        count,
+                        innerCount,
+                        motion: { type: "linewise", name: "line" },
+                    };
+                    return { status: ParseStatus.OK, value: command };
+                }
+            }
+
+            const motion = parseMotion();
+            if (motion.status !== ParseStatus.OK) {
+                return { status: motion.status };
+            }
+            const type = (second === "u") ? CommandType.TO_LOWER : CommandType.TO_UPPER;
+            const command: CommandContext = {
+                type,
+                count,
+                innerCount,
+                motion: motion.value,
+            };
+            return { status: ParseStatus.OK, value: command };
+        }
+    }
+
     // 以上の処理のどれにも当てはまらないときは移動入力として解析する
     const result = parseMotion();
     if (result.status !== ParseStatus.OK) {
