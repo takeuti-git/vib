@@ -154,7 +154,7 @@ export function parseCommand(input: readonly string[]): CommandParseResult {
         }
         // operatorが同じ2文字の場合は特殊処理。 ex: dd, cc
         if (afterInnerCount === operator || afterInnerCount === "_") {
-            const motion: MotionContext = { type: MotionType.LINEWISE, name: "line" };
+            const motion: MotionContext = { type: MotionType.LINEWISE };
             const command: CommandContext = {
                 type: CommandType.OPERATOR,
                 count,
@@ -273,7 +273,7 @@ export function parseCommand(input: readonly string[]): CommandParseResult {
                         type: CommandType.TO_LOWER,
                         count,
                         innerCount,
-                        motion: { type: "linewise", name: "line" }
+                        motion: { type: "linewise" }
                     };
                     return { status: ParseStatus.OK, value: command };
 
@@ -283,7 +283,7 @@ export function parseCommand(input: readonly string[]): CommandParseResult {
                         type: CommandType.TO_LOWER,
                         count,
                         innerCount,
-                        motion: { type: "linewise", name: "line" },
+                        motion: { type: "linewise" },
                     };
                     return { status: ParseStatus.OK, value: command };
                 }
@@ -302,7 +302,7 @@ export function parseCommand(input: readonly string[]): CommandParseResult {
                         type: CommandType.TO_UPPER,
                         count,
                         innerCount,
-                        motion: { type: "linewise", name: "line" }
+                        motion: { type: "linewise" }
                     };
                     return { status: ParseStatus.OK, value: command };
                 } else if (third === "U") {
@@ -311,7 +311,7 @@ export function parseCommand(input: readonly string[]): CommandParseResult {
                         type: CommandType.TO_UPPER,
                         count,
                         innerCount,
-                        motion: { type: "linewise", name: "line" },
+                        motion: { type: "linewise" },
                     };
                     return { status: ParseStatus.OK, value: command };
                 }
