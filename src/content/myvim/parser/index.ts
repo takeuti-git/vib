@@ -260,22 +260,31 @@ export function parseCommand(input: readonly string[]): CommandParseResult {
                 // guの状態
                 if (third === "g") {
                     ctx.next();
-                    // gugの状態, 次にuしか期待しない
+                    // gugの状態, 次にuかgを期待する
                     const fourth = ctx.read();
                     if (!fourth) {
                         return { status: ParseStatus.PENDING };
                     }
-                    if (fourth !== "u") {
-                        return { status: ParseStatus.UNKNOWN };
+                    if (fourth === "g") {
+                        // guggの状態, 小文字への変換を先頭行まで
+                        const command: CommandContext = {
+                            type: CommandType.TO_LOWER,
+                            count,
+                            innerCount,
+                            motion: { type: "char", name: "gg" },
+                        };
+                        return { status: ParseStatus.OK, value: command };
+                    } else if (fourth === "u") {
+                        // guguの状態
+                        const command: CommandContext = {
+                            type: CommandType.TO_LOWER,
+                            count,
+                            innerCount,
+                            motion: { type: "linewise" }
+                        };
+                        return { status: ParseStatus.OK, value: command };
                     }
-                    // [0-9]*gu[0-9]*guの状態
-                    const command: CommandContext = {
-                        type: CommandType.TO_LOWER,
-                        count,
-                        innerCount,
-                        motion: { type: "linewise" }
-                    };
-                    return { status: ParseStatus.OK, value: command };
+                    return { status: ParseStatus.UNKNOWN };
 
                 } else if (third === "u") {
                     // guuの状態
@@ -287,24 +296,36 @@ export function parseCommand(input: readonly string[]): CommandParseResult {
                     };
                     return { status: ParseStatus.OK, value: command };
                 }
-                // ここに到達する = gugu / guuに当てはまらなかった = 任意のモーションを見る
+                // ここに到達する = gugu/guuに当てはまらなかった = 任意のモーションを見る
             } else if (second === "U") {
                 if (third === "g") {
+                    // gUgの状態, 次にUかgを期待する
                     ctx.next();
                     const fourth = ctx.read();
                     if (!fourth) {
                         return { status: ParseStatus.PENDING };
                     }
-                    if (fourth !== "U") {
-                        return { status: ParseStatus.UNKNOWN };
+                    if (fourth === "g") {
+                        // gUggの状態, 大文字への変換を先頭行まで
+                        const command: CommandContext = {
+                            type: CommandType.TO_LOWER,
+                            count,
+                            innerCount,
+                            motion: { type: "char", name: "gg" },
+                        };
+                        return { status: ParseStatus.OK, value: command };
+                    } else if (fourth === "U") {
+                        // gUgUの状態
+                        const command: CommandContext = {
+                            type: CommandType.TO_UPPER,
+                            count,
+                            innerCount,
+                            motion: { type: "linewise" }
+                        };
+                        return { status: ParseStatus.OK, value: command };
                     }
-                    const command: CommandContext = {
-                        type: CommandType.TO_UPPER,
-                        count,
-                        innerCount,
-                        motion: { type: "linewise" }
-                    };
-                    return { status: ParseStatus.OK, value: command };
+                    return { status: ParseStatus.UNKNOWN };
+
                 } else if (third === "U") {
                     // gUUの状態
                     const command: CommandContext = {
