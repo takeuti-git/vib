@@ -16,6 +16,9 @@ export const CommandType = {
     REDO:       "redo",
     SCROLL:     "scroll",
     VISUAL:     "visual",
+    SWITCH_CASE: "switch_case",
+    TO_LOWER:   "to_lower",
+    TO_UPPER:   "to_upper",
 } as const;
 
 type CommandType = (typeof CommandType)[keyof typeof CommandType];
@@ -34,6 +37,9 @@ export type CommandContext = { count: Count } & (
     | { type: typeof CommandType.REDO; }
     | { type: typeof CommandType.SCROLL; kind: ScrollKind }
     | { type: typeof CommandType.VISUAL; linemode: boolean; }
+    | { type: typeof CommandType.SWITCH_CASE; }
+    | { type: typeof CommandType.TO_LOWER; innerCount: Count, motion: MotionContext; }
+    | { type: typeof CommandType.TO_UPPER; innerCount: Count, motion: MotionContext; }
 );
 
 export type Count = number | null;

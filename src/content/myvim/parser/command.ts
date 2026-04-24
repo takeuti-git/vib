@@ -36,6 +36,8 @@ const textObjectTypeSet: ReadonlySet<string> = new Set(textObjectTypes);
 const scrollCommands = ["<C-u>", "<C-d>", "<C-f>", "<C-b>"] as const;
 const scrollCommandSet: ReadonlySet<string> = new Set(scrollCommands);
 
+const caseSwitchers = ["~"] as const;
+
 // ------------------------------
 // | Validation Types
 // ------------------------------
@@ -48,6 +50,7 @@ export type Standalone = (typeof standalones)[number];
 export type TextObjectModifier = (typeof textObjectModifiers)[number];
 export type TextObjectType = (typeof textObjectTypes)[number];
 export type ScrollCommand = (typeof scrollCommands)[number];
+export type CaseSwitcher = (typeof caseSwitchers)[number];
 
 // ------------------------------
 // | Validations
@@ -86,4 +89,8 @@ export const isTextObjectType = (ch: string): ch is TextObjectType => {
 
 export const isScrollCommand = (token: string): token is ScrollCommand => {
     return scrollCommandSet.has(token);
+};
+
+export const isCaseSwitcher = (ch: string): ch is CaseSwitcher => {
+    return caseSwitchers.some(v => v === ch);
 };
