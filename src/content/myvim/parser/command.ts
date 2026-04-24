@@ -21,8 +21,10 @@ const motionSet: ReadonlySet<string> = new Set(motions);
 const sugars = ["s", "S", "x", "X", "D", "C", "Y"] as const;
 const sugarSet: ReadonlySet<string> = new Set(sugars);
 
-const standalones = ["J", "p", "P", "r", "R", "u", "<C-r>"] as const;
+const standalones = ["J", "p", "P", "R", "u", "<C-r>"] as const;
 const standaloneSet: ReadonlySet<string> = new Set(standalones);
+
+const replaceCommands = ["r"] as const;
 
 const textObjectModifiers = ["i", "a"] as const;
 const textObjectModifierSet: ReadonlySet<string> = new Set(textObjectModifiers);
@@ -47,6 +49,7 @@ export type Operator = (typeof operators)[number];
 export type Motion = (typeof motions)[number];
 export type Sugar = (typeof sugars)[number];
 export type Standalone = (typeof standalones)[number];
+export type ReplaceCommand = (typeof replaceCommands)[number];
 export type TextObjectModifier = (typeof textObjectModifiers)[number];
 export type TextObjectType = (typeof textObjectTypes)[number];
 export type ScrollCommand = (typeof scrollCommands)[number];
@@ -77,6 +80,10 @@ export const isSugar = (ch: string): ch is Sugar => {
 
 export const isStandalone = (ch: string): ch is Standalone => {
     return standaloneSet.has(ch);
+};
+
+export const isReplaceCommnad = (ch: string): ch is ReplaceCommand => {
+    return replaceCommands.some(v => v === ch);
 };
 
 export const isTextObjectModifier = (ch: string): ch is TextObjectModifier => {

@@ -1,40 +1,30 @@
 import type { Standalone } from "./command";
-import { CommandType, type CommandContext, type Count } from "./commandType";
-import { ParseStatus, type CommandParseResult, type ParserContext } from "./parseStatus";
+import { CommandType, type Count } from "./commandType";
+import { ParseStatus, type CommandParseResult } from "./parseStatus";
 
-type StandAloneHandler = (ctx: ParserContext, count: Count) => CommandParseResult;
+type StandAloneHandler = (count: Count) => CommandParseResult;
 export const STANDALONE_MAP: Record<Standalone, StandAloneHandler> = {
-    J: (_, count) => ({
+    J: (count) => ({
         status: ParseStatus.OK,
         value: { type: CommandType.JOIN, count },
     }),
-    p: (_, count) => ({
+    p: (count) => ({
         status: ParseStatus.OK,
         value: { type: CommandType.PUT, count, position: "after" },
     }),
-    P: (_, count) => ({
+    P: (count) => ({
         status: ParseStatus.OK,
         value: { type: CommandType.PUT, count, position: "before" },
     }),
-    r: (ctx, count) => {
-        const ch = ctx.next();
-        if (!ch) return { status: ParseStatus.PENDING };
-        const command: CommandContext = {
-            type: CommandType.REPLACE,
-            count,
-            mode: { kind: "single", char: ch },
-        };
-        return { status: ParseStatus.OK, value: command };
-    },
-    R: (_, count) => ({
+    R: (count) => ({
         status: ParseStatus.OK,
         value: { type: CommandType.REPLACE, count, mode: { kind: "continuous" } },
     }),
-    u: (_, count) => ({
+    u: (count) => ({
         status: ParseStatus.OK,
         value: { type: CommandType.UNDO, count },
     }),
-    "<C-r>": (_, count) => ({
+    "<C-r>": (count) => ({
         status: ParseStatus.OK,
         value: { type: CommandType.REDO, count },
     }),

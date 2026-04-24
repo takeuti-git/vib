@@ -183,7 +183,22 @@ export function parseCommand(input: readonly string[]): CommandParseResult {
     if (cmd.isStandalone(first)) {
         ctx.next();
         const handler = STANDALONE_MAP[first];
-        return handler(ctx, count);
+        return handler(count);
+    }
+
+    if (cmd.isReplaceCommnad(first)) {
+        ctx.next();
+        const arg = ctx.read();
+        if (!arg) return { status: ParseStatus.PENDING };
+        const command: CommandContext = {
+            type: CommandType.REPLACE,
+            count,
+            mode: {
+                kind: "single",
+                char: arg
+            },
+        };
+        return { status: ParseStatus.OK, value: command };
     }
 
     if (cmd.isScrollCommand(first)) {
