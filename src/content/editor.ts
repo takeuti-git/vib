@@ -1,6 +1,6 @@
 import { getFullScreenRows, getHalfScreenRows, type EditorConfig } from "./config";
 import type { Renderer } from "./renderer";
-import { type EditorState, resetState, type VisualState } from "./state";
+import { type EditorState, resetState } from "./state";
 import { Line, getLines, joinLines } from "./line";
 import { getInputFromEvent, isFunctionKey, isValidKey, MOVE_KEYS, type MoveKey } from "./keys";
 import { hideElement, setElementFontsize, showElement } from "./dom";
@@ -24,7 +24,7 @@ import { createDiff, toRange } from "./undo";
 import type { ScrollKind } from "./myvim/parser/scroll";
 import type { MotionContext } from "./myvim/parser/motionType";
 import { parseVisualCommand } from "./myvim/parser/visual";
-import type { InclusivePos, TextRange } from "./types/motion";
+import type { ExclusivePos, InclusivePos, InclusiveRange, TextRange } from "./types/motion";
 
 /** 角括弧の始まりの文字コード */
 const OPENING_BRACKET = 0x5b;
@@ -39,6 +39,20 @@ function toExclusiveTextRange(start: InclusivePos, end: InclusivePos, linewise: 
         return {
             begin: { row: start.row, col: start.col },
             end:   { row: end.row,   col: end.col + 1 },
+        };
+    }
+}
+
+function toInclusiveRange(begin: InclusivePos, end: ExclusivePos, linewise: boolean): InclusiveRange {
+    if (linewise) {
+        return {
+            first: { row: begin.row, col: begin.col },
+            last: { row: end.row - 1, col: end.col },
+        };
+    } else {
+        return {
+            first: { row: begin.row, col: begin.col },
+            last: { row: end.row, col: end.col - 1 },
         };
     }
 }
@@ -1006,6 +1020,26 @@ export class Editor {
                 : this.state.col + count
             );
             this.moveCursorToPos(this.state.row, destCol);
+        } else if (datatype === "to_lower" || datatype === "to_upper") {
+            const count = (data.count ?? 1) * (data.innerCount ?? 1);
+            const range = getMotionRange(this.state, data.motion, count);
+
+            if (data.motion.type === "find") {
+                this.setLastFindMotion(data.motion);
+            }
+            // TODO: 繰り返しvi_lastCmdの設定
+            if (!range) {
+                return 0;
+            }
+
+            const { first, last } = toInclusiveRange(range.begin, range.end, range.linewise);
+            console.log(first, last);
+            this.applyVisualTransform(first, last, (selected) => {
+                if (datatype === "to_lower") {
+                    return selected.toLowerCase();
+                }
+                return selected.toUpperCase();
+            });
         }
 
         return 0;
@@ -1135,7 +1169,6 @@ export class Editor {
                 // インデントコマンドの繰り返しにmotionは必要ではないが仮で定義する
                 const motion: MotionContext = {
                     type: "linewise",
-                    name: "line",
                 };
                 this.state.vi_lastCmd = { type: "operator", count, operator, motion };
             } else {
@@ -1143,7 +1176,6 @@ export class Editor {
                     // 行単位の範囲は既存の型で代替できる
                     const motion: MotionContext = {
                         type: "linewise",
-                        name: "line",
                     };
                     this.state.vi_lastCmd = { type: "operator", count, operator, motion };
                 } else {
@@ -1176,34 +1208,35 @@ export class Editor {
             this.vi_goNormal();
 
         } else if (datatype === "replace") {
-            this.applyVisualTransform(vi_state, (selected) => {
+            this.applyVisualTransform(vi_state.visualFirst, vi_state.visualLast, (selected) => {
                 return data.arg.repeat(selected.length);
             });
         } else if (datatype === "to_lower") {
-            this.applyVisualTransform(vi_state, (selected) => {
+            this.applyVisualTransform(vi_state.visualFirst, vi_state.visualLast, (selected) => {
                 return selected.toLowerCase();
             });
         } else if (datatype === "to_upper") {
-            this.applyVisualTransform(vi_state, (selected) => {
+            this.applyVisualTransform(vi_state.visualFirst, vi_state.visualLast, (selected) => {
                 return selected.toUpperCase();
             });
         } else if (datatype === "reverse_case") {
-            this.applyVisualTransform(vi_state, swapCase);
+            this.applyVisualTransform(vi_state.visualFirst, vi_state.visualLast, swapCase);
         }
         return 0;
     }
 
     private applyVisualTransform(
-        vi_state: VisualState,
+        first: InclusivePos,
+        last: InclusivePos,
         transform: (selected: string) => string,
     ): void {
-        const lines = this.iterateRange(vi_state.visualFirst.row, vi_state.visualLast.row);
+        const lines = this.iterateRange(first.row, last.row);
         for (const { line, index } of lines) {
             const { prefix, selected, suffix } =
-                this.getLineSegments(line, index, vi_state.visualFirst, vi_state.visualLast);
+                this.getLineSegments(line, index, first, last);
             line.text = prefix + transform(selected) + suffix;
         }
-        this.moveCursorToPos(vi_state.visualFirst.row, vi_state.visualFirst.col);
+        this.moveCursorToPos(first.row, first.col);
         this.vi_goNormal();
     }
 

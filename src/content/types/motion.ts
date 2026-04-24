@@ -18,6 +18,11 @@ export type TextRange = {
     end: ExclusivePos;
 };
 
+export type InclusiveRange = {
+    first: InclusivePos,
+    last: InclusivePos,
+};
+
 export type MotionRange = TextRange & {
     linewise: boolean;
 };
