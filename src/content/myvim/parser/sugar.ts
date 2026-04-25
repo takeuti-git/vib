@@ -10,7 +10,7 @@ export const SUGAR_MAP: Record<Sugar, DesugaredContext> = {
     },
     S: {
         operator: "c",
-        motion: { type: MotionType.LINEWISE, name: "line" },
+        motion: { type: MotionType.LINEWISE },
     },
     x: {
         operator: "d",
