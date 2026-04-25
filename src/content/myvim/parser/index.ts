@@ -12,6 +12,11 @@ import { SUGAR_MAP } from "./sugar";
 import { isDigitChar } from "../utils";
 import { SCROLL_COMMAND_MAP } from "./scroll";
 
+const ZERO_MOTION: MotionContext = {
+    type: MotionType.CHAR,
+    name: "0",
+};
+
 /**
  * - status: [ok, pending, unknown]
  **/
@@ -35,7 +40,7 @@ export function parseCommand(input: readonly string[]): CommandParseResult {
         const command: CommandContext = {
             type: CommandType.MOTION,
             count: null,
-            motion: { type: MotionType.CHAR, name: "0" },
+            motion: ZERO_MOTION,
         };
         return { status: ParseStatus.OK, value: command };
     }
@@ -136,13 +141,12 @@ export function parseCommand(input: readonly string[]): CommandParseResult {
 
         const innerCountStr = ctx.eatDigits();
         if (innerCountStr === "0") {
-            const motion: MotionContext = { type: MotionType.CHAR, name: "0" };
             const command: CommandContext = {
                 type: CommandType.OPERATOR,
                 count,
                 operator,
                 innerCount: null,
-                motion,
+                motion: ZERO_MOTION,
             };
             return { status: ParseStatus.OK, value: command };
         }
@@ -259,7 +263,7 @@ export function parseCommand(input: readonly string[]): CommandParseResult {
                     type: CommandType.TO_LOWER,
                     count,
                     innerCount: null,
-                    motion: { type: MotionType.CHAR, name: "0" },
+                    motion: ZERO_MOTION,
                 };
                 return { status: ParseStatus.OK, value: command };
             }
