@@ -270,99 +270,53 @@ export function parseCommand(input: readonly string[]): CommandParseResult {
                 return { status: ParseStatus.PENDING };
             }
 
-            const third = ctx.read();
-            if (second === "u") {
-                // guの状態
-                if (third === "g") {
-                    ctx.next();
-                    // gugの状態, 次にuかgを期待する
-                    const fourth = ctx.read();
-                    if (!fourth) {
-                        return { status: ParseStatus.PENDING };
-                    }
-                    if (fourth === "g") {
-                        // guggの状態, 小文字への変換を先頭行まで
-                        const command: CommandContext = {
-                            type: CommandType.TO_LOWER,
-                            count,
-                            innerCount,
-                            motion: { type: "char", name: "gg" },
-                        };
-                        return { status: ParseStatus.OK, value: command };
-                    } else if (fourth === "u") {
-                        // guguの状態
-                        const command: CommandContext = {
-                            type: CommandType.TO_LOWER,
-                            count,
-                            innerCount,
-                            motion: { type: "linewise" }
-                        };
-                        return { status: ParseStatus.OK, value: command };
-                    }
-                    return { status: ParseStatus.UNKNOWN };
-
-                } else if (third === "u") {
-                    // guuの状態
-                    const command: CommandContext = {
-                        type: CommandType.TO_LOWER,
-                        count,
-                        innerCount,
-                        motion: { type: "linewise" },
-                    };
-                    return { status: ParseStatus.OK, value: command };
-                }
-                // ここに到達する = gugu/guuに当てはまらなかった = 任意のモーションを見る
-            } else if (second === "U") {
-                if (third === "g") {
-                    // gUgの状態, 次にUかgを期待する
-                    ctx.next();
-                    const fourth = ctx.read();
-                    if (!fourth) {
-                        return { status: ParseStatus.PENDING };
-                    }
-                    if (fourth === "g") {
-                        // gUggの状態, 大文字への変換を先頭行まで
-                        const command: CommandContext = {
-                            type: CommandType.TO_LOWER,
-                            count,
-                            innerCount,
-                            motion: { type: "char", name: "gg" },
-                        };
-                        return { status: ParseStatus.OK, value: command };
-                    } else if (fourth === "U") {
-                        // gUgUの状態
-                        const command: CommandContext = {
-                            type: CommandType.TO_UPPER,
-                            count,
-                            innerCount,
-                            motion: { type: "linewise" }
-                        };
-                        return { status: ParseStatus.OK, value: command };
-                    }
-                    return { status: ParseStatus.UNKNOWN };
-
-                } else if (third === "U") {
-                    // gUUの状態
-                    const command: CommandContext = {
-                        type: CommandType.TO_UPPER,
-                        count,
-                        innerCount,
-                        motion: { type: "linewise" },
-                    };
-                    return { status: ParseStatus.OK, value: command };
-                }
-            }
-
-            const motion = parseMotion();
-            if (motion.status !== ParseStatus.OK) {
-                return { status: motion.status };
-            }
             const type = (second === "u") ? CommandType.TO_LOWER : CommandType.TO_UPPER;
+            const third = ctx.read();
+            if (third === "g") {
+                ctx.next();
+                // gug / gUg の状態
+                const fourth = ctx.read();
+                if (!fourth) return { status: ParseStatus.PENDING };
+                if (fourth === "g") {
+                    // gugg / gUgg の状態
+                    const command: CommandContext = {
+                        type,
+                        count,
+                        innerCount,
+                        motion: { type: "char", name: "gg" },
+                    };
+                    return { status: ParseStatus.OK, value: command };
+                } else if (second === fourth) {
+                    // gugu / gUgU の状態
+                    const command: CommandContext = {
+                        type,
+                        count,
+                        innerCount,
+                        motion: { type: "linewise" }
+                    };
+                    return { status: ParseStatus.OK, value: command };
+                }
+                return { status: ParseStatus.UNKNOWN };
+            } else if (second === third) {
+                // guu / gUU の状態
+                const command: CommandContext = {
+                    type,
+                    count,
+                    innerCount,
+                    motion: { type: "linewise" },
+                };
+                return { status: ParseStatus.OK, value: command };
+            }
+
+            const motionResult = parseMotion();
+            if (motionResult.status !== ParseStatus.OK) {
+                return { status: motionResult.status };
+            }
             const command: CommandContext = {
                 type,
                 count,
                 innerCount,
-                motion: motion.value,
+                motion: motionResult.value,
             };
             return { status: ParseStatus.OK, value: command };
         }
