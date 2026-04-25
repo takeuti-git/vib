@@ -13,7 +13,7 @@ import {
     moveBackward,
 } from "./myvim/motion";
 import { parseCommand } from "./myvim/parser";
-import type { InsertCommand, Motion, Operator } from "./myvim/parser/command";
+import type { GoInsertCommand, Motion, Operator } from "./myvim/parser/command";
 import { readClipboard, writeClipboard } from "./clipboard";
 import {
     FIND_COMMAND_OPTIONS,
@@ -21,7 +21,7 @@ import {
     type FindMoveOptions,
 } from "./myvim/findCommand";
 import { createDiff, toRange } from "./undo";
-import type { ScrollKind } from "./myvim/parser/scroll";
+import type { ScrollKind } from "./myvim/parser/commandType";
 import type { MotionContext } from "./myvim/parser/motionType";
 import { parseVisualCommand } from "./myvim/parser/visual";
 import type { ExclusivePos, InclusivePos, InclusiveRange, TextRange } from "./types/motion";
@@ -528,7 +528,7 @@ export class Editor {
         },
     };
 
-    private insertMap: Record<InsertCommand, () => void> = {
+    private insertMap: Record<GoInsertCommand, () => void> = {
         i: () => {
             /* ここでは何もしない */
         },
@@ -561,7 +561,7 @@ export class Editor {
         }
     }
 
-    private vi_executeInsertImmediately(insertKind: InsertCommand, count: number): void {
+    private vi_executeInsertImmediately(insertKind: GoInsertCommand, count: number): void {
         this.insertMap[insertKind]();
         if ((insertKind === "a" || insertKind === "A") && !this.isAtLineTail()) {
             this.moveCursor(MOVE_KEYS.RIGHT);
@@ -582,7 +582,7 @@ export class Editor {
         this.syncElementValue();
     }
 
-    private vi_executeInsert(insertKind: InsertCommand, count: number): void {
+    private vi_executeInsert(insertKind: GoInsertCommand, count: number): void {
         this.insertMap[insertKind]();
 
         this.disableSaveDiff = true; // insertへの移行入力は差分として扱わない
@@ -932,25 +932,24 @@ export class Editor {
             this.state.vi_lastCmd = { type: "join", count };
 
         } else if (datatype === "replace") {
-            const kind = data.mode.kind;
-            if (kind === "single") {
-                const arg = data.mode.char;
-                const linetext = this.currentLine.text;
-                const text = linetext.slice(this.state.col);
+            const arg = data.arg;
+            const linetext = this.currentLine.text;
+            const text = linetext.slice(this.state.col);
 
-                // countが右側の文字数より多いなら実行しない
-                if (count > text.length) return 0;
+            // countが右側の文字数より多いなら実行しない
+            if (count > text.length) return 0;
 
-                const before = linetext.slice(0, this.state.col);
-                const after = text.slice(count);
-                const replaecd = before + arg.repeat(count) + after;
-                this.currentLine.text = replaecd;
-                for (let i = 0; i < count - 1; i++) this.moveCursorRight();
-            } else if (kind === "continuous") {
-                // 置き換え処理はsetupListenersで行う
-                this.state.vi_state.mode = "replace";
-                this.state.cursorStyle = "under";
-            }
+            const before = linetext.slice(0, this.state.col);
+            const after = text.slice(count);
+            const replaecd = before + arg.repeat(count) + after;
+            this.currentLine.text = replaecd;
+            for (let i = 0; i < count - 1; i++) this.moveCursorRight();
+
+        } else if (datatype === "go_replace") {
+            // 入力処理はsetupListenersで行う
+            this.state.vi_state.mode = "replace";
+            this.state.cursorStyle = "under";
+
         } else if (datatype === "repeat_mot") {
             const lastMotion = this.state.vi_lastFindMotion;
             if (lastMotion === null) {
@@ -998,8 +997,8 @@ export class Editor {
             }
             this.scrollCommandMap[kind](count);
 
-        } else if (datatype === "visual") {
-            const isLinewise = data.linemode;
+        } else if (datatype === "go_visual") {
+            const isLinewise = data.linewise;
             this.vi_goVisual(isLinewise);
             if (this.state.vi_state.mode !== "visual") throw new Error("vi_state.mode is not visual. call vi_goVisual() before this line");
             if (this.state.vi_state.linewise) {

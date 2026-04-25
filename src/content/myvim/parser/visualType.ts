@@ -1,5 +1,5 @@
 import type { MotionContext } from "./motionType";
-import type { ScrollKind } from "./scroll";
+import type { ScrollKind } from "./commandType";
 
 const operators = ["d", "c", "y"] as const;
 type Operator = (typeof operators)[number];

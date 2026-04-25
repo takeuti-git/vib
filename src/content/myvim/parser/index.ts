@@ -7,10 +7,8 @@ import {
     type MotionParseResult,
     type ParserContext,
 } from "./parseStatus";
-import { STANDALONE_MAP } from "./standalone";
-import { SUGAR_MAP } from "./sugar";
+import { NO_ARG_CMD_MAP } from "./noArgs";
 import { isDigitChar } from "../utils";
-import { SCROLL_COMMAND_MAP } from "./scroll";
 
 const ZERO_MOTION: MotionContext = {
     type: MotionType.CHAR,
@@ -18,7 +16,7 @@ const ZERO_MOTION: MotionContext = {
 };
 
 /**
- * - status: [ok, pending, unknown]
+ * - status: unknown | pending | ok
  **/
 export function parseCommand(input: readonly string[]): CommandParseResult {
     let i = 0;
@@ -29,8 +27,8 @@ export function parseCommand(input: readonly string[]): CommandParseResult {
         next: () => (i < len ? input[i++] : ""),
         eatDigits: () => {
             let s = "";
-            if (ctx.read() === "0") return "0";
-            while (isDigitChar(ctx.read()!)) s += ctx.next();
+            if (ctx.read() === "0") return ctx.next() as string;
+            while (isDigitChar(ctx.read() as string)) s += ctx.next();
             return s;
         },
     };
@@ -52,19 +50,6 @@ export function parseCommand(input: readonly string[]): CommandParseResult {
         return { status: ParseStatus.PENDING };
     }
 
-    if (first === ".") {
-        const command: CommandContext = { type: CommandType.REPEAT_OPE, count };
-        return { status: ParseStatus.OK, value: command };
-    }
-    if (first === ";" || first === ",") {
-        const command: CommandContext = {
-            type: CommandType.REPEAT_MOT,
-            count,
-            reverse: first === ",",
-        };
-        return { status: ParseStatus.OK, value: command };
-    }
-
     function parseMotion(): MotionParseResult {
         const ch = ctx.next();
         if (!ch) return { status: ParseStatus.UNKNOWN };
@@ -73,14 +58,6 @@ export function parseCommand(input: readonly string[]): CommandParseResult {
             const arg = ctx.next();
             if (!arg) return { status: ParseStatus.PENDING };
             return { status: ParseStatus.OK, value: { type: MotionType.FIND, name: ch, arg } };
-        }
-
-        if (ch === "g") {
-            if (ctx.read() === "g") {
-                ctx.next();
-                return { status: ParseStatus.OK, value: { type: MotionType.CHAR, name: "gg" } };
-            }
-            return { status: ParseStatus.PENDING }; // g単体は未確定
         }
 
         if (cmd.isMotion(ch)) {
@@ -93,7 +70,6 @@ export function parseCommand(input: readonly string[]): CommandParseResult {
                 // "da"で入力を待っているような状態
                 return { status: ParseStatus.PENDING };
             }
-            ctx.next();
             if (cmd.isTextObjectType(char)) {
                 const motion: MotionContext = {
                     type: MotionType.TEXTOBJ,
@@ -109,24 +85,9 @@ export function parseCommand(input: readonly string[]): CommandParseResult {
         return { status: ParseStatus.UNKNOWN };
     }
 
-    if (cmd.isInsertCommand(first)) {
-        ctx.next();
-        const command: CommandContext = { type: CommandType.INSERT, count, command: first };
-        return { status: ParseStatus.OK, value: command };
-    }
-
-    if (cmd.isSugar(first)) {
-        ctx.next();
-        const desugared = SUGAR_MAP[first];
-        const operator = desugared.operator;
-        const motion: MotionContext = desugared.motion;
-        const command: CommandContext = {
-            type: CommandType.OPERATOR,
-            count,
-            operator,
-            innerCount: null,
-            motion,
-        };
+    const noArgCmd = NO_ARG_CMD_MAP[first as "i"];
+    if (noArgCmd) {
+        const command = noArgCmd(count);
         return { status: ParseStatus.OK, value: command };
     }
 
@@ -184,12 +145,6 @@ export function parseCommand(input: readonly string[]): CommandParseResult {
         return { status: ParseStatus.OK, value: command };
     }
 
-    if (cmd.isStandalone(first)) {
-        ctx.next();
-        const handler = STANDALONE_MAP[first];
-        return handler(count);
-    }
-
     if (cmd.isReplaceCommnad(first)) {
         ctx.next();
         const arg = ctx.read();
@@ -197,40 +152,9 @@ export function parseCommand(input: readonly string[]): CommandParseResult {
         const command: CommandContext = {
             type: CommandType.REPLACE,
             count,
-            mode: {
-                kind: "single",
-                char: arg
-            },
+            arg,
         };
         return { status: ParseStatus.OK, value: command };
-    }
-
-    if (cmd.isScrollCommand(first)) {
-        ctx.next();
-        const kind = SCROLL_COMMAND_MAP[first];
-        const command: CommandContext = {
-            type: CommandType.SCROLL,
-            count,
-            kind,
-        };
-        return { status: ParseStatus.OK, value: command };
-    }
-
-    if (first === "v" || first === "V") {
-        const command: CommandContext = {
-            type: CommandType.VISUAL,
-            count,
-            linemode: first === "V",
-        };
-        return { status: ParseStatus.OK, value: command };
-    }
-
-    if (cmd.isCaseSwitcher(first)) {
-        const command: CommandContext = {
-            type: CommandType.SWITCH_CASE,
-            count,
-        };
-        return { status: ParseStatus.OK, value : command };
     }
 
     if (first === "g") {
