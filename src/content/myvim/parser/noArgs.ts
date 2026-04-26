@@ -18,6 +18,10 @@ type NoArgsCommands = (
     | cmd.RepeatMotionCommand
 );
 
+export function isNoArgKey(key: string): key is keyof typeof NO_ARG_CMD_MAP {
+    return key in NO_ARG_CMD_MAP;
+}
+
 export const NO_ARG_CMD_MAP: Record<NoArgsCommands, (count: Count) => CommandContext> = {
     // GO_INSERT
     "i": (count) => ({

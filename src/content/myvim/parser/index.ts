@@ -7,7 +7,7 @@ import {
     type MotionParseResult,
     type ParserContext,
 } from "./parseStatus";
-import { NO_ARG_CMD_MAP } from "./noArgs";
+import { isNoArgKey, NO_ARG_CMD_MAP } from "./noArgs";
 import { isDigitChar } from "../utils";
 import { toCount } from "./count";
 
@@ -86,9 +86,8 @@ export function parseCommand(input: readonly string[]): CommandParseResult {
         return { status: ParseStatus.UNKNOWN };
     }
 
-    const noArgCmd = NO_ARG_CMD_MAP[first as "i"];
-    if (noArgCmd) {
-        const command = noArgCmd(count);
+    if (isNoArgKey(first)) {
+        const command = NO_ARG_CMD_MAP[first](count);
         return { status: ParseStatus.OK, value: command };
     }
 
