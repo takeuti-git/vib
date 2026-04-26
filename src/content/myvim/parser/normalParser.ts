@@ -5,7 +5,7 @@ import {
     type MotionParseResult,
     type ParserContext,
 } from "./parseStatus";
-import { isNoArgKey, NO_ARG_CMD_MAP } from "./normalNoArgs";
+import { isNoArgCmd, isWithArgCmd, NO_ARG_CMD_MAP, WITH_ARG_CMD_MAP } from "./normalCmdMap";
 import { isDigitChar } from "../utils";
 import { toCount } from "./count";
 import { MOTION_KEY_TO_NAME, MotionName, MotionType, type MotionContext } from "../motion";
@@ -88,8 +88,16 @@ export function parseNormalInput(input: readonly string[]): CommandParseResult {
         return { status: ParseStatus.UNKNOWN };
     }
 
-    if (isNoArgKey(first)) {
+    if (isNoArgCmd(first)) {
         const command = NO_ARG_CMD_MAP[first](count);
+        return { status: ParseStatus.OK, value: command };
+    }
+
+    if (isWithArgCmd(first)) {
+        ctx.next();
+        const arg = ctx.read();
+        if (!arg) return { status: ParseStatus.PENDING };
+        const command = WITH_ARG_CMD_MAP[first](count, arg)
         return { status: ParseStatus.OK, value: command };
     }
 
@@ -144,18 +152,6 @@ export function parseNormalInput(input: readonly string[]): CommandParseResult {
             operator: operatorName,
             innerCount,
             motion: result.value,
-        };
-        return { status: ParseStatus.OK, value: command };
-    }
-
-    if (cmd.isReplaceCommnad(first)) {
-        ctx.next();
-        const arg = ctx.read();
-        if (!arg) return { status: ParseStatus.PENDING };
-        const command: NormalCmdContext = {
-            type: CommandType.REPLACE,
-            count,
-            arg,
         };
         return { status: ParseStatus.OK, value: command };
     }

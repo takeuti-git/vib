@@ -21,7 +21,7 @@ type NoArgsCommands = (
     | cmd.RepeatMotionCommand
 );
 
-export function isNoArgKey(key: string): key is keyof typeof NO_ARG_CMD_MAP {
+export function isNoArgCmd(key: string): key is keyof typeof NO_ARG_CMD_MAP {
     return key in NO_ARG_CMD_MAP;
 }
 
@@ -200,4 +200,14 @@ export const NO_ARG_CMD_MAP: Record<NoArgsCommands, (count: Count) => NormalCmdC
         count,
         reverse: true,
     }),
+};
+
+type WithArgCmd = cmd.ReplaceCommand;
+type WithArgCmdFunc = (count: Count, arg: string) => Readonly<NormalCmdContext>;
+export function isWithArgCmd(key: string): key is WithArgCmd {
+    return key in WITH_ARG_CMD_MAP;
+}
+
+export const WITH_ARG_CMD_MAP: Record<WithArgCmd, WithArgCmdFunc> = {
+    "r": (count, arg) => ({ type: CommandType.REPLACE, count, arg }),
 };

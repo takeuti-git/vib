@@ -15,8 +15,6 @@ const motions = [
 ] as const;
 const motionSet: ReadonlySet<string> = new Set(motions);
 
-const replaceCommands = ["r"] as const;
-
 const textObjectModifiers = ["i", "a"] as const;
 const textObjectModifierSet: ReadonlySet<string> = new Set(textObjectModifiers);
 // prettier-ignore
@@ -41,7 +39,7 @@ export type JoinCommand = "J";
 export type PutCommand = "p" | "P";
 export type UndoCommand = "u";
 export type RedoCommand = "<C-r>";
-export type ReplaceCommand = (typeof replaceCommands)[number];
+export type ReplaceCommand = "r";
 export type TextObjectModifier = (typeof textObjectModifiers)[number];
 export type TextObjectType = (typeof textObjectTypes)[number];
 export type ScrollCommand = "<C-u>" | "<C-d>" | "<C-f>" | "<C-b>";
@@ -62,10 +60,6 @@ export const isOperator = (ch: string): ch is Operator => {
 
 export const isMotion = (ch: string): ch is Motion => {
     return motionSet.has(ch);
-};
-
-export const isReplaceCommnad = (ch: string): ch is ReplaceCommand => {
-    return replaceCommands.some(v => v === ch);
 };
 
 export const isTextObjectModifier = (ch: string): ch is TextObjectModifier => {
