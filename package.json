@@ -16,7 +16,8 @@
     "build:firefox": "VITE_TARGET=firefox vite build",
     "watch:firefox": "VITE_TARGET=firefox vite build --watch",
     "preview": "vite preview",
-    "lint": "eslint src"
+    "lint": "eslint src",
+    "tsc-check": "tsc --noEmit"
   },
   "keywords": [
     "chrome-extension",

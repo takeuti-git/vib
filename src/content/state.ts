@@ -1,12 +1,13 @@
 import { getHalfScreenRows, type EditorConfig } from "./config";
 import { Line } from "./line";
 import type { FindCommandName } from "./myvim/findCommand";
-import type { InsertCommand, Operator } from "./myvim/parser/command";
-import type { MotionContext } from "./myvim/parser/motionType";
+import type { InsertCommand } from "./myvim/insert";
+import type { MotionContext } from "./myvim/motion";
+import type { OperatorName } from "./myvim/operator";
 import type { InclusivePos, Position } from "./types/motion";
 
 type RepeatableCmd = { count: number } & (
-    | { type: "operator", operator: Exclude<Operator, "y">, motion: MotionContext }
+    | { type: "operator", operator: Exclude<OperatorName, "YANK">, motion: MotionContext }
     | { type: "insert", insertKind: InsertCommand }
     | { type: "put", position: "before" | "after" }
     | { type: "join" }

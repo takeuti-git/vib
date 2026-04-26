@@ -1,12 +1,12 @@
-import type { CommandContext } from "./commandType";
-import type { MotionContext } from "./motionType";
-import type { VisualCmdContext } from "./visualType";
+import type { MotionContext } from "../motion";
+import type { NormalCmdContext } from "../normal";
+import type { VisualCmdContext } from "../visual";
 
 type ParseStatus = (typeof ParseStatus)[keyof typeof ParseStatus];
 export const ParseStatus = {
-    OK: "ok",
-    PENDING: "pending",
-    UNKNOWN: "unknown",
+    OK:      "OK",
+    PENDING: "PENDING",
+    UNKNOWN: "UNKNOWN",
 } as const;
 
 export type ParserContext = {
@@ -15,11 +15,16 @@ export type ParserContext = {
     eatDigits(): string;
 };
 
-type ParseResult<T> =
-    | { status: typeof ParseStatus.OK; value: T }
-    | { status: typeof ParseStatus.PENDING }
-    | { status: typeof ParseStatus.UNKNOWN };
+type ParseResult<T> = (
+    | { status: typeof ParseStatus.OK; value: T; }
+    | { status: typeof ParseStatus.PENDING; }
+    | { status: typeof ParseStatus.UNKNOWN; }
+);
 
-export type MotionParseResult = ParseResult<MotionContext>;
-export type CommandParseResult = ParseResult<CommandContext>;
+export type MotionParseResult    = ParseResult<MotionContext>;
+export type NormalCmdParseResult = ParseResult<NormalCmdContext>;
 export type VisualCmdParseResult = ParseResult<VisualCmdContext>;
+
+export const PENDING = { status: ParseStatus.PENDING } as const;
+export const UNKNOWN = { status: ParseStatus.UNKNOWN } as const;
+export const OK      = <T>(value: T) => ({ status: ParseStatus.OK, value } as const);

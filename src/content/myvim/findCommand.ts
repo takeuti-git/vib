@@ -1,4 +1,4 @@
-import type { FindCommand } from "./parser/command";
+import type { FindCommand } from "./parser/normalCommand";
 
 export type FindMoveOptions = {
     reverse: boolean;

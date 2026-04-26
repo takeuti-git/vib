@@ -4,9 +4,6 @@
 const findCommands = ["f", "F", "t", "T"] as const;
 const findCommandSet: ReadonlySet<string> = new Set(findCommands);
 
-const insertCommands = ["i", "I", "a", "A", "o", "O"] as const;
-const insertCommandSet: ReadonlySet<string> = new Set(insertCommands);
-
 const operators = ["d", "c", "y", ">", "<"] as const;
 const operatorSet: ReadonlySet<string> = new Set(operators);
 
@@ -18,12 +15,6 @@ const motions = [
 ] as const;
 const motionSet: ReadonlySet<string> = new Set(motions);
 
-const sugars = ["s", "S", "x", "X", "D", "C", "Y"] as const;
-const sugarSet: ReadonlySet<string> = new Set(sugars);
-
-const standalones = ["J", "p", "P", "r", "R", "u", "<C-r>"] as const;
-const standaloneSet: ReadonlySet<string> = new Set(standalones);
-
 const textObjectModifiers = ["i", "a"] as const;
 const textObjectModifierSet: ReadonlySet<string> = new Set(textObjectModifiers);
 // prettier-ignore
@@ -33,34 +24,34 @@ const textObjectTypes = [
 ] as const;
 const textObjectTypeSet: ReadonlySet<string> = new Set(textObjectTypes);
 
-const scrollCommands = ["<C-u>", "<C-d>", "<C-f>", "<C-b>"] as const;
-const scrollCommandSet: ReadonlySet<string> = new Set(scrollCommands);
-
-const caseSwitchers = ["~"] as const;
 
 // ------------------------------
 // | Validation Types
 // ------------------------------
+export type GoInsertCommand = "i" | "a" | "I" | "A" | "o" | "O";
+export type GoReplaceCommand = "R";
+export type GoVisualCommand = "v" | "V";
 export type FindCommand = (typeof findCommands)[number];
-export type InsertCommand = (typeof insertCommands)[number];
 export type Operator = (typeof operators)[number];
 export type Motion = (typeof motions)[number];
-export type Sugar = (typeof sugars)[number];
-export type Standalone = (typeof standalones)[number];
+export type SugarCommand = "s" | "S" | "x" | "X" | "D" | "C" | "Y";
+export type JoinCommand = "J";
+export type PutCommand = "p" | "P";
+export type UndoCommand = "u";
+export type RedoCommand = "<C-r>";
+export type ReplaceCommand = "r";
 export type TextObjectModifier = (typeof textObjectModifiers)[number];
 export type TextObjectType = (typeof textObjectTypes)[number];
-export type ScrollCommand = (typeof scrollCommands)[number];
-export type CaseSwitcher = (typeof caseSwitchers)[number];
+export type ScrollCommand = "<C-u>" | "<C-d>" | "<C-f>" | "<C-b>";
+export type SwitchCaseCommand = "~";
+export type RepeatOperatorCommand = ".";
+export type RepeatMotionCommand = ";" | ",";
 
 // ------------------------------
 // | Validations
 // ------------------------------
 export const isFindCommand = (ch: string): ch is FindCommand => {
     return findCommandSet.has(ch);
-};
-
-export const isInsertCommand = (ch: string): ch is InsertCommand => {
-    return insertCommandSet.has(ch);
 };
 
 export const isOperator = (ch: string): ch is Operator => {
@@ -71,26 +62,10 @@ export const isMotion = (ch: string): ch is Motion => {
     return motionSet.has(ch);
 };
 
-export const isSugar = (ch: string): ch is Sugar => {
-    return sugarSet.has(ch);
-};
-
-export const isStandalone = (ch: string): ch is Standalone => {
-    return standaloneSet.has(ch);
-};
-
 export const isTextObjectModifier = (ch: string): ch is TextObjectModifier => {
     return textObjectModifierSet.has(ch);
 };
 
 export const isTextObjectType = (ch: string): ch is TextObjectType => {
     return textObjectTypeSet.has(ch);
-};
-
-export const isScrollCommand = (token: string): token is ScrollCommand => {
-    return scrollCommandSet.has(token);
-};
-
-export const isCaseSwitcher = (ch: string): ch is CaseSwitcher => {
-    return caseSwitchers.some(v => v === ch);
 };
