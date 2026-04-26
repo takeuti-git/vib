@@ -1,7 +1,15 @@
 import * as cmd from "./normalCommand";
 import * as visualCmd from "./visualCommand";
 import { isDigitChar } from "../utils";
-import { ParseStatus, type MotionParseResult, type ParserContext, type VisualCmdParseResult } from "./parseStatus";
+import {
+    OK,
+    ParseStatus,
+    PENDING,
+    UNKNOWN,
+    type MotionParseResult,
+    type ParserContext,
+    type VisualCmdParseResult,
+} from "./parseStatus";
 import { CommandType, type NormalCmdContext } from "../normal";
 import { MOTION_KEY_TO_NAME, MotionName, MotionType, type MotionContext } from "../motion";
 import { toCount } from "./count";
@@ -28,43 +36,54 @@ export function parseVisualInput(input: readonly string[]): VisualCmdParseResult
             count: null,
             motion: { type: MotionType.CHAR, name: MotionName.first },
         };
-        return { status: ParseStatus.OK, value: command };
+        return OK(command);
     }
     const count = toCount(countStr);
 
     const first = ctx.read();
-    if (!first) {
-        return { status: ParseStatus.PENDING };
-    }
+    if (!first) return PENDING;
 
     function parseMotion(): MotionParseResult {
         const ch = ctx.next();
-        if (!ch) return { status: ParseStatus.UNKNOWN };
+        if (!ch) return UNKNOWN;
 
         if (cmd.isFindCommand(ch)) {
             const arg = ctx.next();
-            if (!arg) return { status: ParseStatus.PENDING };
-            return { status: ParseStatus.OK, value: { type: MotionType.FIND, name: ch, arg } };
+            if (!arg) return PENDING;
+            const motion: MotionContext = {
+                type: MotionType.FIND,
+                name: ch,
+                arg,
+            };
+            return OK(motion);
         }
 
         if (ch === "g") {
             if (ctx.read() === "g") {
                 ctx.next();
-                return { status: ParseStatus.OK, value: { type: MotionType.CHAR, name: MotionName.firstLine } };
+                const motion: MotionContext = {
+                    type: MotionType.CHAR,
+                    name: MotionName.firstLine,
+                };
+                return OK(motion);
             }
-            return { status: ParseStatus.PENDING }; // g単体は未確定
+            return PENDING; // g単体は未確定
         }
 
         if (cmd.isMotion(ch)) {
             const name = MOTION_KEY_TO_NAME[ch];
-            return { status: ParseStatus.OK, value: { type: MotionType.CHAR, name } };
+            const motion: MotionContext = {
+                type: MotionType.CHAR,
+                name,
+            };
+            return OK(motion);
         }
 
         if (cmd.isTextObjectModifier(ch)) {
             const char = ctx.read();
             if (!char) {
                 // "da"で入力を待っているような状態
-                return { status: ParseStatus.PENDING };
+                return PENDING;
             }
             ctx.next();
             if (cmd.isTextObjectType(char)) {
@@ -73,29 +92,29 @@ export function parseVisualInput(input: readonly string[]): VisualCmdParseResult
                     inner: ch === "i",
                     name: char,
                 };
-                return { status: ParseStatus.OK, value: motion };
+                return OK(motion);
             }
         }
 
-        return { status: ParseStatus.UNKNOWN };
+        return UNKNOWN;
     }
 
     if (visualCmd.isNoArgCmdKey(first)) {
         const command = visualCmd.NO_ARG_CMD_MAP[first];
-        return { status: ParseStatus.OK, value: command };
+        return OK(command);
     }
 
     if (visualCmd.isWithCountCmdKey(first)) {
         const command = visualCmd.WITH_COUNT_CMD_MAP[first](count);
-        return { status: ParseStatus.OK, value: command };
+        return OK(command);
     }
 
     if (visualCmd.isWithArgCmdKey(first)) {
         ctx.next();
         const arg = ctx.read();
-        if (!arg) return { status: ParseStatus.PENDING };
+        if (!arg) return PENDING;
         const command = visualCmd.WITH_ARG_CMD_MAP[first](count, arg);
-        return { status: ParseStatus.OK, value: command };
+        return OK(command);
     }
 
     // 以上の処理のどれにも当てはまらないときは移動入力として解析する
@@ -104,5 +123,5 @@ export function parseVisualInput(input: readonly string[]): VisualCmdParseResult
         return { status: result.status };
     }
     const command: NormalCmdContext = { type: CommandType.MOTION, count, motion: result.value };
-    return { status: result.status, value: command };
+    return OK(command);
 }

@@ -1,6 +1,9 @@
 import * as cmd from "./normalCommand";
 import {
+    OK,
     ParseStatus,
+    PENDING,
+    UNKNOWN,
     type CommandParseResult,
     type MotionParseResult,
     type ParserContext,
@@ -42,36 +45,45 @@ export function parseNormalInput(input: readonly string[]): CommandParseResult {
             count: null,
             motion: ZERO_MOTION,
         };
-        return { status: ParseStatus.OK, value: command };
+        return OK(command);
     }
     const count = toCount(countStr);
 
     const first = ctx.read();
     if (!first) {
         // 数値以外の入力がない状態
-        return { status: ParseStatus.PENDING };
+        return PENDING;
     }
 
     function parseMotion(): MotionParseResult {
         const ch = ctx.next();
-        if (!ch) return { status: ParseStatus.UNKNOWN };
+        if (!ch) return UNKNOWN;
 
         if (cmd.isFindCommand(ch)) {
             const arg = ctx.next();
-            if (!arg) return { status: ParseStatus.PENDING };
-            return { status: ParseStatus.OK, value: { type: MotionType.FIND, name: ch, arg } };
+            if (!arg) return PENDING;
+            const motion: MotionContext = {
+                type: MotionType.FIND,
+                name: ch,
+                arg,
+            };
+            return OK(motion);
         }
 
         if (cmd.isMotion(ch)) {
             const name = MOTION_KEY_TO_NAME[ch];
-            return { status: ParseStatus.OK, value: { type: MotionType.CHAR, name } };
+            const motion: MotionContext = {
+                type: MotionType.CHAR,
+                name,
+            };
+            return OK(motion);
         }
 
         if (cmd.isTextObjectModifier(ch)) {
             const char = ctx.read();
             if (!char) {
                 // "da"で入力を待っているような状態
-                return { status: ParseStatus.PENDING };
+                return PENDING;
             }
             if (cmd.isTextObjectType(char)) {
                 const motion: MotionContext = {
@@ -79,26 +91,26 @@ export function parseNormalInput(input: readonly string[]): CommandParseResult {
                     inner: ch === "i",
                     name: char,
                 };
-                return { status: ParseStatus.OK, value: motion };
+                return OK(motion);
             } else {
-                return { status: ParseStatus.UNKNOWN };
+                return UNKNOWN;
             }
         }
 
-        return { status: ParseStatus.UNKNOWN };
+        return UNKNOWN;
     }
 
     if (isNoArgCmd(first)) {
         const command = NO_ARG_CMD_MAP[first](count);
-        return { status: ParseStatus.OK, value: command };
+        return OK(command);
     }
 
     if (isWithArgCmd(first)) {
         ctx.next();
         const arg = ctx.read();
-        if (!arg) return { status: ParseStatus.PENDING };
+        if (!arg) return PENDING;
         const command = WITH_ARG_CMD_MAP[first](count, arg)
-        return { status: ParseStatus.OK, value: command };
+        return OK(command);
     }
 
     if (cmd.isOperator(first)) {
@@ -107,9 +119,7 @@ export function parseNormalInput(input: readonly string[]): CommandParseResult {
         const operatorName = OPERATOR_KEY_TO_NAME[first];
 
         const afterOperator = ctx.read();
-        if (!afterOperator) {
-            return { status: ParseStatus.PENDING };
-        }
+        if (!afterOperator) return PENDING;
 
         const innerCountStr = ctx.eatDigits();
         if (innerCountStr === "0") {
@@ -120,14 +130,13 @@ export function parseNormalInput(input: readonly string[]): CommandParseResult {
                 innerCount: null,
                 motion: ZERO_MOTION,
             };
-            return { status: ParseStatus.OK, value: command };
+            return OK(command);
         }
         const innerCount = toCount(innerCountStr);
 
         const afterInnerCount = ctx.read();
-        if (!afterInnerCount) {
-            return { status: ParseStatus.PENDING };
-        }
+        if (!afterInnerCount) return PENDING;
+
         // operatorが同じ2文字の場合は特殊処理。 ex: dd, cc
         if (afterInnerCount === operator || afterInnerCount === "_") {
             const motion: MotionContext = { type: MotionType.LINEWISE };
@@ -138,7 +147,7 @@ export function parseNormalInput(input: readonly string[]): CommandParseResult {
                 innerCount,
                 motion,
             };
-            return { status: ParseStatus.OK, value: command };
+            return OK(command);
         }
 
         const result = parseMotion();
@@ -153,15 +162,13 @@ export function parseNormalInput(input: readonly string[]): CommandParseResult {
             innerCount,
             motion: result.value,
         };
-        return { status: ParseStatus.OK, value: command };
+        return OK(command);
     }
 
     if (first === "g") {
         ctx.next(); // firstを消費する
 
-        if (!ctx.read()) { // gの次の文字がないなら保留
-            return { status: ParseStatus.PENDING };
-        }
+        if (!ctx.read()) return PENDING;
 
         const second = ctx.next();
 
@@ -172,13 +179,11 @@ export function parseNormalInput(input: readonly string[]): CommandParseResult {
                 count,
                 motion: { type: MotionType.CHAR, name: MotionName.firstLine },
             };
-            return { status: ParseStatus.OK, value: command };
+            return OK(command);
         } else if (second === "u" || second === "U") {
             // {count}gu{count}{motion}: motionの範囲を小文字に変換する, gugu / guuなら現在行を小文字にする
             // {count}gU{count}{motion}: motionの範囲を大文字に変換する, gUgU / gUUなら現在行を大文字にする
-            if (!ctx.read()) {
-                return { status: ParseStatus.PENDING };
-            }
+            if (!ctx.read()) return PENDING;
 
             const innerCountStr = ctx.eatDigits();
             if (innerCountStr === "0") {
@@ -188,14 +193,12 @@ export function parseNormalInput(input: readonly string[]): CommandParseResult {
                     innerCount: null,
                     motion: ZERO_MOTION,
                 };
-                return { status: ParseStatus.OK, value: command };
+                return OK(command);
             }
             const innerCount = toCount(innerCountStr);
 
             const afterInnerCount = ctx.read();
-            if (!afterInnerCount) {
-                return { status: ParseStatus.PENDING };
-            }
+            if (!afterInnerCount) return PENDING;
 
             const type = (second === "u") ? CommandType.TO_LOWER : CommandType.TO_UPPER;
             const third = ctx.read();
@@ -203,7 +206,7 @@ export function parseNormalInput(input: readonly string[]): CommandParseResult {
                 ctx.next();
                 // gug / gUg の状態
                 const fourth = ctx.read();
-                if (!fourth) return { status: ParseStatus.PENDING };
+                if (!fourth) return PENDING;
                 if (fourth === "g") {
                     // gugg / gUgg の状態
                     const command: NormalCmdContext = {
@@ -212,7 +215,7 @@ export function parseNormalInput(input: readonly string[]): CommandParseResult {
                         innerCount,
                         motion: { type: "char", name: MotionName.firstLine },
                     };
-                    return { status: ParseStatus.OK, value: command };
+                    return OK(command);
                 } else if (second === fourth) {
                     // gugu / gUgU の状態
                     const command: NormalCmdContext = {
@@ -221,9 +224,9 @@ export function parseNormalInput(input: readonly string[]): CommandParseResult {
                         innerCount,
                         motion: { type: "linewise" }
                     };
-                    return { status: ParseStatus.OK, value: command };
+                    return OK(command);
                 }
-                return { status: ParseStatus.UNKNOWN };
+                return UNKNOWN;
             } else if (second === third) {
                 // guu / gUU の状態
                 const command: NormalCmdContext = {
@@ -232,7 +235,7 @@ export function parseNormalInput(input: readonly string[]): CommandParseResult {
                     innerCount,
                     motion: { type: "linewise" },
                 };
-                return { status: ParseStatus.OK, value: command };
+                return OK(command);
             }
 
             const motionResult = parseMotion();
@@ -245,7 +248,7 @@ export function parseNormalInput(input: readonly string[]): CommandParseResult {
                 innerCount,
                 motion: motionResult.value,
             };
-            return { status: ParseStatus.OK, value: command };
+            return OK(command);
         }
     }
 
@@ -255,5 +258,5 @@ export function parseNormalInput(input: readonly string[]): CommandParseResult {
         return { status: result.status };
     }
     const command: NormalCmdContext = { type: CommandType.MOTION, count, motion: result.value };
-    return { status: result.status, value: command };
+    return OK(command);
 }
