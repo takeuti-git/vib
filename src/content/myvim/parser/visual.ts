@@ -6,7 +6,7 @@ import { MotionType, type MotionContext } from "./motionType";
 import { ParseStatus, type MotionParseResult, type ParserContext, type VisualCmdParseResult } from "./parseStatus";
 import { VisualCmdType, type VisualCmdContext } from "./visualType";
 
-export function parseVisualCommand(input: readonly string[]): VisualCmdParseResult {
+export function parseVisualInput(input: readonly string[]): VisualCmdParseResult {
     let i = 0;
     const len = input.length;
 

@@ -12,7 +12,7 @@ import {
     moveTail,
     moveBackward,
 } from "./myvim/motion";
-import { parseCommand } from "./myvim/parser";
+import { parseNormalInput, parseVisualInput } from "./myvim/parser";
 import type { Motion, Operator } from "./myvim/parser/command";
 import { readClipboard, writeClipboard } from "./clipboard";
 import {
@@ -22,7 +22,6 @@ import {
 } from "./myvim/findCommand";
 import { createDiff, toRange } from "./undo";
 import type { MotionContext } from "./myvim/parser/motionType";
-import { parseVisualCommand } from "./myvim/parser/visual";
 import type { ExclusivePos, InclusivePos, InclusiveRange, TextRange } from "./types/motion";
 import { InsertCommand } from "./myvim/insert";
 import { ScrollCommand } from "./myvim/scroll";
@@ -895,7 +894,7 @@ export class Editor {
      * - 2: exists but incomplete
      * */
     private vi_executeNormal(input: readonly string[]): 0 | 1 | 2 {
-        const parseResult = parseCommand(input);
+        const parseResult = parseNormalInput(input);
         if (parseResult.status === "unknown") {
             console.log("its unknown");
             return 1;
@@ -1066,7 +1065,7 @@ export class Editor {
     private vi_executeVisual(input: readonly string[]): 0 | 1 | 2 {
         if (this.state.vi_state.mode !== "visual") throw new Error("vi_state.mode should be 'visual'");
         const vi_state = this.state.vi_state; // クロージャで使うためnarrow後にローカル変数にバインド
-        const parseResult = parseVisualCommand(input);
+        const parseResult = parseVisualInput(input);
 
         if (parseResult.status === "unknown") {
             console.log("its unknown");
