@@ -4,7 +4,7 @@ import type { VisualCmdContext } from "../visual";
 
 type ParseStatus = (typeof ParseStatus)[keyof typeof ParseStatus];
 export const ParseStatus = {
-    OK: "ok",
+    OK:      "ok",
     PENDING: "pending",
     UNKNOWN: "unknown",
 } as const;
@@ -21,10 +21,10 @@ type ParseResult<T> = (
     | { status: typeof ParseStatus.UNKNOWN; }
 );
 
-export type MotionParseResult = ParseResult<MotionContext>;
-export type CommandParseResult = ParseResult<NormalCmdContext>;
+export type MotionParseResult    = ParseResult<MotionContext>;
+export type NormalCmdParseResult = ParseResult<NormalCmdContext>;
 export type VisualCmdParseResult = ParseResult<VisualCmdContext>;
 
 export const PENDING = { status: ParseStatus.PENDING } as const;
 export const UNKNOWN = { status: ParseStatus.UNKNOWN } as const;
-export const OK = <T>(value: T) => ({ status: ParseStatus.OK, value } as const);
+export const OK      = <T>(value: T) => ({ status: ParseStatus.OK, value } as const);

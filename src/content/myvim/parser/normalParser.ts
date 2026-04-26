@@ -4,7 +4,7 @@ import {
     ParseStatus,
     PENDING,
     UNKNOWN,
-    type CommandParseResult,
+    type NormalCmdParseResult,
     type MotionParseResult,
     type ParserContext,
 } from "./parseStatus";
@@ -23,7 +23,7 @@ const ZERO_MOTION: MotionContext = {
 /**
  * - status: unknown | pending | ok
  **/
-export function parseNormalInput(input: readonly string[]): CommandParseResult {
+export function parseNormalInput(input: readonly string[]): NormalCmdParseResult {
     let i = 0;
     const len = input.length;
 
