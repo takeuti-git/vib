@@ -1,6 +1,7 @@
 import type { Count } from "./count";
-import type { GoInsertCommand, Operator } from "./command";
+import type { Operator } from "./command";
 import type { MotionContext } from "./motionType";
+import type { InsertCommand } from "../insert";
 
 // prettier-ignore
 export const CommandType = {
@@ -26,7 +27,7 @@ type CommandType = (typeof CommandType)[keyof typeof CommandType];
 
 // prettier-ignore
 export type CommandContext = { count: Count } & (
-    | { type: typeof CommandType.GO_INSERT; command: GoInsertCommand }
+    | { type: typeof CommandType.GO_INSERT; command: InsertCommand; }
     | { type: typeof CommandType.GO_REPLACE; }
     | { type: typeof CommandType.GO_VISUAL; linewise: boolean; }
     | { type: typeof CommandType.OPERATOR; operator: Operator; innerCount: Count; motion: MotionContext; }

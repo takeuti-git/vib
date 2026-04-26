@@ -13,7 +13,7 @@ import {
     moveBackward,
 } from "./myvim/motion";
 import { parseCommand } from "./myvim/parser";
-import type { GoInsertCommand, Motion, Operator } from "./myvim/parser/command";
+import type { Motion, Operator } from "./myvim/parser/command";
 import { readClipboard, writeClipboard } from "./clipboard";
 import {
     FIND_COMMAND_OPTIONS,
@@ -21,10 +21,11 @@ import {
     type FindMoveOptions,
 } from "./myvim/findCommand";
 import { createDiff, toRange } from "./undo";
-import type { ScrollKind } from "./myvim/parser/commandType";
+import { type ScrollKind } from "./myvim/parser/commandType";
 import type { MotionContext } from "./myvim/parser/motionType";
 import { parseVisualCommand } from "./myvim/parser/visual";
 import type { ExclusivePos, InclusivePos, InclusiveRange, TextRange } from "./types/motion";
+import { InsertCommand } from "./myvim/insert";
 
 /** 角括弧の始まりの文字コード */
 const OPENING_BRACKET = 0x5b;
@@ -528,17 +529,25 @@ export class Editor {
         },
     };
 
-    private insertMap: Record<GoInsertCommand, () => void> = {
-        i: () => {
+    private insertMap: Record<InsertCommand, () => void> = {
+        "INSERT": () => {
             /* ここでは何もしない */
         },
-        a: () => {
+        "APPEND": () => {
             /* ここでは何もしない */
         },
-        I: () => this.moveCursorToFirstNonWhitespace(),
-        A: () => this.moveCursorToLast(),
-        o: () => this.insertNewLineNext(),
-        O: () => this.insertNewLineCurrent(),
+        "INSERT_FIRST": () => {
+            this.moveCursorToFirstNonWhitespace();
+        },
+        "APPEND_LAST": () => {
+            this.moveCursorToLast();
+        },
+        "NEXTLINE": () => {
+            this.insertNewLineNext();
+        },
+        "CURRENTLINE": () => {
+            this.insertNewLineCurrent();
+        },
     };
 
     private vi_executeMotion(motion: MotionContext, count: number): void {
@@ -561,12 +570,16 @@ export class Editor {
         }
     }
 
-    private vi_executeInsertImmediately(insertKind: GoInsertCommand, count: number): void {
+    private vi_executeInsertImmediately(insertKind: InsertCommand, count: number): void {
         this.insertMap[insertKind]();
-        if ((insertKind === "a" || insertKind === "A") && !this.isAtLineTail()) {
+        if (
+            (insertKind === InsertCommand.APPEND || insertKind === InsertCommand.APPEND_LAST) && !this.isAtLineTail()) {
             this.moveCursor(MOVE_KEYS.RIGHT);
         }
-        if (count >= 2 && (insertKind === "o" || insertKind === "O")) {
+        if (
+            count >= 2 &&
+            (insertKind === InsertCommand.NEXTLINE || insertKind === InsertCommand.CURRENTLINE)
+        ) {
             for (let i = 0; i < count; i++) {
                 this.vi_insertBuffer(this.state.vi_insertBuf);
                 if (i !== count -1) this.insertNewLine();
@@ -582,12 +595,15 @@ export class Editor {
         this.syncElementValue();
     }
 
-    private vi_executeInsert(insertKind: GoInsertCommand, count: number): void {
+    private vi_executeInsert(insertKind: InsertCommand, count: number): void {
         this.insertMap[insertKind]();
 
         this.disableSaveDiff = true; // insertへの移行入力は差分として扱わない
 
-        if ((insertKind === "a" || insertKind === "A") && !this.isAtLineTail()) {
+        if (
+            (insertKind === InsertCommand.APPEND || insertKind === InsertCommand.APPEND_LAST) &&
+            !this.isAtLineTail()
+        ) {
             this.moveCursor(MOVE_KEYS.RIGHT);
         }
         this.vi_goInsert();
@@ -598,7 +614,10 @@ export class Editor {
             });
             // this.state.vi_insertResolveがどこかで呼び出されるまで以下を実行しない
 
-            if (count >= 2 && (insertKind === "o" || insertKind === "O")) {
+            if (
+                count >= 2 &&
+                (insertKind === InsertCommand.NEXTLINE || insertKind === InsertCommand.CURRENTLINE)
+            ) {
                 const insertBufLines = [Editor.VI_ENTER, ...this.state.vi_insertBuf];
                 this.moveCursorRight(); // 行末を1文字超えた地点に移動する
                 for (let i = 0; i < count - 1; i++) {

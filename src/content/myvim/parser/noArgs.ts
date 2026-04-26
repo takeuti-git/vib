@@ -1,3 +1,4 @@
+import { InsertCommand } from "../insert";
 import * as cmd from "./command";
 import { CommandType, type CommandContext } from "./commandType";
 import type { Count } from "./count";
@@ -27,32 +28,32 @@ export const NO_ARG_CMD_MAP: Record<NoArgsCommands, (count: Count) => CommandCon
     "i": (count) => ({
         type: CommandType.GO_INSERT,
         count,
-        command: "i",
+        command: InsertCommand.INSERT,
     }),
     "a": (count) => ({
         type: CommandType.GO_INSERT,
         count,
-        command: "a",
+        command: InsertCommand.APPEND,
     }),
     "I": (count) => ({
         type: CommandType.GO_INSERT,
         count,
-        command: "I",
+        command: InsertCommand.INSERT_FIRST,
     }),
     "A": (count) => ({
         type: CommandType.GO_INSERT,
         count,
-        command: "A",
+        command: InsertCommand.APPEND_LAST,
     }),
     "o": (count) => ({
         type: CommandType.GO_INSERT,
         count,
-        command: "o",
+        command: InsertCommand.NEXTLINE,
     }),
     "O": (count) => ({
         type: CommandType.GO_INSERT,
         count,
-        command: "O",
+        command: InsertCommand.CURRENTLINE,
     }),
 
     // GO_VISUAL
