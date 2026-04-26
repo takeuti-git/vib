@@ -10,8 +10,8 @@ import {
     type ParserContext,
     type VisualCmdParseResult,
 } from "./parseStatus";
-import { CommandType, type NormalCmdContext } from "../normal";
-import { MOTION_KEY_TO_NAME, MotionName, MotionType, type MotionContext } from "../motion";
+import { CommandType } from "../normal";
+import { MOTION_KEY_TO_NAME, MotionName, MotionType } from "../motion";
 import { toCount } from "./count";
 
 export function parseVisualInput(input: readonly string[]): VisualCmdParseResult {
@@ -31,12 +31,11 @@ export function parseVisualInput(input: readonly string[]): VisualCmdParseResult
 
     const countStr = ctx.eatDigits();
     if (countStr === "0") {
-        const command: NormalCmdContext = {
+        return OK({
             type: CommandType.MOTION,
             count: null,
             motion: { type: MotionType.CHAR, name: MotionName.first },
-        };
-        return OK(command);
+        });
     }
     const count = toCount(countStr);
 
@@ -50,50 +49,44 @@ export function parseVisualInput(input: readonly string[]): VisualCmdParseResult
         if (cmd.isFindCommand(ch)) {
             const arg = ctx.next();
             if (!arg) return PENDING;
-            const motion: MotionContext = {
+            return OK({
                 type: MotionType.FIND,
                 name: ch,
                 arg,
-            };
-            return OK(motion);
+            });
         }
 
         if (ch === "g") {
+            if (!ctx.read()) return PENDING;
+
             if (ctx.read() === "g") {
                 ctx.next();
-                const motion: MotionContext = {
+                return OK({
                     type: MotionType.CHAR,
                     name: MotionName.firstLine,
-                };
-                return OK(motion);
+                });
             }
-            return PENDING; // g単体は未確定
         }
 
         if (cmd.isMotion(ch)) {
             const name = MOTION_KEY_TO_NAME[ch];
-            const motion: MotionContext = {
+            return OK({
                 type: MotionType.CHAR,
                 name,
-            };
-            return OK(motion);
+            });
         }
 
         if (cmd.isTextObjectModifier(ch)) {
             const char = ctx.read();
-            if (!char) {
-                // "da"で入力を待っているような状態
-                return PENDING;
-            }
+            if (!char) return PENDING;
             ctx.next();
-            if (cmd.isTextObjectType(char)) {
-                const motion: MotionContext = {
-                    type: MotionType.TEXTOBJ,
-                    inner: ch === "i",
-                    name: char,
-                };
-                return OK(motion);
-            }
+
+            if (!cmd.isTextObjectType(char)) return UNKNOWN;
+            return OK({
+                type: MotionType.TEXTOBJ,
+                inner: ch === "i",
+                name: char,
+            });
         }
 
         return UNKNOWN;
@@ -122,6 +115,5 @@ export function parseVisualInput(input: readonly string[]): VisualCmdParseResult
     if (result.status !== ParseStatus.OK) {
         return { status: result.status };
     }
-    const command: NormalCmdContext = { type: CommandType.MOTION, count, motion: result.value };
-    return OK(command);
+    return OK({ type: CommandType.MOTION, count, motion: result.value });
 }

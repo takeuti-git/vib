@@ -12,7 +12,7 @@ import { isNoArgCmd, isWithArgCmd, NO_ARG_CMD_MAP, WITH_ARG_CMD_MAP } from "./no
 import { isDigitChar } from "../utils";
 import { toCount } from "./count";
 import { MOTION_KEY_TO_NAME, MotionName, MotionType, type MotionContext } from "../motion";
-import { CommandType, type NormalCmdContext } from "../normal";
+import { CommandType } from "../normal";
 import { OPERATOR_KEY_TO_NAME } from "../operator";
 
 const ZERO_MOTION: MotionContext = {
@@ -31,8 +31,8 @@ export function parseNormalInput(input: readonly string[]): CommandParseResult {
         read: () => (i < len ? input[i] : ""),
         next: () => (i < len ? input[i++] : ""),
         eatDigits: () => {
-            let s = "";
             if (ctx.read() === "0") return ctx.next() as string;
+            let s = "";
             while (isDigitChar(ctx.read() as string)) s += ctx.next();
             return s;
         },
@@ -40,20 +40,16 @@ export function parseNormalInput(input: readonly string[]): CommandParseResult {
 
     const countStr = ctx.eatDigits();
     if (countStr === "0") {
-        const command: NormalCmdContext = {
+        return OK({
             type: CommandType.MOTION,
             count: null,
             motion: ZERO_MOTION,
-        };
-        return OK(command);
+        });
     }
     const count = toCount(countStr);
 
     const first = ctx.read();
-    if (!first) {
-        // 数値以外の入力がない状態
-        return PENDING;
-    }
+    if (!first) return PENDING;
 
     function parseMotion(): MotionParseResult {
         const ch = ctx.next();
@@ -62,39 +58,30 @@ export function parseNormalInput(input: readonly string[]): CommandParseResult {
         if (cmd.isFindCommand(ch)) {
             const arg = ctx.next();
             if (!arg) return PENDING;
-            const motion: MotionContext = {
+            return OK({
                 type: MotionType.FIND,
                 name: ch,
                 arg,
-            };
-            return OK(motion);
+            });
         }
 
         if (cmd.isMotion(ch)) {
             const name = MOTION_KEY_TO_NAME[ch];
-            const motion: MotionContext = {
+            return OK({
                 type: MotionType.CHAR,
                 name,
-            };
-            return OK(motion);
+            });
         }
 
         if (cmd.isTextObjectModifier(ch)) {
             const char = ctx.read();
-            if (!char) {
-                // "da"で入力を待っているような状態
-                return PENDING;
-            }
-            if (cmd.isTextObjectType(char)) {
-                const motion: MotionContext = {
-                    type: MotionType.TEXTOBJ,
-                    inner: ch === "i",
-                    name: char,
-                };
-                return OK(motion);
-            } else {
-                return UNKNOWN;
-            }
+            if (!char) return PENDING;
+            if (!cmd.isTextObjectType(char)) return UNKNOWN;
+            return OK({
+                type: MotionType.TEXTOBJ,
+                inner: ch === "i",
+                name: char,
+            });
         }
 
         return UNKNOWN;
@@ -123,31 +110,26 @@ export function parseNormalInput(input: readonly string[]): CommandParseResult {
 
         const innerCountStr = ctx.eatDigits();
         if (innerCountStr === "0") {
-            const command: NormalCmdContext = {
+            return OK({
                 type: CommandType.OPERATOR,
                 count,
                 operator: operatorName,
                 innerCount: null,
                 motion: ZERO_MOTION,
-            };
-            return OK(command);
+            });
         }
         const innerCount = toCount(innerCountStr);
 
         const afterInnerCount = ctx.read();
         if (!afterInnerCount) return PENDING;
 
+        const cmd = (motion: MotionContext) => OK({
+            type: CommandType.OPERATOR, count, innerCount, operator: operatorName, motion
+        });
+
         // operatorが同じ2文字の場合は特殊処理。 ex: dd, cc
         if (afterInnerCount === operator || afterInnerCount === "_") {
-            const motion: MotionContext = { type: MotionType.LINEWISE };
-            const command: NormalCmdContext = {
-                type: CommandType.OPERATOR,
-                count,
-                operator: operatorName,
-                innerCount,
-                motion,
-            };
-            return OK(command);
+            return cmd({ type: MotionType.LINEWISE });
         }
 
         const result = parseMotion();
@@ -155,14 +137,7 @@ export function parseNormalInput(input: readonly string[]): CommandParseResult {
             return { status: result.status };
         }
 
-        const command: NormalCmdContext = {
-            type: CommandType.OPERATOR,
-            count,
-            operator: operatorName,
-            innerCount,
-            motion: result.value,
-        };
-        return OK(command);
+        return cmd(result.value);
     }
 
     if (first === "g") {
@@ -174,82 +149,60 @@ export function parseNormalInput(input: readonly string[]): CommandParseResult {
 
         if (second === "g") {
             // 最初の行に移動する
-            const command: NormalCmdContext = {
+            return OK({
                 type: CommandType.MOTION,
                 count,
                 motion: { type: MotionType.CHAR, name: MotionName.firstLine },
-            };
-            return OK(command);
-        } else if (second === "u" || second === "U") {
-            // {count}gu{count}{motion}: motionの範囲を小文字に変換する, gugu / guuなら現在行を小文字にする
-            // {count}gU{count}{motion}: motionの範囲を大文字に変換する, gUgU / gUUなら現在行を大文字にする
-            if (!ctx.read()) return PENDING;
-
-            const innerCountStr = ctx.eatDigits();
-            if (innerCountStr === "0") {
-                const command: NormalCmdContext = {
-                    type: CommandType.TO_LOWER,
-                    count,
-                    innerCount: null,
-                    motion: ZERO_MOTION,
-                };
-                return OK(command);
-            }
-            const innerCount = toCount(innerCountStr);
-
-            const afterInnerCount = ctx.read();
-            if (!afterInnerCount) return PENDING;
-
-            const type = (second === "u") ? CommandType.TO_LOWER : CommandType.TO_UPPER;
-            const third = ctx.read();
-            if (third === "g") {
-                ctx.next();
-                // gug / gUg の状態
-                const fourth = ctx.read();
-                if (!fourth) return PENDING;
-                if (fourth === "g") {
-                    // gugg / gUgg の状態
-                    const command: NormalCmdContext = {
-                        type,
-                        count,
-                        innerCount,
-                        motion: { type: "char", name: MotionName.firstLine },
-                    };
-                    return OK(command);
-                } else if (second === fourth) {
-                    // gugu / gUgU の状態
-                    const command: NormalCmdContext = {
-                        type,
-                        count,
-                        innerCount,
-                        motion: { type: "linewise" }
-                    };
-                    return OK(command);
-                }
-                return UNKNOWN;
-            } else if (second === third) {
-                // guu / gUU の状態
-                const command: NormalCmdContext = {
-                    type,
-                    count,
-                    innerCount,
-                    motion: { type: "linewise" },
-                };
-                return OK(command);
-            }
-
-            const motionResult = parseMotion();
-            if (motionResult.status !== ParseStatus.OK) {
-                return { status: motionResult.status };
-            }
-            const command: NormalCmdContext = {
-                type,
-                count,
-                innerCount,
-                motion: motionResult.value,
-            };
-            return OK(command);
+            });
         }
+        if (second !== "u" && second !== "U") return UNKNOWN;
+
+        if (!ctx.read()) return PENDING;
+        // {count}gu{count}{motion}: motionの範囲を小文字に変換する, gugu / guuなら現在行を小文字にする
+        // {count}gU{count}{motion}: motionの範囲を大文字に変換する, gUgU / gUUなら現在行を大文字にする
+
+        const type = (second === "u") ? CommandType.TO_LOWER : CommandType.TO_UPPER;
+
+        const innerCountStr = ctx.eatDigits();
+        if (innerCountStr === "0") return OK({ type, count, innerCount: null, motion: ZERO_MOTION });
+        const innerCount = toCount(innerCountStr);
+
+        if (!ctx.read()) return PENDING;
+
+        // 以降はmotionだけが変化する
+        const cmd = (motion: MotionContext) => OK({ type, count, innerCount, motion });
+
+        const third = ctx.read();
+
+        if (second === third || third === "_") {
+            // guu / gUU / gu_ / gU_ の状態
+            return cmd({ type: MotionType.LINEWISE });
+        }
+
+        if (third === "g") {
+            ctx.next();
+            // gug / gUg の状態
+            const fourth = ctx.read();
+            if (!fourth) return PENDING;
+
+            if (second === fourth) {
+                // gugu / gUgU の状態
+                return cmd({ type: MotionType.LINEWISE });
+            }
+
+            if (fourth === "g") {
+                // gugg / gUgg の状態
+                return cmd({ type: MotionType.CHAR, name: MotionName.firstLine });
+
+            }
+            return UNKNOWN;
+        }
+
+        const result = parseMotion();
+        if (result.status !== ParseStatus.OK) {
+            return { status: result.status };
+        }
+        return cmd(result.value);
     }
 
     // 以上の処理のどれにも当てはまらないときは移動入力として解析する
@@ -257,6 +210,5 @@ export function parseNormalInput(input: readonly string[]): CommandParseResult {
     if (result.status !== ParseStatus.OK) {
         return { status: result.status };
     }
-    const command: NormalCmdContext = { type: CommandType.MOTION, count, motion: result.value };
-    return OK(command);
+    return OK({ type: CommandType.MOTION, count, motion: result.value });
 }
