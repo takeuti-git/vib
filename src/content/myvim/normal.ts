@@ -5,7 +5,7 @@ import type { OperatorName } from "./operator";
 import type { Count } from "./parser/count";
 
 // prettier-ignore
-export const CommandType = {
+export const NormalCmdType = {
     OPERATOR:    "operator",
     GO_INSERT:   "insert",
     MOTION:      "motion",
@@ -24,26 +24,26 @@ export const CommandType = {
     TO_UPPER:    "to_upper",
 } as const;
 
-type CommandType = (typeof CommandType)[keyof typeof CommandType];
+type NormalCmdType = (typeof NormalCmdType)[keyof typeof NormalCmdType];
 
 // prettier-ignore
 export type NormalCmdContext = { count: Count } & (
-    | { type: typeof CommandType.GO_INSERT; command: InsertCommand; }
-    | { type: typeof CommandType.GO_REPLACE; }
-    | { type: typeof CommandType.GO_VISUAL; linewise: boolean; }
-    | { type: typeof CommandType.OPERATOR; operator: OperatorName; innerCount: Count; motion: MotionContext; }
-    | { type: typeof CommandType.MOTION; motion: MotionContext }
-    | { type: typeof CommandType.PUT; position: PutPosition }
-    | { type: typeof CommandType.REPLACE; arg: string; }
-    | { type: typeof CommandType.REPEAT_OPE; }
-    | { type: typeof CommandType.REPEAT_MOT; reverse: boolean }
-    | { type: typeof CommandType.JOIN; }
-    | { type: typeof CommandType.UNDO; }
-    | { type: typeof CommandType.REDO; }
-    | { type: typeof CommandType.SCROLL; kind: ScrollCommand }
-    | { type: typeof CommandType.SWITCH_CASE; }
-    | { type: typeof CommandType.TO_LOWER; innerCount: Count, motion: MotionContext; }
-    | { type: typeof CommandType.TO_UPPER; innerCount: Count, motion: MotionContext; }
+    | { type: typeof NormalCmdType.GO_INSERT; command: InsertCommand; }
+    | { type: typeof NormalCmdType.GO_REPLACE; }
+    | { type: typeof NormalCmdType.GO_VISUAL; linewise: boolean; }
+    | { type: typeof NormalCmdType.OPERATOR; operator: OperatorName; innerCount: Count; motion: MotionContext; }
+    | { type: typeof NormalCmdType.MOTION; motion: MotionContext }
+    | { type: typeof NormalCmdType.PUT; position: PutPosition }
+    | { type: typeof NormalCmdType.REPLACE; arg: string; }
+    | { type: typeof NormalCmdType.REPEAT_OPE; }
+    | { type: typeof NormalCmdType.REPEAT_MOT; reverse: boolean }
+    | { type: typeof NormalCmdType.JOIN; }
+    | { type: typeof NormalCmdType.UNDO; }
+    | { type: typeof NormalCmdType.REDO; }
+    | { type: typeof NormalCmdType.SCROLL; kind: ScrollCommand }
+    | { type: typeof NormalCmdType.SWITCH_CASE; }
+    | { type: typeof NormalCmdType.TO_LOWER; innerCount: Count, motion: MotionContext; }
+    | { type: typeof NormalCmdType.TO_UPPER; innerCount: Count, motion: MotionContext; }
 );
 
 type PutPosition = "before" | "after";

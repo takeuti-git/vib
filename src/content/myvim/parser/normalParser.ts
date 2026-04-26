@@ -12,7 +12,7 @@ import { isNoArgCmd, isWithArgCmd, NO_ARG_CMD_MAP, WITH_ARG_CMD_MAP } from "./no
 import { isDigitChar } from "../utils";
 import { toCount } from "./count";
 import { MOTION_KEY_TO_NAME, MotionName, MotionType, type MotionContext } from "../motion";
-import { CommandType } from "../normal";
+import { NormalCmdType } from "../normal";
 import { OPERATOR_KEY_TO_NAME } from "../operator";
 
 const ZERO_MOTION: MotionContext = {
@@ -41,7 +41,7 @@ export function parseNormalInput(input: readonly string[]): NormalCmdParseResult
     const countStr = ctx.eatDigits();
     if (countStr === "0") {
         return OK({
-            type: CommandType.MOTION,
+            type: NormalCmdType.MOTION,
             count: null,
             motion: ZERO_MOTION,
         });
@@ -111,7 +111,7 @@ export function parseNormalInput(input: readonly string[]): NormalCmdParseResult
         const innerCountStr = ctx.eatDigits();
         if (innerCountStr === "0") {
             return OK({
-                type: CommandType.OPERATOR,
+                type: NormalCmdType.OPERATOR,
                 count,
                 operator: operatorName,
                 innerCount: null,
@@ -124,7 +124,7 @@ export function parseNormalInput(input: readonly string[]): NormalCmdParseResult
         if (!afterInnerCount) return PENDING;
 
         const cmd = (motion: MotionContext) => OK({
-            type: CommandType.OPERATOR, count, innerCount, operator: operatorName, motion
+            type: NormalCmdType.OPERATOR, count, innerCount, operator: operatorName, motion
         });
 
         // operatorが同じ2文字の場合は特殊処理。 ex: dd, cc
@@ -150,7 +150,7 @@ export function parseNormalInput(input: readonly string[]): NormalCmdParseResult
         if (second === "g") {
             // 最初の行に移動する
             return OK({
-                type: CommandType.MOTION,
+                type: NormalCmdType.MOTION,
                 count,
                 motion: { type: MotionType.CHAR, name: MotionName.firstLine },
             });
@@ -161,7 +161,7 @@ export function parseNormalInput(input: readonly string[]): NormalCmdParseResult
         // {count}gu{count}{motion}: motionの範囲を小文字に変換する, gugu / guuなら現在行を小文字にする
         // {count}gU{count}{motion}: motionの範囲を大文字に変換する, gUgU / gUUなら現在行を大文字にする
 
-        const type = (second === "u") ? CommandType.TO_LOWER : CommandType.TO_UPPER;
+        const type = (second === "u") ? NormalCmdType.TO_LOWER : NormalCmdType.TO_UPPER;
 
         const innerCountStr = ctx.eatDigits();
         if (innerCountStr === "0") return OK({ type, count, innerCount: null, motion: ZERO_MOTION });
@@ -210,5 +210,5 @@ export function parseNormalInput(input: readonly string[]): NormalCmdParseResult
     if (result.status !== ParseStatus.OK) {
         return { status: result.status };
     }
-    return OK({ type: CommandType.MOTION, count, motion: result.value });
+    return OK({ type: NormalCmdType.MOTION, count, motion: result.value });
 }

@@ -1,6 +1,6 @@
 import { InsertCommand } from "../insert";
 import { MotionName, MotionType } from "../motion";
-import { CommandType, type NormalCmdContext } from "../normal";
+import { NormalCmdType, type NormalCmdContext } from "../normal";
 import { OperatorName } from "../operator";
 import { ScrollCommand } from "../scroll";
 import * as cmd from "./normalCommand";
@@ -28,149 +28,149 @@ export function isNoArgCmd(key: string): key is keyof typeof NO_ARG_CMD_MAP {
 export const NO_ARG_CMD_MAP: Record<NoArgsCommands, (count: Count) => NormalCmdContext> = {
     // GO_INSERT
     "i": (count) => ({
-        type: CommandType.GO_INSERT,
+        type: NormalCmdType.GO_INSERT,
         count,
         command: InsertCommand.INSERT,
     }),
     "a": (count) => ({
-        type: CommandType.GO_INSERT,
+        type: NormalCmdType.GO_INSERT,
         count,
         command: InsertCommand.APPEND,
     }),
     "I": (count) => ({
-        type: CommandType.GO_INSERT,
+        type: NormalCmdType.GO_INSERT,
         count,
         command: InsertCommand.INSERT_FIRST,
     }),
     "A": (count) => ({
-        type: CommandType.GO_INSERT,
+        type: NormalCmdType.GO_INSERT,
         count,
         command: InsertCommand.APPEND_LAST,
     }),
     "o": (count) => ({
-        type: CommandType.GO_INSERT,
+        type: NormalCmdType.GO_INSERT,
         count,
         command: InsertCommand.NEXTLINE,
     }),
     "O": (count) => ({
-        type: CommandType.GO_INSERT,
+        type: NormalCmdType.GO_INSERT,
         count,
         command: InsertCommand.CURRENTLINE,
     }),
 
     // GO_VISUAL
     "v": (count) => ({
-        type: CommandType.GO_VISUAL,
+        type: NormalCmdType.GO_VISUAL,
         count,
         linewise: false,
     }),
     "V": (count) => ({
-        type: CommandType.GO_VISUAL,
+        type: NormalCmdType.GO_VISUAL,
         count,
         linewise: true,
     }),
 
     // JOIN
     "J": (count) => ({
-        type: CommandType.JOIN,
+        type: NormalCmdType.JOIN,
         count,
     }),
 
     // PUT
     "p": (count) => ({
-        type: CommandType.PUT,
+        type: NormalCmdType.PUT,
         count,
         position: "after",
     }),
     "P": (count) => ({
-        type: CommandType.PUT,
+        type: NormalCmdType.PUT,
         count,
         position: "before",
     }),
 
     // REPLACE
     "R": (count) => ({
-        type: CommandType.GO_REPLACE,
+        type: NormalCmdType.GO_REPLACE,
         count,
     }),
 
     // UNDO / REDO
     "u": (count) => ({
-        type: CommandType.UNDO,
+        type: NormalCmdType.UNDO,
         count,
     }),
     "<C-r>": (count) => ({
-        type: CommandType.REDO,
+        type: NormalCmdType.REDO,
         count,
     }),
 
     // SCROLL
     "<C-u>": (count) => ({
-        type: CommandType.SCROLL,
+        type: NormalCmdType.SCROLL,
         count,
         kind: ScrollCommand.UP_HALF,
     }),
     "<C-d>": (count) => ({
-        type: CommandType.SCROLL,
+        type: NormalCmdType.SCROLL,
         count,
         kind: ScrollCommand.DOWN_HALF,
     }),
     "<C-b>": (count) => ({
-        type: CommandType.SCROLL,
+        type: NormalCmdType.SCROLL,
         count,
         kind: ScrollCommand.UP_FULL,
     }),
     "<C-f>": (count) => ({
-        type: CommandType.SCROLL,
+        type: NormalCmdType.SCROLL,
         count,
         kind: ScrollCommand.DOWN_FULL,
     }),
 
     // SUGAR
     "s": (count) => ({
-        type: CommandType.OPERATOR,
+        type: NormalCmdType.OPERATOR,
         count,
         innerCount: null,
         operator: OperatorName.CHANGE,
         motion: { type: MotionType.CHAR, name: MotionName.right },
     }),
     "S": (count) => ({
-        type: CommandType.OPERATOR,
+        type: NormalCmdType.OPERATOR,
         count,
         innerCount: null,
         operator: OperatorName.CHANGE,
         motion: { type: MotionType.LINEWISE },
     }),
     "x": (count) => ({
-        type: CommandType.OPERATOR,
+        type: NormalCmdType.OPERATOR,
         operator: OperatorName.DELETE,
         count,
         innerCount: null,
         motion: { type: MotionType.CHAR, name: MotionName.right },
     }),
     "X": (count) => ({
-        type: CommandType.OPERATOR,
+        type: NormalCmdType.OPERATOR,
         operator: OperatorName.DELETE,
         count,
         innerCount: null,
         motion: { type: MotionType.CHAR, name: MotionName.left },
     }),
     "D": (count) => ({
-        type: CommandType.OPERATOR,
+        type: NormalCmdType.OPERATOR,
         operator: OperatorName.DELETE,
         count,
         innerCount: null,
         motion: { type: MotionType.CHAR, name: MotionName.last },
     }),
     "C": (count) => ({
-        type: CommandType.OPERATOR,
+        type: NormalCmdType.OPERATOR,
         operator: OperatorName.CHANGE,
         count,
         innerCount: null,
         motion: { type: MotionType.CHAR, name: MotionName.last },
     }),
     "Y": (count) => ({
-        type: CommandType.OPERATOR,
+        type: NormalCmdType.OPERATOR,
         operator: OperatorName.YANK,
         count,
         innerCount: null,
@@ -179,24 +179,24 @@ export const NO_ARG_CMD_MAP: Record<NoArgsCommands, (count: Count) => NormalCmdC
 
     // CASE_SWITCH
     "~": (count) => ({
-        type: CommandType.SWITCH_CASE,
+        type: NormalCmdType.SWITCH_CASE,
         count,
     }),
 
     // REPEAT_OPERATOR
     ".": (count) => ({
-        type: CommandType.REPEAT_OPE,
+        type: NormalCmdType.REPEAT_OPE,
         count,
     }),
 
     // REPEAT_MOTION
     ";": (count) => ({
-        type: CommandType.REPEAT_MOT,
+        type: NormalCmdType.REPEAT_MOT,
         count,
         reverse: false,
     }),
     ",": (count) => ({
-        type: CommandType.REPEAT_MOT,
+        type: NormalCmdType.REPEAT_MOT,
         count,
         reverse: true,
     }),
@@ -209,5 +209,5 @@ export function isWithArgCmd(key: string): key is WithArgCmd {
 }
 
 export const WITH_ARG_CMD_MAP: Record<WithArgCmd, WithArgCmdFunc> = {
-    "r": (count, arg) => ({ type: CommandType.REPLACE, count, arg }),
+    "r": (count, arg) => ({ type: NormalCmdType.REPLACE, count, arg }),
 };

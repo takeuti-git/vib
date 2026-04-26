@@ -4,9 +4,9 @@ import type { VisualCmdContext } from "../visual";
 
 type ParseStatus = (typeof ParseStatus)[keyof typeof ParseStatus];
 export const ParseStatus = {
-    OK:      "ok",
-    PENDING: "pending",
-    UNKNOWN: "unknown",
+    OK:      "OK",
+    PENDING: "PENDING",
+    UNKNOWN: "UNKNOWN",
 } as const;
 
 export type ParserContext = {

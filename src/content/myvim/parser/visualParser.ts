@@ -10,7 +10,7 @@ import {
     type ParserContext,
     type VisualCmdParseResult,
 } from "./parseStatus";
-import { CommandType } from "../normal";
+import { NormalCmdType } from "../normal";
 import { MOTION_KEY_TO_NAME, MotionName, MotionType } from "../motion";
 import { toCount } from "./count";
 
@@ -32,7 +32,7 @@ export function parseVisualInput(input: readonly string[]): VisualCmdParseResult
     const countStr = ctx.eatDigits();
     if (countStr === "0") {
         return OK({
-            type: CommandType.MOTION,
+            type: NormalCmdType.MOTION,
             count: null,
             motion: { type: MotionType.CHAR, name: MotionName.first },
         });
@@ -115,5 +115,5 @@ export function parseVisualInput(input: readonly string[]): VisualCmdParseResult
     if (result.status !== ParseStatus.OK) {
         return { status: result.status };
     }
-    return OK({ type: CommandType.MOTION, count, motion: result.value });
+    return OK({ type: NormalCmdType.MOTION, count, motion: result.value });
 }

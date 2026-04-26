@@ -12,7 +12,7 @@ import {
     moveTail,
     moveBackward,
 } from "./myvim/motionRange";
-import { parseNormalInput, parseVisualInput } from "./myvim/parser";
+import { parseNormalInput, parseVisualInput, ParseStatus } from "./myvim/parser";
 import { readClipboard, writeClipboard } from "./clipboard";
 import {
     FIND_COMMAND_OPTIONS,
@@ -23,8 +23,10 @@ import { createDiff, toRange } from "./undo";
 import type { ExclusivePos, InclusivePos, InclusiveRange, TextRange } from "./types/motion";
 import { InsertCommand } from "./myvim/insert";
 import { ScrollCommand } from "./myvim/scroll";
-import type { MotionContext, MotionName } from "./myvim/motion";
+import { MotionType, type MotionContext, type MotionName } from "./myvim/motion";
 import { OperatorName } from "./myvim/operator";
+import { NormalCmdType } from "./myvim/normal";
+import { VisualCmdType } from "./myvim/visual";
 
 /** 角括弧の始まりの文字コード */
 const OPENING_BRACKET = 0x5b;
@@ -888,15 +890,15 @@ export class Editor {
      * */
     private vi_executeNormal(input: readonly string[]): 0 | 1 | 2 {
         const parseResult = parseNormalInput(input);
-        if (parseResult.status === "unknown") {
+        if (parseResult.status === ParseStatus.UNKNOWN) {
             console.log("its unknown");
             return 1;
         }
-        if (parseResult.status === "pending") {
+        if (parseResult.status === ParseStatus.PENDING) {
             console.log("its pending");
             return 2;
         }
-        if (parseResult.status === "ok") {
+        if (parseResult.status === ParseStatus.OK) {
             console.log("its ok");
         }
 
@@ -905,22 +907,22 @@ export class Editor {
         /** always 1 or more */
         const count = data.count === null ? 1 : data.count;
 
-        if (datatype === "motion") {
+        if (datatype === NormalCmdType.MOTION) {
             const motion = data.motion;
             this.vi_executeMotion(motion, count);
 
-        } else if (datatype === "insert") {
+        } else if (datatype === NormalCmdType.GO_INSERT) {
             this.vi_executeInsert(data.command, count);
 
-        } else if (datatype === "operator") {
+        } else if (datatype === NormalCmdType.OPERATOR) {
             const count = (data.count ?? 1) * (data.innerCount ?? 1);
             const range = getMotionRange(this.state, data.motion, count);
-            if (data.motion.type === "find") {
+            if (data.motion.type === MotionType.FIND) {
                 this.setLastFindMotion(data.motion);
             }
             if (data.operator !== OperatorName.YANK) {
                 // ヤンクは繰り返しの対象にならない
-                this.state.vi_lastCmd = { type: "operator", count, operator: data.operator, motion: data.motion };
+                this.state.vi_lastCmd = { type: NormalCmdType.OPERATOR, count, operator: data.operator, motion: data.motion };
             }
 
             if (!range) {
@@ -932,17 +934,17 @@ export class Editor {
                 this.vi_goInsert();
             }
 
-        } else if (datatype === "put") {
+        } else if (datatype === NormalCmdType.PUT) {
             this.vi_executePut(count, data.position);
-            this.state.vi_lastCmd = { type: "put", count, position: data.position };
+            this.state.vi_lastCmd = { type: NormalCmdType.PUT, count, position: data.position };
 
-        } else if (datatype === "join") {
+        } else if (datatype === NormalCmdType.JOIN) {
             // joinにおけるcountはlinewiseにように働く
             // count=1なら1行の結合、count=2でも1行の結合になる
             this.vi_executeJoin(count);
-            this.state.vi_lastCmd = { type: "join", count };
+            this.state.vi_lastCmd = { type: NormalCmdType.JOIN, count };
 
-        } else if (datatype === "replace") {
+        } else if (datatype === NormalCmdType.REPLACE) {
             const arg = data.arg;
             const linetext = this.currentLine.text;
             const text = linetext.slice(this.state.col);
@@ -956,12 +958,12 @@ export class Editor {
             this.currentLine.text = replaecd;
             for (let i = 0; i < count - 1; i++) this.moveCursorRight();
 
-        } else if (datatype === "go_replace") {
+        } else if (datatype === NormalCmdType.GO_REPLACE) {
             // 入力処理はsetupListenersで行う
             this.state.vi_state.mode = "replace";
             this.state.cursorStyle = "under";
 
-        } else if (datatype === "repeat_mot") {
+        } else if (datatype === NormalCmdType.REPEAT_MOT) {
             const lastMotion = this.state.vi_lastFindMotion;
             if (lastMotion === null) {
                 return 0;
@@ -969,7 +971,7 @@ export class Editor {
             // 入力(";" | ",")によって移動方向が反転するため、動的にoptionsを生成する
             const optionsFn = FIND_REPEAT_OPTIONS[lastMotion.name];
             this.moveUntilNextChar(lastMotion.arg, { limit: count, ...optionsFn(data.reverse) });
-        } else if (datatype === "repeat_ope") {
+        } else if (datatype === NormalCmdType.REPEAT_OPE) {
             if (!this.state.vi_lastCmd) return 0;
             // this.vi_repeatOperator(this.state.vi_lastCmd);
             const lastCmd = this.state.vi_lastCmd;
@@ -979,7 +981,7 @@ export class Editor {
                 lastCmd.count = data.count; // 指定がある場合のみcountを上書きする
             }
 
-            if (lastCmd.type === "operator") {
+            if (lastCmd.type === NormalCmdType.OPERATOR) {
                 const range = getMotionRange(this.state, lastCmd.motion, lastCmd.count);
                 if (!range) return 0;
                 this.vi_executeOperator({ operator: lastCmd.operator, range, linewise: range.linewise });
@@ -987,28 +989,28 @@ export class Editor {
                     this.vi_insertBuffer(this.state.vi_insertBuf);
                     this.vi_moveCursor(MOVE_KEYS.LEFT);
                 }
-            } else if (lastCmd.type === "insert") {
+            } else if (lastCmd.type === NormalCmdType.GO_INSERT) {
                 this.vi_executeInsertImmediately(lastCmd.insertKind, lastCmd.count);
-            } else if (lastCmd.type === "put") {
+            } else if (lastCmd.type === NormalCmdType.PUT) {
                 this.vi_executePut(lastCmd.count, lastCmd.position);
-            } else if (lastCmd.type === "join") {
+            } else if (lastCmd.type === NormalCmdType.JOIN) {
                 this.vi_executeJoin(lastCmd.count);
             }
 
-        } else if (datatype === "undo") {
+        } else if (datatype === NormalCmdType.UNDO) {
             for (let i = 0; i < count; i++) this.undo();
 
-        } else if (datatype === "redo") {
+        } else if (datatype === NormalCmdType.REDO) {
             for (let i = 0; i < count; i++) this.redo();
 
-        } else if (datatype === "scroll") {
+        } else if (datatype === NormalCmdType.SCROLL) {
             const kind = data.kind;
             if (data.count !== null) {
                 this.state.vi_scrollAmount = count;
             }
             this.scrollCommandMap[kind](count);
 
-        } else if (datatype === "go_visual") {
+        } else if (datatype === NormalCmdType.GO_VISUAL) {
             const isLinewise = data.linewise;
             this.vi_goVisual(isLinewise);
             if (this.state.vi_state.mode !== "visual") throw new Error("vi_state.mode is not visual. call vi_goVisual() before this line");
@@ -1016,7 +1018,7 @@ export class Editor {
                 this.state.vi_state.visualFirst.col = 0;
                 this.state.vi_state.visualLast.col = this.currentLine.size - 1;
             }
-        } else if (datatype === "switch_case") {
+        } else if (datatype === NormalCmdType.SWITCH_CASE) {
             const line = this.currentLine;
             const prefix = line.text.slice(0, this.state.col);
             const target = line.text.slice(this.state.col, this.state.col + count);
@@ -1030,11 +1032,11 @@ export class Editor {
                 : this.state.col + count
             );
             this.moveCursorToPos(this.state.row, destCol);
-        } else if (datatype === "to_lower" || datatype === "to_upper") {
+        } else if (datatype === NormalCmdType.TO_LOWER || datatype === NormalCmdType.TO_UPPER) {
             const count = (data.count ?? 1) * (data.innerCount ?? 1);
             const range = getMotionRange(this.state, data.motion, count);
 
-            if (data.motion.type === "find") {
+            if (data.motion.type === MotionType.FIND) {
                 this.setLastFindMotion(data.motion);
             }
             // TODO: 繰り返しvi_lastCmdの設定
@@ -1043,9 +1045,8 @@ export class Editor {
             }
 
             const { first, last } = toInclusiveRange(range.begin, range.end, range.linewise);
-            console.log(first, last);
             this.applyVisualTransform(first, last, (selected) => {
-                if (datatype === "to_lower") {
+                if (datatype === NormalCmdType.TO_LOWER) {
                     return selected.toLowerCase();
                 }
                 return selected.toUpperCase();
@@ -1060,15 +1061,18 @@ export class Editor {
         const vi_state = this.state.vi_state; // クロージャで使うためnarrow後にローカル変数にバインド
         const parseResult = parseVisualInput(input);
 
-        if (parseResult.status === "unknown") {
-            console.log("its unknown");
-            return 1;
+        switch (parseResult.status) {
+            case ParseStatus.UNKNOWN:
+                console.log("its unknown");
+                return 1;
+            case ParseStatus.PENDING:
+                console.log("its pending");
+                return 2;
+            case ParseStatus.OK:
+                // pass
+                console.log("its ok");
+                break;
         }
-        if (parseResult.status === "pending") {
-            console.log("its pending");
-            return 2;
-        }
-        console.log("its ok");
 
         const data = parseResult.value;
         const datatype = data.type;
@@ -1116,17 +1120,17 @@ export class Editor {
             }
         };
 
-        if (datatype === "switch_side") {
+        if (datatype === VisualCmdType.SWITCH_SIDE) {
             const dest = (vi_state.rangeSide === "first") ? vi_state.visualLast : vi_state.visualFirst;
             this.moveCursorToPos(dest.row, dest.col);
             vi_state.rangeSide = (vi_state.rangeSide === "first") ? "last" : "first";
 
-        } else if (datatype === "motion") {
+        } else if (datatype === VisualCmdType.MOTION) {
             const motion = data.motion;
-            if (motion.type === "find") {
+            if (motion.type === MotionType.FIND) {
                 this.setLastFindMotion(motion);
             }
-            if (motion.type === "textobj") {
+            if (motion.type === MotionType.TEXTOBJ) {
                 const range = getMotionRange(this.state, data.motion, count);
                 if (!range) return 0;
                 vi_state.linewise = false; // textobj選択が成功したらvisual_lineではなくなる
@@ -1146,7 +1150,7 @@ export class Editor {
             vi_state.charCount = this.getCharCount(vi_state.visualFirst, vi_state.visualLast);
             vi_state.lineCount = this.getLineCount(vi_state.visualFirst, vi_state.visualLast);
 
-        } else if (datatype === "repeat_mot") {
+        } else if (datatype === VisualCmdType.REPEAT_MOT) {
             const lastMotion = this.state.vi_lastFindMotion;
             if (lastMotion === null) {
                 return 0;
@@ -1156,7 +1160,7 @@ export class Editor {
             this.moveUntilNextChar(lastMotion.arg, { limit: count, ...optionsFn(data.reverse) });
             syncCursorAndVisual();
 
-        } else if (datatype === "operator") {
+        } else if (datatype === VisualCmdType.OPERATOR) {
             if (this.state.vi_state.mode !== "visual")
                 throw new Error("vi_state.mode should be 'visual'");
             const exclusiveRange =
@@ -1178,19 +1182,19 @@ export class Editor {
                 const count = exclusiveRange.end.row - exclusiveRange.begin.row;
                 // インデントコマンドの繰り返しにmotionは必要ではないが仮で定義する
                 const motion: MotionContext = {
-                    type: "linewise",
+                    type: MotionType.LINEWISE,
                 };
                 this.state.vi_lastCmd = { type: "operator", count, operator, motion };
             } else {
                 if (vi_state.linewise) {
                     // 行単位の範囲は既存の型で代替できる
                     const motion: MotionContext = {
-                        type: "linewise",
+                        type: MotionType.LINEWISE,
                     };
                     this.state.vi_lastCmd = { type: "operator", count, operator, motion };
                 } else {
                     const motion: MotionContext = {
-                        type: "offset_char",
+                        type: MotionType.OFFSET_CHAR,
                         lineCount: vi_state.lineCount,
                         charCount: vi_state.charCount,
                         destCol: vi_state.visualLast.col,
@@ -1198,7 +1202,7 @@ export class Editor {
                     this.state.vi_lastCmd = { type: "operator", count, operator, motion };
                 }
             }
-        } else if (datatype === "put") {
+        } else if (datatype === VisualCmdType.PUT) {
             // レジスタが空でも実行する, その場合空文字に置き換える
             const saved = this.vi_executeOperator({
                 operator: OperatorName.DELETE,
@@ -1212,24 +1216,24 @@ export class Editor {
             }
             this.vi_goNormal();
 
-        } else if (datatype === "join") {
+        } else if (datatype === VisualCmdType.JOIN) {
             this.moveCursorToPos(vi_state.visualFirst.row, vi_state.visualFirst.col);
             this.vi_executeJoin(vi_state.lineCount);
             this.vi_goNormal();
 
-        } else if (datatype === "replace") {
+        } else if (datatype === VisualCmdType.REPLACE) {
             this.applyVisualTransform(vi_state.visualFirst, vi_state.visualLast, (selected) => {
                 return data.arg.repeat(selected.length);
             });
-        } else if (datatype === "to_lower") {
+        } else if (datatype === VisualCmdType.TO_LOWER) {
             this.applyVisualTransform(vi_state.visualFirst, vi_state.visualLast, (selected) => {
                 return selected.toLowerCase();
             });
-        } else if (datatype === "to_upper") {
+        } else if (datatype === VisualCmdType.TO_UPPER) {
             this.applyVisualTransform(vi_state.visualFirst, vi_state.visualLast, (selected) => {
                 return selected.toUpperCase();
             });
-        } else if (datatype === "reverse_case") {
+        } else if (datatype === VisualCmdType.REVERSE_CASE) {
             this.applyVisualTransform(vi_state.visualFirst, vi_state.visualLast, swapCase);
         }
         return 0;
