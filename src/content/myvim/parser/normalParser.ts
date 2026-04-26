@@ -1,16 +1,16 @@
-import * as cmd from "./command";
-import { CommandType, type CommandContext } from "./commandType";
-import { MotionType, type MotionContext } from "./motionType";
+import * as cmd from "./normalCommand";
 import {
     ParseStatus,
     type CommandParseResult,
     type MotionParseResult,
     type ParserContext,
 } from "./parseStatus";
-import { isNoArgKey, NO_ARG_CMD_MAP } from "./noArgs";
+import { isNoArgKey, NO_ARG_CMD_MAP } from "./normalNoArgs";
 import { isDigitChar } from "../utils";
 import { toCount } from "./count";
-import { MOTION_KEY_TO_NAME, MotionName } from "../motion";
+import { MOTION_KEY_TO_NAME, MotionName, MotionType, type MotionContext } from "../motion";
+import { CommandType, type NormalCmdContext } from "../normal";
+import { OPERATOR_KEY_TO_NAME } from "../operator";
 
 const ZERO_MOTION: MotionContext = {
     type: MotionType.CHAR,
@@ -37,7 +37,7 @@ export function parseNormalInput(input: readonly string[]): CommandParseResult {
 
     const countStr = ctx.eatDigits();
     if (countStr === "0") {
-        const command: CommandContext = {
+        const command: NormalCmdContext = {
             type: CommandType.MOTION,
             count: null,
             motion: ZERO_MOTION,
@@ -96,6 +96,7 @@ export function parseNormalInput(input: readonly string[]): CommandParseResult {
     if (cmd.isOperator(first)) {
         ctx.next(); // 次の文字を見るためポインターを進める
         const operator = first;
+        const operatorName = OPERATOR_KEY_TO_NAME[first];
 
         const afterOperator = ctx.read();
         if (!afterOperator) {
@@ -104,10 +105,10 @@ export function parseNormalInput(input: readonly string[]): CommandParseResult {
 
         const innerCountStr = ctx.eatDigits();
         if (innerCountStr === "0") {
-            const command: CommandContext = {
+            const command: NormalCmdContext = {
                 type: CommandType.OPERATOR,
                 count,
-                operator,
+                operator: operatorName,
                 innerCount: null,
                 motion: ZERO_MOTION,
             };
@@ -122,10 +123,10 @@ export function parseNormalInput(input: readonly string[]): CommandParseResult {
         // operatorが同じ2文字の場合は特殊処理。 ex: dd, cc
         if (afterInnerCount === operator || afterInnerCount === "_") {
             const motion: MotionContext = { type: MotionType.LINEWISE };
-            const command: CommandContext = {
+            const command: NormalCmdContext = {
                 type: CommandType.OPERATOR,
                 count,
-                operator,
+                operator: operatorName,
                 innerCount,
                 motion,
             };
@@ -137,10 +138,10 @@ export function parseNormalInput(input: readonly string[]): CommandParseResult {
             return { status: result.status };
         }
 
-        const command: CommandContext = {
+        const command: NormalCmdContext = {
             type: CommandType.OPERATOR,
             count,
-            operator,
+            operator: operatorName,
             innerCount,
             motion: result.value,
         };
@@ -151,7 +152,7 @@ export function parseNormalInput(input: readonly string[]): CommandParseResult {
         ctx.next();
         const arg = ctx.read();
         if (!arg) return { status: ParseStatus.PENDING };
-        const command: CommandContext = {
+        const command: NormalCmdContext = {
             type: CommandType.REPLACE,
             count,
             arg,
@@ -170,7 +171,7 @@ export function parseNormalInput(input: readonly string[]): CommandParseResult {
 
         if (second === "g") {
             // 最初の行に移動する
-            const command: CommandContext = {
+            const command: NormalCmdContext = {
                 type: CommandType.MOTION,
                 count,
                 motion: { type: MotionType.CHAR, name: MotionName.firstLine },
@@ -185,7 +186,7 @@ export function parseNormalInput(input: readonly string[]): CommandParseResult {
 
             const innerCountStr = ctx.eatDigits();
             if (innerCountStr === "0") {
-                const command: CommandContext = {
+                const command: NormalCmdContext = {
                     type: CommandType.TO_LOWER,
                     count,
                     innerCount: null,
@@ -209,7 +210,7 @@ export function parseNormalInput(input: readonly string[]): CommandParseResult {
                 if (!fourth) return { status: ParseStatus.PENDING };
                 if (fourth === "g") {
                     // gugg / gUgg の状態
-                    const command: CommandContext = {
+                    const command: NormalCmdContext = {
                         type,
                         count,
                         innerCount,
@@ -218,7 +219,7 @@ export function parseNormalInput(input: readonly string[]): CommandParseResult {
                     return { status: ParseStatus.OK, value: command };
                 } else if (second === fourth) {
                     // gugu / gUgU の状態
-                    const command: CommandContext = {
+                    const command: NormalCmdContext = {
                         type,
                         count,
                         innerCount,
@@ -229,7 +230,7 @@ export function parseNormalInput(input: readonly string[]): CommandParseResult {
                 return { status: ParseStatus.UNKNOWN };
             } else if (second === third) {
                 // guu / gUU の状態
-                const command: CommandContext = {
+                const command: NormalCmdContext = {
                     type,
                     count,
                     innerCount,
@@ -242,7 +243,7 @@ export function parseNormalInput(input: readonly string[]): CommandParseResult {
             if (motionResult.status !== ParseStatus.OK) {
                 return { status: motionResult.status };
             }
-            const command: CommandContext = {
+            const command: NormalCmdContext = {
                 type,
                 count,
                 innerCount,
@@ -257,6 +258,6 @@ export function parseNormalInput(input: readonly string[]): CommandParseResult {
     if (result.status !== ParseStatus.OK) {
         return { status: result.status };
     }
-    const command: CommandContext = { type: CommandType.MOTION, count, motion: result.value };
+    const command: NormalCmdContext = { type: CommandType.MOTION, count, motion: result.value };
     return { status: result.status, value: command };
 }

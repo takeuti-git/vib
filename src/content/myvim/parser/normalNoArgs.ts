@@ -1,10 +1,10 @@
 import { InsertCommand } from "../insert";
-import { MotionName } from "../motion";
+import { MotionName, MotionType } from "../motion";
+import { CommandType, type NormalCmdContext } from "../normal";
+import { OperatorName } from "../operator";
 import { ScrollCommand } from "../scroll";
-import * as cmd from "./command";
-import { CommandType, type CommandContext } from "./commandType";
+import * as cmd from "./normalCommand";
 import type { Count } from "./count";
-import { MotionType } from "./motionType";
 
 type NoArgsCommands = (
     | cmd.GoInsertCommand
@@ -25,7 +25,7 @@ export function isNoArgKey(key: string): key is keyof typeof NO_ARG_CMD_MAP {
     return key in NO_ARG_CMD_MAP;
 }
 
-export const NO_ARG_CMD_MAP: Record<NoArgsCommands, (count: Count) => CommandContext> = {
+export const NO_ARG_CMD_MAP: Record<NoArgsCommands, (count: Count) => NormalCmdContext> = {
     // GO_INSERT
     "i": (count) => ({
         type: CommandType.GO_INSERT,
@@ -131,47 +131,47 @@ export const NO_ARG_CMD_MAP: Record<NoArgsCommands, (count: Count) => CommandCon
         type: CommandType.OPERATOR,
         count,
         innerCount: null,
-        operator: "c",
+        operator: OperatorName.CHANGE,
         motion: { type: MotionType.CHAR, name: MotionName.right },
     }),
     "S": (count) => ({
         type: CommandType.OPERATOR,
         count,
         innerCount: null,
-        operator: "c",
+        operator: OperatorName.CHANGE,
         motion: { type: MotionType.LINEWISE },
     }),
     "x": (count) => ({
         type: CommandType.OPERATOR,
-        operator: "d",
+        operator: OperatorName.DELETE,
         count,
         innerCount: null,
         motion: { type: MotionType.CHAR, name: MotionName.right },
     }),
     "X": (count) => ({
         type: CommandType.OPERATOR,
-        operator: "d",
+        operator: OperatorName.DELETE,
         count,
         innerCount: null,
         motion: { type: MotionType.CHAR, name: MotionName.left },
     }),
     "D": (count) => ({
         type: CommandType.OPERATOR,
-        operator: "d",
+        operator: OperatorName.DELETE,
         count,
         innerCount: null,
         motion: { type: MotionType.CHAR, name: MotionName.last },
     }),
     "C": (count) => ({
         type: CommandType.OPERATOR,
-        operator: "c",
+        operator: OperatorName.CHANGE,
         count,
         innerCount: null,
         motion: { type: MotionType.CHAR, name: MotionName.last },
     }),
     "Y": (count) => ({
         type: CommandType.OPERATOR,
-        operator: "y",
+        operator: OperatorName.YANK,
         count,
         innerCount: null,
         motion: { type: MotionType.CHAR, name: MotionName.last },

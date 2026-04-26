@@ -1,10 +1,9 @@
-import * as cmd from "./command";
-import * as visualCmd from "./visualType";
+import * as cmd from "./normalCommand";
+import * as visualCmd from "./visualCommand";
 import { isDigitChar } from "../utils";
-import { CommandType, type CommandContext } from "./commandType";
-import { MotionType, type MotionContext } from "./motionType";
 import { ParseStatus, type MotionParseResult, type ParserContext, type VisualCmdParseResult } from "./parseStatus";
-import { MOTION_KEY_TO_NAME, MotionName } from "../motion";
+import { CommandType, type NormalCmdContext } from "../normal";
+import { MOTION_KEY_TO_NAME, MotionName, MotionType, type MotionContext } from "../motion";
 import { toCount } from "./count";
 
 export function parseVisualInput(input: readonly string[]): VisualCmdParseResult {
@@ -24,7 +23,7 @@ export function parseVisualInput(input: readonly string[]): VisualCmdParseResult
 
     const countStr = ctx.eatDigits();
     if (countStr === "0") {
-        const command: CommandContext = {
+        const command: NormalCmdContext = {
             type: CommandType.MOTION,
             count: null,
             motion: { type: MotionType.CHAR, name: MotionName.first },
@@ -104,6 +103,6 @@ export function parseVisualInput(input: readonly string[]): VisualCmdParseResult
     if (result.status !== ParseStatus.OK) {
         return { status: result.status };
     }
-    const command: CommandContext = { type: CommandType.MOTION, count, motion: result.value };
+    const command: NormalCmdContext = { type: CommandType.MOTION, count, motion: result.value };
     return { status: result.status, value: command };
 }

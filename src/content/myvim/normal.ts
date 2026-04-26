@@ -1,8 +1,8 @@
-import type { Count } from "./count";
-import type { Operator } from "./command";
-import type { MotionContext } from "./motionType";
-import type { InsertCommand } from "../insert";
-import type { ScrollCommand } from "../scroll";
+import type { MotionContext } from "./motion";
+import type { InsertCommand } from "./insert";
+import type { ScrollCommand } from "./scroll";
+import type { OperatorName } from "./operator";
+import type { Count } from "./parser/count";
 
 // prettier-ignore
 export const CommandType = {
@@ -27,11 +27,11 @@ export const CommandType = {
 type CommandType = (typeof CommandType)[keyof typeof CommandType];
 
 // prettier-ignore
-export type CommandContext = { count: Count } & (
+export type NormalCmdContext = { count: Count } & (
     | { type: typeof CommandType.GO_INSERT; command: InsertCommand; }
     | { type: typeof CommandType.GO_REPLACE; }
     | { type: typeof CommandType.GO_VISUAL; linewise: boolean; }
-    | { type: typeof CommandType.OPERATOR; operator: Operator; innerCount: Count; motion: MotionContext; }
+    | { type: typeof CommandType.OPERATOR; operator: OperatorName; innerCount: Count; motion: MotionContext; }
     | { type: typeof CommandType.MOTION; motion: MotionContext }
     | { type: typeof CommandType.PUT; position: PutPosition }
     | { type: typeof CommandType.REPLACE; arg: string; }

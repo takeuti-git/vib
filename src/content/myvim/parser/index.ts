@@ -1,2 +1,2 @@
-export { parseNormalInput } from "./normal";
-export { parseVisualInput } from "./visual";
+export { parseNormalInput } from "./normalParser";
+export { parseVisualInput } from "./visualParser";

@@ -13,7 +13,6 @@ import {
     moveBackward,
 } from "./myvim/motionRange";
 import { parseNormalInput, parseVisualInput } from "./myvim/parser";
-import type { Operator } from "./myvim/parser/command";
 import { readClipboard, writeClipboard } from "./clipboard";
 import {
     FIND_COMMAND_OPTIONS,
@@ -21,11 +20,11 @@ import {
     type FindMoveOptions,
 } from "./myvim/findCommand";
 import { createDiff, toRange } from "./undo";
-import type { MotionContext } from "./myvim/parser/motionType";
 import type { ExclusivePos, InclusivePos, InclusiveRange, TextRange } from "./types/motion";
 import { InsertCommand } from "./myvim/insert";
 import { ScrollCommand } from "./myvim/scroll";
-import type { MotionName } from "./myvim/motion";
+import type { MotionContext, MotionName } from "./myvim/motion";
+import { OperatorName } from "./myvim/operator";
 
 /** 角括弧の始まりの文字コード */
 const OPENING_BRACKET = 0x5b;
@@ -636,14 +635,14 @@ export class Editor {
         {
             operator, range, linewise, writeRegister = true
         }: {
-            operator: Operator, range: TextRange, linewise: boolean, writeRegister?: boolean
+            operator: OperatorName, range: TextRange, linewise: boolean, writeRegister?: boolean
         }
     ): string {
         const { lines } = this.state;
         const clipboardBuf: string[] = [];
         this.state.vi_yankLinewise = linewise;
 
-        if (operator === "d" || operator === "c") {
+        if (operator === OperatorName.DELETE || operator === OperatorName.CHANGE) {
             if (linewise) {
                 lines.slice(range.begin.row, range.end.row).forEach((l) => {
                     clipboardBuf.push(l.text);
@@ -654,7 +653,7 @@ export class Editor {
                 const row = Math.min(range.begin.row, lines.length - 1);
                 this.state.row = Math.max(0, row);
 
-                if (operator === "c") {
+                if (operator === OperatorName.CHANGE) {
                     if (range.begin.row > this.state.row) {
                         this.insertNewLineNext();
                     } else {
@@ -715,7 +714,7 @@ export class Editor {
                 }
             }
             if (
-                operator === "d" &&
+                operator === OperatorName.DELETE &&
                 this.state.col >= this.currentLine.size &&
                 this.state.col !== 0
             ) {
@@ -728,7 +727,7 @@ export class Editor {
             }
             return savedText;
 
-        } else if (operator === "y") {
+        } else if (operator === OperatorName.YANK) {
             if (linewise) {
                 lines.slice(range.begin.row, range.end.row).forEach((l) => {
                     clipboardBuf.push(l.text);
@@ -767,9 +766,9 @@ export class Editor {
             writeClipboard(savedText);
             return savedText;
 
-        } else if (operator === "<" || operator === ">") {
+        } else if (operator === OperatorName.DEC_INDENT || operator === OperatorName.INC_INDENT) {
             const targetLines = lines.slice(range.begin.row, range.end.row);
-            if (operator === "<") {
+            if (operator === OperatorName.DEC_INDENT) {
                 for (const ln of targetLines) {
                     ln.text = removeFirstWhitespace(ln.text, this.config.tabstop);
                 }
@@ -919,7 +918,7 @@ export class Editor {
             if (data.motion.type === "find") {
                 this.setLastFindMotion(data.motion);
             }
-            if (data.operator !== "y") {
+            if (data.operator !== OperatorName.YANK) {
                 // ヤンクは繰り返しの対象にならない
                 this.state.vi_lastCmd = { type: "operator", count, operator: data.operator, motion: data.motion };
             }
@@ -929,7 +928,7 @@ export class Editor {
             }
             const isLinewise = data.motion.type === "linewise" || range.linewise; // dj/ykのような, motiontypeはcharだがrangeとしては行単位の挙動を持つ場合がある
             this.vi_executeOperator({ operator: data.operator, range, linewise: isLinewise });
-            if (data.operator === "c") {
+            if (data.operator === OperatorName.CHANGE) {
                 this.vi_goInsert();
             }
 
@@ -984,7 +983,7 @@ export class Editor {
                 const range = getMotionRange(this.state, lastCmd.motion, lastCmd.count);
                 if (!range) return 0;
                 this.vi_executeOperator({ operator: lastCmd.operator, range, linewise: range.linewise });
-                if (lastCmd.operator === "c") {
+                if (lastCmd.operator === OperatorName.CHANGE) {
                     this.vi_insertBuffer(this.state.vi_insertBuf);
                     this.vi_moveCursor(MOVE_KEYS.LEFT);
                 }
@@ -1165,17 +1164,17 @@ export class Editor {
             const operator = data.operator;
             this.vi_executeOperator({ operator, range: exclusiveRange, linewise: vi_state.linewise });
 
-            if (operator === "c") {
+            if (operator === OperatorName.CHANGE) {
                 this.vi_goInsert();
             } else {
                 this.vi_goNormal();
             }
 
             // yankは繰り返さない
-            if (operator === "y") return 0;
+            if (operator === OperatorName.YANK) return 0;
 
             // 繰り返しの登録
-            if (operator === ">" || operator === "<") {
+            if (operator === OperatorName.DEC_INDENT || operator === OperatorName.INC_INDENT) {
                 const count = exclusiveRange.end.row - exclusiveRange.begin.row;
                 // インデントコマンドの繰り返しにmotionは必要ではないが仮で定義する
                 const motion: MotionContext = {
@@ -1202,7 +1201,7 @@ export class Editor {
         } else if (datatype === "put") {
             // レジスタが空でも実行する, その場合空文字に置き換える
             const saved = this.vi_executeOperator({
-                operator: "d",
+                operator: OperatorName.DELETE,
                 range: toExclusiveTextRange(vi_state.visualFirst, vi_state.visualLast, vi_state.linewise),
                 linewise: vi_state.linewise,
                 writeRegister: false,

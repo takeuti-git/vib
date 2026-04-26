@@ -3,8 +3,7 @@ import type { EditorState } from "../state";
 import type { InclusivePos, MotionRange, Position } from "../types/motion";
 import { getCountUntilNonWhitespace } from "../utils";
 import type { FindMoveOptions } from "./findCommand";
-import { MotionName } from "./motion";
-import type { MotionContext } from "./parser/motionType";
+import { MotionName, type MotionContext } from "./motion";
 import { isSymbol, isWhitespace } from "./symbols";
 
 type AtLeastTwoArray<T> = [T, T, ...T[]];
