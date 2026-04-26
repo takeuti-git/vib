@@ -11,9 +11,9 @@ import {
     moveForward,
     moveTail,
     moveBackward,
-} from "./myvim/motion";
+} from "./myvim/motionRange";
 import { parseNormalInput, parseVisualInput } from "./myvim/parser";
-import type { Motion, Operator } from "./myvim/parser/command";
+import type { Operator } from "./myvim/parser/command";
 import { readClipboard, writeClipboard } from "./clipboard";
 import {
     FIND_COMMAND_OPTIONS,
@@ -25,6 +25,7 @@ import type { MotionContext } from "./myvim/parser/motionType";
 import type { ExclusivePos, InclusivePos, InclusiveRange, TextRange } from "./types/motion";
 import { InsertCommand } from "./myvim/insert";
 import { ScrollCommand } from "./myvim/scroll";
+import type { MotionName } from "./myvim/motion";
 
 /** 角括弧の始まりの文字コード */
 const OPENING_BRACKET = 0x5b;
@@ -474,55 +475,48 @@ export class Editor {
     // | processing basic inputs
     // ------------------------------
 
-    // remaining = ["H","L","%"]
-    // @ts-expect-error there are unimplemented motions
-    private motionMap: Record<Motion, () => void> = {
-        "h": () => this.vi_moveCursor(MOVE_KEYS.LEFT),
-        "l": () => this.vi_moveCursor(MOVE_KEYS.RIGHT),
-        "j": () => this.vi_moveCursor(MOVE_KEYS.DOWN),
-        "k": () => this.vi_moveCursor(MOVE_KEYS.UP),
-        "0": () => this.moveCursorToFirst(),
-        "_": () => this.moveCursorToFirstNonWhitespace(),
-        "^": () => this.moveCursorToFirstNonWhitespace(),
-        "$": () => {
+    private motionMap: Record<MotionName, () => void> = {
+        "left": () => this.vi_moveCursor(MOVE_KEYS.LEFT),
+        "right": () => this.vi_moveCursor(MOVE_KEYS.RIGHT),
+        "down": () => this.vi_moveCursor(MOVE_KEYS.DOWN),
+        "up": () => this.vi_moveCursor(MOVE_KEYS.UP),
+        "first": () => this.moveCursorToFirst(),
+        "firstChar": () => this.moveCursorToFirstNonWhitespace(),
+        "last": () => {
             this.moveCursorToLast();
             this.setMaxPreferredWidth();
         },
-        "gg": () => this.moveCursorToBOF(),
-        "G": () => this.moveCursorToEOF(),
-        "-": () => {
+        "firstLine": () => this.moveCursorToBOF(),
+        "lastLine": () => this.moveCursorToEOF(),
+        "firstCharPrevLine": () => {
             this.vi_moveCursor(MOVE_KEYS.UP);
             this.moveCursorToFirstNonWhitespace();
         },
-        "+": () => {
+        "firstCharNextLine": () => {
             this.vi_moveCursor(MOVE_KEYS.DOWN);
             this.moveCursorToFirstNonWhitespace();
         },
-        "Enter": () => {
-            this.vi_moveCursor(MOVE_KEYS.DOWN);
-            this.moveCursorToFirstNonWhitespace();
-        },
-        "w": () => {
+        "word_forward": () => {
             const { distance } = moveForward(this.state, "word");
             for (let i = 0; i < distance; i++) this.moveCursor(MOVE_KEYS.RIGHT);
         },
-        "W": () => {
+        "WORD_forward": () => {
             const { distance } = moveForward(this.state, "WORD");
             for (let i = 0; i < distance; i++) this.moveCursor(MOVE_KEYS.RIGHT);
         },
-        "b": () => {
+        "word_backward": () => {
             const { distance } = moveBackward(this.state, "word");
             for (let i = 0; i < distance; i++) this.moveCursor(MOVE_KEYS.LEFT);
         },
-        "B": () => {
+        "WORD_backward": () => {
             const { distance } = moveBackward(this.state, "WORD");
             for (let i = 0; i < distance; i++) this.moveCursor(MOVE_KEYS.LEFT);
         },
-        "e": () => {
+        "word_tail": () => {
             const { distance } = moveTail(this.state, "word");
             for (let i = 0; i < distance; i++) this.moveCursor(MOVE_KEYS.RIGHT);
         },
-        "E": () => {
+        "WORD_tail": () => {
             const { distance } = moveTail(this.state, "WORD");
             for (let i = 0; i < distance; i++) this.moveCursor(MOVE_KEYS.RIGHT);
         },
@@ -550,7 +544,7 @@ export class Editor {
     };
 
     private vi_executeMotion(motion: MotionContext, count: number): void {
-    const motiontype = motion.type;
+        const motiontype = motion.type;
         if (motiontype === "char") {
             const fn = this.motionMap[motion.name];
             if (!fn) {

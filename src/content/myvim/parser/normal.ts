@@ -10,10 +10,11 @@ import {
 import { isNoArgKey, NO_ARG_CMD_MAP } from "./noArgs";
 import { isDigitChar } from "../utils";
 import { toCount } from "./count";
+import { MOTION_KEY_TO_NAME, MotionName } from "../motion";
 
 const ZERO_MOTION: MotionContext = {
     type: MotionType.CHAR,
-    name: "0",
+    name: MotionName.first,
 };
 
 /**
@@ -62,7 +63,8 @@ export function parseNormalInput(input: readonly string[]): CommandParseResult {
         }
 
         if (cmd.isMotion(ch)) {
-            return { status: ParseStatus.OK, value: { type: MotionType.CHAR, name: ch } };
+            const name = MOTION_KEY_TO_NAME[ch];
+            return { status: ParseStatus.OK, value: { type: MotionType.CHAR, name } };
         }
 
         if (cmd.isTextObjectModifier(ch)) {
@@ -171,7 +173,7 @@ export function parseNormalInput(input: readonly string[]): CommandParseResult {
             const command: CommandContext = {
                 type: CommandType.MOTION,
                 count,
-                motion: { type: MotionType.CHAR, name: "gg" },
+                motion: { type: MotionType.CHAR, name: MotionName.firstLine },
             };
             return { status: ParseStatus.OK, value: command };
         } else if (second === "u" || second === "U") {
@@ -211,7 +213,7 @@ export function parseNormalInput(input: readonly string[]): CommandParseResult {
                         type,
                         count,
                         innerCount,
-                        motion: { type: "char", name: "gg" },
+                        motion: { type: "char", name: MotionName.firstLine },
                     };
                     return { status: ParseStatus.OK, value: command };
                 } else if (second === fourth) {

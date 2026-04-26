@@ -5,6 +5,7 @@ import { CommandType, type CommandContext } from "./commandType";
 import { MotionType, type MotionContext } from "./motionType";
 import { ParseStatus, type MotionParseResult, type ParserContext, type VisualCmdParseResult } from "./parseStatus";
 import { VisualCmdType, type VisualCmdContext } from "./visualType";
+import { MOTION_KEY_TO_NAME, MotionName } from "../motion";
 
 export function parseVisualInput(input: readonly string[]): VisualCmdParseResult {
     let i = 0;
@@ -26,7 +27,7 @@ export function parseVisualInput(input: readonly string[]): VisualCmdParseResult
         const command: CommandContext = {
             type: CommandType.MOTION,
             count: null,
-            motion: { type: MotionType.CHAR, name: "0" },
+            motion: { type: MotionType.CHAR, name: MotionName.first },
         };
         return { status: ParseStatus.OK, value: command };
     }
@@ -63,13 +64,14 @@ export function parseVisualInput(input: readonly string[]): VisualCmdParseResult
         if (ch === "g") {
             if (ctx.read() === "g") {
                 ctx.next();
-                return { status: ParseStatus.OK, value: { type: MotionType.CHAR, name: "gg" } };
+                return { status: ParseStatus.OK, value: { type: MotionType.CHAR, name: MotionName.firstLine } };
             }
             return { status: ParseStatus.PENDING }; // g単体は未確定
         }
 
         if (cmd.isMotion(ch)) {
-            return { status: ParseStatus.OK, value: { type: MotionType.CHAR, name: ch } };
+            const name = MOTION_KEY_TO_NAME[ch];
+            return { status: ParseStatus.OK, value: { type: MotionType.CHAR, name } };
         }
 
         if (cmd.isTextObjectModifier(ch)) {

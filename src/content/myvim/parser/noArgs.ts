@@ -1,4 +1,5 @@
 import { InsertCommand } from "../insert";
+import { MotionName } from "../motion";
 import { ScrollCommand } from "../scroll";
 import * as cmd from "./command";
 import { CommandType, type CommandContext } from "./commandType";
@@ -131,7 +132,7 @@ export const NO_ARG_CMD_MAP: Record<NoArgsCommands, (count: Count) => CommandCon
         count,
         innerCount: null,
         operator: "c",
-        motion: { type: MotionType.CHAR, name: "l" },
+        motion: { type: MotionType.CHAR, name: MotionName.right },
     }),
     "S": (count) => ({
         type: CommandType.OPERATOR,
@@ -145,35 +146,35 @@ export const NO_ARG_CMD_MAP: Record<NoArgsCommands, (count: Count) => CommandCon
         operator: "d",
         count,
         innerCount: null,
-        motion: { type: MotionType.CHAR, name: "l" },
+        motion: { type: MotionType.CHAR, name: MotionName.right },
     }),
     "X": (count) => ({
         type: CommandType.OPERATOR,
         operator: "d",
         count,
         innerCount: null,
-        motion: { type: MotionType.CHAR, name: "h" },
+        motion: { type: MotionType.CHAR, name: MotionName.left },
     }),
     "D": (count) => ({
         type: CommandType.OPERATOR,
         operator: "d",
         count,
         innerCount: null,
-        motion: { type: MotionType.CHAR, name: "$" },
+        motion: { type: MotionType.CHAR, name: MotionName.last },
     }),
     "C": (count) => ({
         type: CommandType.OPERATOR,
         operator: "c",
         count,
         innerCount: null,
-        motion: { type: MotionType.CHAR, name: "$" },
+        motion: { type: MotionType.CHAR, name: MotionName.last },
     }),
     "Y": (count) => ({
         type: CommandType.OPERATOR,
         operator: "y",
         count,
         innerCount: null,
-        motion: { type: MotionType.CHAR, name: "$" },
+        motion: { type: MotionType.CHAR, name: MotionName.last },
     }),
 
     // CASE_SWITCH
