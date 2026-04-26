@@ -9,6 +9,7 @@ import {
 } from "./parseStatus";
 import { NO_ARG_CMD_MAP } from "./noArgs";
 import { isDigitChar } from "../utils";
+import { toCount } from "./count";
 
 const ZERO_MOTION: MotionContext = {
     type: MotionType.CHAR,
@@ -42,7 +43,7 @@ export function parseCommand(input: readonly string[]): CommandParseResult {
         };
         return { status: ParseStatus.OK, value: command };
     }
-    const count = countStr === "" ? null : parseInt(countStr, 10);
+    const count = toCount(countStr);
 
     const first = ctx.read();
     if (!first) {
@@ -111,7 +112,7 @@ export function parseCommand(input: readonly string[]): CommandParseResult {
             };
             return { status: ParseStatus.OK, value: command };
         }
-        const innerCount = innerCountStr === "" ? null : parseInt(innerCountStr, 10);
+        const innerCount = toCount(innerCountStr);
 
         const afterInnerCount = ctx.read();
         if (!afterInnerCount) {
@@ -191,7 +192,7 @@ export function parseCommand(input: readonly string[]): CommandParseResult {
                 };
                 return { status: ParseStatus.OK, value: command };
             }
-            const innerCount = (innerCountStr === "") ? null : parseInt(innerCountStr, 10);
+            const innerCount = toCount(innerCountStr);
 
             const afterInnerCount = ctx.read();
             if (!afterInnerCount) {

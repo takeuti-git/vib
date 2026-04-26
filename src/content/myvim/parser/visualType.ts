@@ -1,5 +1,6 @@
 import type { MotionContext } from "./motionType";
 import type { ScrollKind } from "./commandType";
+import type { Count } from "./count";
 
 const operators = ["d", "c", "y"] as const;
 type Operator = (typeof operators)[number];
@@ -131,5 +132,3 @@ export type VisualCmdContext = { count: Count } & (
     | { type: typeof VisualCmdType.SWITCH_SIDE; }
     | { type: typeof VisualCmdType.SCROLL; kind: ScrollKind; }
 );
-
-type Count = number | null;

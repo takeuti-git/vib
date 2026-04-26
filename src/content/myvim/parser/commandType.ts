@@ -1,3 +1,4 @@
+import type { Count } from "./count";
 import type { GoInsertCommand, Operator } from "./command";
 import type { MotionContext } from "./motionType";
 
@@ -43,8 +44,6 @@ export type CommandContext = { count: Count } & (
     | { type: typeof CommandType.TO_UPPER; innerCount: Count, motion: MotionContext; }
 );
 
-export type Count = number | null;
 export type ScrollKind = "up-half" | "down-half" | "up-full" | "down-full";
-
 
 type PutPosition = "before" | "after";

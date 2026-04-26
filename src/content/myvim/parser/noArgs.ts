@@ -1,5 +1,6 @@
 import * as cmd from "./command";
-import { CommandType, type CommandContext, type Count } from "./commandType";
+import { CommandType, type CommandContext } from "./commandType";
+import type { Count } from "./count";
 import { MotionType } from "./motionType";
 
 type NoArgsCommands = (
