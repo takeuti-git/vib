@@ -1,4 +1,5 @@
 import { InsertCommand } from "../insert";
+import { ScrollCommand } from "../scroll";
 import * as cmd from "./command";
 import { CommandType, type CommandContext } from "./commandType";
 import type { Count } from "./count";
@@ -106,22 +107,22 @@ export const NO_ARG_CMD_MAP: Record<NoArgsCommands, (count: Count) => CommandCon
     "<C-u>": (count) => ({
         type: CommandType.SCROLL,
         count,
-        kind: "up-half",
+        kind: ScrollCommand.UP_HALF,
     }),
     "<C-d>": (count) => ({
         type: CommandType.SCROLL,
         count,
-        kind: "down-half",
+        kind: ScrollCommand.DOWN_HALF,
     }),
     "<C-b>": (count) => ({
         type: CommandType.SCROLL,
         count,
-        kind: "up-full",
+        kind: ScrollCommand.UP_FULL,
     }),
     "<C-f>": (count) => ({
         type: CommandType.SCROLL,
         count,
-        kind: "down-full",
+        kind: ScrollCommand.DOWN_FULL,
     }),
 
     // SUGAR

@@ -21,11 +21,11 @@ import {
     type FindMoveOptions,
 } from "./myvim/findCommand";
 import { createDiff, toRange } from "./undo";
-import { type ScrollKind } from "./myvim/parser/commandType";
 import type { MotionContext } from "./myvim/parser/motionType";
 import { parseVisualCommand } from "./myvim/parser/visual";
 import type { ExclusivePos, InclusivePos, InclusiveRange, TextRange } from "./types/motion";
 import { InsertCommand } from "./myvim/insert";
+import { ScrollCommand } from "./myvim/scroll";
 
 /** 角括弧の始まりの文字コード */
 const OPENING_BRACKET = 0x5b;
@@ -1306,23 +1306,23 @@ export class Editor {
         }
     }
 
-    private scrollCommandMap: Record<ScrollKind, (count: number) => void> = {
-        "up-half": () => {
+    private scrollCommandMap: Record<ScrollCommand, (count: number) => void> = {
+        "UP_HALF": () => {
             for (let i = 0; i < this.state.vi_scrollAmount; i++) {
                 this.vi_moveCursor(MOVE_KEYS.UP);
                 this.scrollUp();
             }
         },
-        "down-half": () => {
+        "DOWN_HALF": () => {
             for (let i = 0; i < this.state.vi_scrollAmount; i++) {
                 this.vi_moveCursor(MOVE_KEYS.DOWN);
                 this.scrollDown();
             }
         },
-        "up-full": (count) => {
+        "UP_FULL": (count) => {
             for (let i = 0; i < count; i++) this.pageUp();
         },
-        "down-full": (count) => {
+        "DOWN_FULL": (count) => {
             for (let i = 0; i < count; i++) this.pageDown();
         },
     };

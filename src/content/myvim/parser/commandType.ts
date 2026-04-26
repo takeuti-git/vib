@@ -2,6 +2,7 @@ import type { Count } from "./count";
 import type { Operator } from "./command";
 import type { MotionContext } from "./motionType";
 import type { InsertCommand } from "../insert";
+import type { ScrollCommand } from "../scroll";
 
 // prettier-ignore
 export const CommandType = {
@@ -39,12 +40,10 @@ export type CommandContext = { count: Count } & (
     | { type: typeof CommandType.JOIN; }
     | { type: typeof CommandType.UNDO; }
     | { type: typeof CommandType.REDO; }
-    | { type: typeof CommandType.SCROLL; kind: ScrollKind }
+    | { type: typeof CommandType.SCROLL; kind: ScrollCommand }
     | { type: typeof CommandType.SWITCH_CASE; }
     | { type: typeof CommandType.TO_LOWER; innerCount: Count, motion: MotionContext; }
     | { type: typeof CommandType.TO_UPPER; innerCount: Count, motion: MotionContext; }
 );
-
-export type ScrollKind = "up-half" | "down-half" | "up-full" | "down-full";
 
 type PutPosition = "before" | "after";
