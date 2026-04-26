@@ -1,5 +1,5 @@
 import * as cmd from "./command";
-import { CommandType, type CommandContext, type Count } from "./commandType";
+import { CommandType, type CommandContext } from "./commandType";
 import { MotionType, type MotionContext } from "./motionType";
 import {
     ParseStatus,
@@ -111,7 +111,7 @@ export function parseCommand(input: readonly string[]): CommandParseResult {
             };
             return { status: ParseStatus.OK, value: command };
         }
-        const innerCount: Count = innerCountStr === "" ? null : parseInt(innerCountStr, 10);
+        const innerCount = innerCountStr === "" ? null : parseInt(innerCountStr, 10);
 
         const afterInnerCount = ctx.read();
         if (!afterInnerCount) {
@@ -191,7 +191,7 @@ export function parseCommand(input: readonly string[]): CommandParseResult {
                 };
                 return { status: ParseStatus.OK, value: command };
             }
-            const innerCount: Count = (innerCountStr === "") ? null : parseInt(innerCountStr, 10);
+            const innerCount = (innerCountStr === "") ? null : parseInt(innerCountStr, 10);
 
             const afterInnerCount = ctx.read();
             if (!afterInnerCount) {
