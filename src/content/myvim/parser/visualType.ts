@@ -2,59 +2,25 @@ import type { MotionContext } from "./motionType";
 import type { Count } from "./count";
 import type { ScrollCommand } from "../scroll";
 
-const operators = ["d", "c", "y"] as const;
-type Operator = (typeof operators)[number];
-export function isOperator(ch: string): ch is Operator {
-    return operators.some(v => v === ch);
-}
+type Operator = "d" | "c" | "y";
 
-const indentOperators = [">", "<"] as const;
-type IndentOperator = (typeof indentOperators)[number];
-export function isIndentOperator(ch: string): ch is IndentOperator {
-    return indentOperators.some(v => v === ch);
-}
+type IndentOperator = ">" | "<";
 
-const sideSwitchers = ["o", "O"] as const;
-type SideSwitcher = (typeof sideSwitchers)[number];
-export function isSideSwitcher(ch: string): ch is SideSwitcher {
-    return sideSwitchers.some(v => v === ch);
-}
+type SideSwitcher = "o" | "O";
 
-const caseSwitchers = ["u", "U", "~"] as const;
-type CaseSwitcher = (typeof caseSwitchers)[number];
-export function isCaseSwitcher(ch: string): ch is CaseSwitcher {
-    return caseSwitchers.some(v => v === ch);
-}
+type CaseSwitcher = "u" | "U" | "~"
 
-const insertCommands = ["I", "A"] as const;
-type VIS_InsertCommand = (typeof insertCommands)[number];
-export function isInsertCommand(ch: string): ch is VIS_InsertCommand {
-    return insertCommands.some(v => v === ch);
-}
+type InsertCommand = "I" | "A";
 
-const sugars = ["s", "x", "X", "D", "C", "Y", "R", "S"] as const;
-type VIS_Sugar = (typeof sugars)[number];
-export function isSugar(ch: string): ch is VIS_Sugar {
-    return sugars.some(v => v === ch);
-}
+type Sugar = "s" | "x" | "X" | "D" | "C" | "Y" | "R" | "S";
 
-const joinCommands = ["J"] as const;
-type JoinCommand = (typeof joinCommands)[number];
-export function isJoinCommand(ch: string): ch is JoinCommand {
-    return joinCommands.some(v => v === ch);
-}
+type JoinCommand = "J";
 
-const putCommands = ["p", "P"] as const;
-type PutCommand = (typeof putCommands)[number];
-export function isPutCommand(ch: string): ch is PutCommand {
-    return putCommands.some(v => v === ch);
-}
+type PutCommand = "p" | "P";
 
-const replaceCommmands = ["r"] as const;
-type ReplaceCommand = (typeof replaceCommmands)[number];
-export function isReplaceCommand(ch: string): ch is ReplaceCommand {
-    return replaceCommmands.some(v => v === ch);
-}
+type ReplaceCommand = "r";
+
+type RepeatMotionCommand = ";" | ",";
 
 // prettier-ignore
 export const VisualCmdType = {
@@ -75,18 +41,31 @@ export const VisualCmdType = {
 const noCount = <T extends Omit<VisualCmdContext, "count">>(ctx: T) => 
     ({ ...ctx, count: null }) as T & { count: null };
 
-export const OPERATOR_TO_CTX: Record<Operator, Readonly<VisualCmdContext>> = {
-    "d": noCount({ type: VisualCmdType.OPERATOR, operator: "d", linewise: false }),
-    "c": noCount({ type: VisualCmdType.OPERATOR, operator: "c", linewise: false }),
-    "y": noCount({ type: VisualCmdType.OPERATOR, operator: "y", linewise: false }),
-};
-
 export const INDENT_OPERATOR_TO_CTX: Record<IndentOperator, (count: Count) => Readonly<VisualCmdContext>> = {
     "<": (count) => ({ type: VisualCmdType.OPERATOR, count, operator: "<", linewise: false }),
     ">": (count) => ({ type: VisualCmdType.OPERATOR, count, operator: ">", linewise: false }),
 };
 
-export const SUGAR_TO_CTX: Record<VIS_Sugar, Readonly<VisualCmdContext>> = {
+type NoArgCmd = Operator | SideSwitcher | CaseSwitcher | JoinCommand | Sugar;
+export const NO_ARG_CMD_MAP: Record<NoArgCmd, Readonly<VisualCmdContext>> = {
+    // Operator
+    "d": noCount({ type: VisualCmdType.OPERATOR, operator: "d", linewise: false }),
+    "c": noCount({ type: VisualCmdType.OPERATOR, operator: "c", linewise: false }),
+    "y": noCount({ type: VisualCmdType.OPERATOR, operator: "y", linewise: false }),
+
+    // SideSwitcher
+    "o": noCount({ type: VisualCmdType.SWITCH_SIDE }),
+    "O": noCount({ type: VisualCmdType.SWITCH_SIDE }),
+
+    // CaseSwitcher
+    "u": noCount({ type: VisualCmdType.TO_LOWER }),
+    "U": noCount({ type: VisualCmdType.TO_UPPER }),
+    "~": noCount({ type: VisualCmdType.REVERSE_CASE }),
+
+    // Join
+    "J": noCount({ type: VisualCmdType.JOIN }),
+
+    // Sugar
     "x": noCount({ type: VisualCmdType.OPERATOR, operator: "d", linewise: false }),
     "s": noCount({ type: VisualCmdType.OPERATOR, operator: "c", linewise: false }),
     "X": noCount({ type: VisualCmdType.OPERATOR, operator: "d", linewise: true }),
@@ -96,31 +75,47 @@ export const SUGAR_TO_CTX: Record<VIS_Sugar, Readonly<VisualCmdContext>> = {
     "S": noCount({ type: VisualCmdType.OPERATOR, operator: "c", linewise: true }),
     "Y": noCount({ type: VisualCmdType.OPERATOR, operator: "y", linewise: true }),
 };
+export function isNoArgCmdKey(key: string): key is NoArgCmd {
+    return key in NO_ARG_CMD_MAP;
+}
 
-// prettier-ignore
-export const NO_ARG_CMD_MAP: Record<SideSwitcher | CaseSwitcher | JoinCommand, VisualCmdContext> = {
-    "o": noCount({ type: VisualCmdType.SWITCH_SIDE }),
-    "O": noCount({ type: VisualCmdType.SWITCH_SIDE }),
-    "u": noCount({ type: VisualCmdType.TO_LOWER }),
-    "U": noCount({ type: VisualCmdType.TO_UPPER }),
-    "~": noCount({ type: VisualCmdType.REVERSE_CASE }),
-    "J": noCount({ type: VisualCmdType.JOIN }),
-};
+type WithCountCmd = InsertCommand | IndentOperator | PutCommand | RepeatMotionCommand;
+type WithCountCmdFunc = (count: Count) => Readonly<VisualCmdContext>;
+export const WITH_COUNT_CMD_MAP: Record<WithCountCmd, WithCountCmdFunc> = {
+    // Insert
+    "I": (count) => ({ type: VisualCmdType.INSERT, count, command: "I" }),
+    "A": (count) => ({ type: VisualCmdType.INSERT, count, command: "A" }),
 
-export const PUT_CMD_MAP: Record<PutCommand, (count: Count) => VisualCmdContext> = {
-    p: (count) => ({ type: VisualCmdType.PUT, count, writeRegister: true }),
-    P: (count) => ({ type: VisualCmdType.PUT, count, writeRegister: false }),
-};
+    // Indent
+    "<": (count) => ({ type: VisualCmdType.OPERATOR, count, operator: "<", linewise: false }),
+    ">": (count) => ({ type: VisualCmdType.OPERATOR, count, operator: ">", linewise: false }),
 
-export const REPLACE_CMD_MAP: Record<ReplaceCommand, (count: Count, arg: string) => VisualCmdContext> = {
-    r: (count, arg) => ({ type: VisualCmdType.REPLACE, count, arg }),
+    // Put
+    "p": (count) => ({ type: VisualCmdType.PUT, count, writeRegister: true }),
+    "P": (count) => ({ type: VisualCmdType.PUT, count, writeRegister: false }),
+
+    // RepeatMotion
+    ";": (count) => ({ type: VisualCmdType.REPEAT_MOT, count, reverse: false }),
+    ",": (count) => ({ type: VisualCmdType.REPEAT_MOT, count, reverse: true }),
 };
+export function isWithCountCmdKey(key: string): key is WithCountCmd {
+    return key in WITH_COUNT_CMD_MAP;
+}
+
+type WithArgCmd = ReplaceCommand;
+type WithArgCmdFunc = (count: Count, arg: string) => Readonly<VisualCmdContext>;
+export const WITH_ARG_CMD_MAP: Record<WithArgCmd, WithArgCmdFunc> = {
+    "r": (count, arg) => ({ type: VisualCmdType.REPLACE, count, arg }),
+};
+export function isWithArgCmdKey(key: string): key is WithArgCmd {
+    return key in WITH_ARG_CMD_MAP;
+}
 
 export type VisalCmdType = (typeof VisualCmdType)[keyof typeof VisualCmdType];
 
 export type VisualCmdContext = { count: Count } & (
     | { type: typeof VisualCmdType.OPERATOR; operator: Operator | IndentOperator; linewise: boolean; }
-    | { type: typeof VisualCmdType.INSERT; command: VIS_InsertCommand; }
+    | { type: typeof VisualCmdType.INSERT; command: InsertCommand; }
     | { type: typeof VisualCmdType.MOTION; motion: MotionContext; }
     | { type: typeof VisualCmdType.PUT; writeRegister: boolean; } /* 実行後に選択範囲をレジスタに書きこむか */
     | { type: typeof VisualCmdType.REPLACE; arg: string; }
