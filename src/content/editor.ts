@@ -734,7 +734,7 @@ export class Editor {
                 this.moveCursor(MOVE_KEYS.LEFT);
             }
             const savedText = clipboardBuf.join("\n");
-            if (writeRegister) {
+            if (writeRegister && savedText !== "") {
                 writeClipboard(savedText);
             }
             return savedText;
