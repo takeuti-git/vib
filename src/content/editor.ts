@@ -269,10 +269,20 @@ export class Editor {
             for (let i = 0; i < 3; i++) {
                 this.scrollUpWithCursor();
             }
-        } else {
+        } else if (e.deltaY > 0) {
             // down
             for (let i = 0; i < 3; i++) {
                 this.scrollDownWithCursor();
+            }
+        } else if (e.deltaX > 0) {
+            // right
+            for (let i = 0; i < 6; i++) {
+                this.scrollRightWithCursor();
+            }
+        } else if (e.deltaX < 0) {
+            // left
+            for (let i = 0; i < 6; i++) {
+                this.scrollLeftWithCursor();
             }
         }
         this.scrollWindow();
@@ -1351,6 +1361,37 @@ export class Editor {
             this.moveCursorDown();
         }
         this.clampCursorCol();
+    }
+
+    private scrollRightWithCursor(): void {
+        this.state.logicaloff += 1;
+        if (this.state.logicalWidth < this.state.logicaloff) {
+            this.vi_moveCursor(MOVE_KEYS.RIGHT);
+            if (this.state.col < this.currentLine.size - 1) return;
+            // 表示中の行の中で最もwidthが大きい行に移動する
+            let destRow = this.state.row;
+            const lines = this.state.lines;
+
+            const slicedLines =
+                lines.slice(
+                    this.state.rowoff, this.state.rowoff + this.config.screenrows - this.config.statusBarHeight
+            ).map((ln, i) => ({ ln, idx: this.state.rowoff + i }));
+
+            for (const { ln, idx } of slicedLines) {
+                if (calcLogicalWidth(lines[destRow].text) < calcLogicalWidth(ln.text)) {
+                    destRow = idx;
+                }
+            }
+            this.moveCursorToPos(destRow, this.state.col);
+        }
+    }
+
+    private scrollLeftWithCursor(): void {
+        this.state.logicaloff = Math.max(0, this.state.logicaloff - 1);
+        const border = this.state.logicaloff + this.config.screencols - 1 - this.config.lineNumberCols;
+        if (this.state.logicalWidth > border) {
+            this.vi_moveCursor(MOVE_KEYS.LEFT);
+        }
     }
 
     private pageUp(): void {
