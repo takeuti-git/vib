@@ -355,11 +355,12 @@ export class Editor {
         this.input.value = "";
 
         const input = toInputToken(e.key, e.ctrlKey);
+        this.vi_executeKeypress(input);
 
-        // 以下の処理をkey: stringを受け取るメソッドに分離したい
-        // マクロで繰り返す際に再現できる形で
+        this.scheduleElementValueUpdate();
+    };
 
-        // 括弧の文字をそのまま使うと開発中にvimのtextobjがバグる
+    private vi_executeKeypress(input: string): void {
         if (input === "Escape") {
             this.vi_goNormal();
             this.render();
@@ -398,9 +399,7 @@ export class Editor {
             this.scrollWindow();
             this.render();
         }
-
-        this.scheduleElementValueUpdate();
-    };
+    }
 
     private executeResult(result: 0 | 1 | 2): void {
         if (result === 1) {
