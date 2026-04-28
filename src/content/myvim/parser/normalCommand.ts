@@ -40,6 +40,7 @@ export type PutCommand = "p" | "P";
 export type UndoCommand = "u";
 export type RedoCommand = "<C-r>";
 export type ReplaceCommand = "r";
+export type MacroStartCommand = "q";
 export type TextObjectModifier = (typeof textObjectModifiers)[number];
 export type TextObjectType = (typeof textObjectTypes)[number];
 export type ScrollCommand = "<C-u>" | "<C-d>" | "<C-f>" | "<C-b>";
