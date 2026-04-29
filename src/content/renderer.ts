@@ -132,10 +132,10 @@ export class Renderer {
         this.drawStatusBarBg();
 
         const vi_mode = `-- ${
-            state.vi_state.mode === "visual" && state.vi_state.linewise ?
-                "VISUAL LINE" :
-                state.vi_state.mode.toUpperCase()
-        } --`;
+            (state.vi_state.mode === "visual" && state.vi_state.linewise)
+                ? "VISUAL LINE"
+                : state.vi_state.mode.toUpperCase()
+        } --` + ((state.vi_macroRecording) ? `recording @${state.vi_macroRecording}` : "");
         this.drawStatusBarText(0, vi_mode);
 
         this.drawStatusBarText(this.calcWidth(vi_mode) + 24, text);
