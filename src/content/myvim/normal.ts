@@ -22,6 +22,10 @@ export const NormalCmdType = {
     SWITCH_CASE: "switch_case",
     TO_LOWER:    "to_lower",
     TO_UPPER:    "to_upper",
+    MACRO_START: "MACRO_START",
+    MACRO_FINISH: "MACRO_FINISH",
+    MACRO_PLAY:  "MACRO_PLAY",
+    MACRO_REPEAT: "MACRO_REPEAT",
 } as const;
 
 type NormalCmdType = (typeof NormalCmdType)[keyof typeof NormalCmdType];
@@ -44,6 +48,10 @@ export type NormalCmdContext = { count: Count } & (
     | { type: typeof NormalCmdType.SWITCH_CASE; }
     | { type: typeof NormalCmdType.TO_LOWER; innerCount: Count, motion: MotionContext; }
     | { type: typeof NormalCmdType.TO_UPPER; innerCount: Count, motion: MotionContext; }
+    | { type: typeof NormalCmdType.MACRO_START; arg: string; }
+    | { type: typeof NormalCmdType.MACRO_FINISH; }
+    | { type: typeof NormalCmdType.MACRO_PLAY; arg: string; }
+    | { type: typeof NormalCmdType.MACRO_REPEAT; }
 );
 
 type PutPosition = "before" | "after";

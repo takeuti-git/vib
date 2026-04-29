@@ -4,23 +4,31 @@ export function isFunctionKey(key: string): boolean {
 }
 
 export const MOVE_KEYS = {
-    LEFT: "LEFT",
+    LEFT:  "LEFT",
     RIGHT: "RIGHT",
-    UP: "UP",
-    DOWN: "DOWN",
+    UP:    "UP",
+    DOWN:  "DOWN",
 } as const;
 
 export type MoveKey = keyof typeof MOVE_KEYS;
 
-export function getInputFromEvent(event: KeyboardEvent): string {
-    const key = event.key;
-    if (event.ctrlKey) {
-        return `<C-${key}>`;
-    } else {
-        return key;
+export function toInputToken(key: string, ctrlKey: boolean): string {
+    if (ctrlKey && key === "[") {
+        return "Escape";
     }
+    if (ctrlKey) {
+        return `<C-${key}>`;
+    }
+    return key;
 }
 
-export function isValidKey(key: string): boolean {
-    return key.length === 1 || key === "Enter";
+export function isSpecialKey(key: string): boolean {
+    switch (key) {
+        case "Shift":
+        case "Control":
+        case "Alt":
+        case "Meta":
+            return true;
+    }
+    return false;
 }

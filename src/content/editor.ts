@@ -2,7 +2,7 @@ import { getFullScreenRows, getHalfScreenRows, type EditorConfig } from "./confi
 import type { Renderer } from "./renderer";
 import { type EditorState, resetState } from "./state";
 import { Line, getLines, joinLines } from "./line";
-import { getInputFromEvent, isFunctionKey, isValidKey, MOVE_KEYS, type MoveKey } from "./keys";
+import { toInputToken, isFunctionKey, MOVE_KEYS, type MoveKey, isSpecialKey } from "./keys";
 import { hideElement, setElementFontsize, showElement } from "./dom";
 import { LOGICAL_HALF_WIDTH, addFirstWhitespace, calcLogicalWidth, getCountUntilNonWhitespace, logicalWidthToCol, removeFirstWhitespace } from "./utils";
 import {
@@ -27,9 +27,7 @@ import { MotionType, type MotionContext, type MotionName } from "./myvim/motion"
 import { OperatorName } from "./myvim/operator";
 import { NormalCmdType } from "./myvim/normal";
 import { VisualCmdType } from "./myvim/visual";
-
-/** 角括弧の始まりの文字コード */
-const OPENING_BRACKET = 0x5b;
+import { isValidMacroChar, type MacroChar } from "./myvim/macro";
 
 function toExclusiveTextRange(start: InclusivePos, end: InclusivePos, linewise: boolean): TextRange {
     if (linewise) {
@@ -319,14 +317,13 @@ export class Editor {
     };
 
     private handleEditorKeydown = (e: KeyboardEvent): void => {
-        const key = e.key;
-        if (isFunctionKey(key)) return; // fnキーは通常通り動作させるため早期リターン
+        if (isFunctionKey(e.key)) return; // fnキーは通常通り動作させるため早期リターン
         e.preventDefault();
         e.stopImmediatePropagation(); // サイト側のkeydownイベントを発火させない
         if (e.isComposing) return;
 
         if (e.shiftKey) {
-            const resize = this.resizeMap[key];
+            const resize = this.resizeMap[e.key];
             if (resize) {
                 resize();
                 this.updateCanvas();
@@ -358,8 +355,19 @@ export class Editor {
 
         this.input.value = "";
 
-        // 括弧の文字をそのまま使うと開発中にvimのtextobjがバグる
-        if (key === "Escape" || (key.codePointAt(0) === OPENING_BRACKET && e.ctrlKey)) {
+        if (isSpecialKey(e.key)) return;
+
+        const input = toInputToken(e.key, e.ctrlKey);
+        if (this.state.vi_macroRecording) {
+            this.state.vi_macroTable[this.state.vi_macroRecording].push(input);
+        }
+        this.vi_executeKeypress(input);
+
+        this.scheduleElementValueUpdate();
+    };
+
+    private vi_executeKeypress(input: string): void {
+        if (input === "Escape") {
             this.vi_goNormal();
             this.render();
 
@@ -370,8 +378,9 @@ export class Editor {
 
         // processing
         if (this.state.vi_state.mode === "normal" || this.state.vi_state.mode === "visual") {
-            if (!isValidKey(key)) return;
-            const input = getInputFromEvent(e);
+            if (input.length !== 1 && input !== "Enter" && !input.startsWith("<")) {
+                return;
+            }
             this.state.vi_cmd.push(input);
 
             if (this.state.vi_cmd.length > 6) {
@@ -387,18 +396,23 @@ export class Editor {
             this.executeResult(result);
 
         } else if (this.state.vi_state.mode === "insert") {
-            this.processKeypress(e);
+            this.processKeypress(input);
             this.scrollWindow();
             this.render();
 
         } else if (this.state.vi_state.mode === "replace") {
-            this.processKeypress(e, { replace: true });
+            this.processKeypress(input, { replace: true });
             this.scrollWindow();
             this.render();
         }
 
-        this.scheduleElementValueUpdate();
-    };
+        if (this.state.vi_macroCallback) {
+            // 再帰無限ループを防ぐため関数の参照を保持し元の値は削除、その後呼び出す
+            const macroCallbackTemp = this.state.vi_macroCallback;
+            this.state.vi_macroCallback = null;
+            macroCallbackTemp();
+        }
+    }
 
     private executeResult(result: 0 | 1 | 2): void {
         if (result === 1) {
@@ -899,7 +913,7 @@ export class Editor {
      * - 2: exists but incomplete
      * */
     private vi_executeNormal(input: readonly string[]): 0 | 1 | 2 {
-        const parseResult = parseNormalInput(input);
+        const parseResult = parseNormalInput(input, !!this.state.vi_macroRecording);
         if (parseResult.status === ParseStatus.UNKNOWN) {
             console.log("its unknown");
             return 1;
@@ -1061,6 +1075,28 @@ export class Editor {
                 }
                 return selected.toUpperCase();
             });
+        } else if (datatype === NormalCmdType.MACRO_START) {
+            if (this.state.vi_macroRecording !== null) throw new Error("vi_macroRecording must be null");
+            if (!isValidMacroChar(data.arg)) {
+                return 0;
+            }
+            this.vi_startMacro(data.arg);
+
+        } else if (datatype === NormalCmdType.MACRO_FINISH) {
+            if (this.state.vi_macroRecording === null) throw new Error("vi_macroRecording must be a char");
+            this.vi_finishMacro(this.state.vi_macroRecording);
+
+        } else if (datatype === NormalCmdType.MACRO_PLAY) {
+            if (!isValidMacroChar(data.arg)) {
+                return 0;
+            }
+            this.vi_playMacro(data.arg, count);
+            this.state.vi_macroLastPlayed = data.arg;
+
+        } else if (datatype === NormalCmdType.MACRO_REPEAT) {
+            if (!this.state.vi_macroLastPlayed) return 0;
+            this.vi_playMacro(this.state.vi_macroLastPlayed, count);
+
         }
 
         return 0;
@@ -1249,6 +1285,26 @@ export class Editor {
         return 0;
     }
 
+    private vi_startMacro(macroChar: MacroChar): void {
+        this.state.vi_macroRecording = macroChar;
+        this.state.vi_macroTable[macroChar] = [];
+    }
+
+    private vi_finishMacro(key: MacroChar): void {
+        this.state.vi_macroTable[key].pop(); // マクロを終了するqキーの記録を削除する
+        this.state.vi_macroRecording = null;
+    }
+
+    private vi_playMacro(key: MacroChar, count: number): void {
+        this.state.vi_macroCallback = () => {
+            for (let i = 0; i < count; i++) {
+                this.state.vi_macroTable[key].forEach((k) => {
+                    this.vi_executeKeypress(k);
+                });
+            }
+        };
+    }
+
     private applyVisualTransform(
         first: InclusivePos,
         last: InclusivePos,
@@ -1411,30 +1467,6 @@ export class Editor {
         this.state.vi_lastFindMotion = { name, arg };
     }
 
-    // private vi_processInputClone(input: string[]): void {
-    //     const [count, motion] = vi_getCountMotion(input.join(""));
-    //     if (motion === null) return;
-    //
-    //     const fn = this.vi_normalCmdMap[motion as NormalCmd];
-    //     if (isInsertionCmd(motion)) {
-    //         fn();
-    //         if (["a", "A"].includes(motion) && !this.isAtLineTail()) {
-    //             this.moveCursor(MOVE_KEYS.RIGHT);
-    //         }
-    //         for (let i = 0; i < count; i++) {
-    //             this.vi_insertBuffer(this.state.vi_insertBuf);
-    //         }
-    //         if (count >= 2 && ["o", "O"].includes(motion)) {
-    //             this.deleteRow(this.state.row);
-    //             this.moveCursor(MOVE_KEYS.UP);
-    //             this.moveCursorToLast();
-    //         }
-    //         this.vi_moveCursor(MOVE_KEYS.LEFT);
-    //     } else {
-    //         for (let i = 0; i < count; i++) fn();
-    //     }
-    // }
-
     private vi_insertBuffer(buf: string[]): void {
         for (const token of buf) {
             if (token === Editor.VI_TAB) {
@@ -1521,17 +1553,15 @@ export class Editor {
         },
     };
 
-    private processKeypress(e: KeyboardEvent, { replace = false } = {}): void {
-        const key = e.key;
-
-        const action = this.keyMap[key];
+    private processKeypress(input: string, { replace = false } = {}): void {
+        const action = this.keyMap[input];
 
         if (action) {
             action();
         } else {
-            if (key.length > 1) return;
-            this.insertText(key, { replace });
-            this.state.vi_insertBuf.push(key);
+            if (input.length > 1) return;
+            this.insertText(input, { replace });
+            this.state.vi_insertBuf.push(input);
         }
     }
 

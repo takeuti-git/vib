@@ -24,6 +24,9 @@ const textObjectTypes = [
 ] as const;
 const textObjectTypeSet: ReadonlySet<string> = new Set(textObjectTypes);
 
+const macroRecordCommand = "q" as const;
+const macroPlayCommand = "@" as const;
+
 
 // ------------------------------
 // | Validation Types
@@ -46,6 +49,8 @@ export type ScrollCommand = "<C-u>" | "<C-d>" | "<C-f>" | "<C-b>";
 export type SwitchCaseCommand = "~";
 export type RepeatOperatorCommand = ".";
 export type RepeatMotionCommand = ";" | ",";
+export type MacroRecordCommand = typeof macroRecordCommand;
+export type MacroPlayCommand = "@";
 
 // ------------------------------
 // | Validations
@@ -69,3 +74,11 @@ export const isTextObjectModifier = (ch: string): ch is TextObjectModifier => {
 export const isTextObjectType = (ch: string): ch is TextObjectType => {
     return textObjectTypeSet.has(ch);
 };
+
+export const isMacroRecordCommand = (ch: string): ch is MacroRecordCommand => {
+    return macroRecordCommand === ch;
+};
+
+export const isMacroPlayCommand = (ch: string): ch is MacroPlayCommand => {
+    return macroPlayCommand === ch;
+}
