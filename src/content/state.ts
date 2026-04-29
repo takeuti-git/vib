@@ -2,6 +2,7 @@ import { getHalfScreenRows, type EditorConfig } from "./config";
 import { Line } from "./line";
 import type { FindCommandName } from "./myvim/findCommand";
 import type { InsertCommand } from "./myvim/insert";
+import { createMacroTable, type MacroChar, type MacroTable } from "./myvim/macro";
 import type { MotionContext } from "./myvim/motion";
 import type { OperatorName } from "./myvim/operator";
 import type { InclusivePos, Position } from "./types/motion";
@@ -12,7 +13,6 @@ type RepeatableCmd = { count: number } & (
     | { type: "put", position: "before" | "after" }
     | { type: "join" }
 );
-
 
 export type EditorState = {
     row: number; // 現在の行数
@@ -38,6 +38,9 @@ export type EditorState = {
     vi_yankLinewise: boolean;
     vi_lastFindMotion: { name: FindCommandName; arg: string } | null;
     vi_scrollAmount: number;
+
+    vi_macroRecording: MacroChar | null;
+    vi_macroTable: MacroTable;
 };
 
 type ViState =
@@ -92,6 +95,9 @@ export function createEditorState(config: Readonly<EditorConfig>): EditorState {
         cursorStyle: "full",
         vi_lastFindMotion: null,
         vi_scrollAmount: getHalfScreenRows(config),
+
+        vi_macroRecording: null,
+        vi_macroTable: createMacroTable(),
     };
 }
 
@@ -117,4 +123,6 @@ export function resetState(state: EditorState, config: Readonly<EditorConfig>): 
     state.cursorStyle = "full";
     state.vi_lastFindMotion = null;
     state.vi_scrollAmount = getHalfScreenRows(config);
+    state.vi_macroRecording = null;
+    // 試験的にvi_macroHashはリセットしない
 }

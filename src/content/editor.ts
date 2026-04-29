@@ -27,6 +27,7 @@ import { MotionType, type MotionContext, type MotionName } from "./myvim/motion"
 import { OperatorName } from "./myvim/operator";
 import { NormalCmdType } from "./myvim/normal";
 import { VisualCmdType } from "./myvim/visual";
+import { isValidMacroChar, type MacroChar } from "./myvim/macro";
 
 function toExclusiveTextRange(start: InclusivePos, end: InclusivePos, linewise: boolean): TextRange {
     if (linewise) {
@@ -355,7 +356,13 @@ export class Editor {
         this.input.value = "";
 
         const input = toInputToken(e.key, e.ctrlKey);
+        if (this.state.vi_macroRecording) {
+            this.state.vi_macroTable[this.state.vi_macroRecording].push(input);
+        }
         this.vi_executeKeypress(input);
+        for (const obj of Object.values(this.state.vi_macroTable)) {
+            console.log(obj);
+        }
 
         this.scheduleElementValueUpdate();
     };
@@ -900,7 +907,7 @@ export class Editor {
      * - 2: exists but incomplete
      * */
     private vi_executeNormal(input: readonly string[]): 0 | 1 | 2 {
-        const parseResult = parseNormalInput(input);
+        const parseResult = parseNormalInput(input, !!this.state.vi_macroRecording);
         if (parseResult.status === ParseStatus.UNKNOWN) {
             console.log("its unknown");
             return 1;
@@ -1062,6 +1069,19 @@ export class Editor {
                 }
                 return selected.toUpperCase();
             });
+        } else if (datatype === NormalCmdType.MACRO_START) {
+            if (this.state.vi_macroRecording !== null) throw new Error("vi_macroRecording must be null");
+            if (!isValidMacroChar(data.arg)) {
+                console.log("data.arg is not valid char");
+                return 0;
+            }
+            this.vi_startMacro(data.arg);
+
+        } else if (datatype === NormalCmdType.MACRO_FINISH) {
+            if (this.state.vi_macroRecording === null) throw new Error("vi_macroRecording must be a char");
+            console.log("finish recording for: ", this.state.vi_macroRecording);
+            this.state.vi_macroTable[this.state.vi_macroRecording].pop(); // マクロを終了するqキーの記録を削除する
+            this.vi_finishMacro();
         }
 
         return 0;
@@ -1248,6 +1268,15 @@ export class Editor {
             this.applyVisualTransform(vi_state.visualFirst, vi_state.visualLast, swapCase);
         }
         return 0;
+    }
+
+    private vi_startMacro(macroChar: MacroChar): void {
+        this.state.vi_macroRecording = macroChar;
+        this.state.vi_macroTable[macroChar] = [];
+    }
+
+    private vi_finishMacro(): void {
+        this.state.vi_macroRecording = null;
     }
 
     private applyVisualTransform(

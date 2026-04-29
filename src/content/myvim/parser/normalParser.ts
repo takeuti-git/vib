@@ -22,8 +22,9 @@ const ZERO_MOTION: MotionContext = {
 
 /**
  * - status: unknown | pending | ok
+ * - macroRecording: default value is false
  **/
-export function parseNormalInput(input: readonly string[]): NormalCmdParseResult {
+export function parseNormalInput(input: readonly string[], macroRecording = false): NormalCmdParseResult {
     let i = 0;
     const len = input.length;
 
@@ -85,6 +86,13 @@ export function parseNormalInput(input: readonly string[]): NormalCmdParseResult
         }
 
         return UNKNOWN;
+    }
+
+    if (macroRecording && cmd.isMacroCommand(first)) {
+        return OK({
+            type: NormalCmdType.MACRO_FINISH,
+            count,
+        });
     }
 
     if (isNoArgCmd(first)) {

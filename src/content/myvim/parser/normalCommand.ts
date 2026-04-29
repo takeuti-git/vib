@@ -24,6 +24,8 @@ const textObjectTypes = [
 ] as const;
 const textObjectTypeSet: ReadonlySet<string> = new Set(textObjectTypes);
 
+const macroCommand = "q" as const;
+
 
 // ------------------------------
 // | Validation Types
@@ -40,7 +42,7 @@ export type PutCommand = "p" | "P";
 export type UndoCommand = "u";
 export type RedoCommand = "<C-r>";
 export type ReplaceCommand = "r";
-export type MacroStartCommand = "q";
+export type MacroCommand = typeof macroCommand;
 export type TextObjectModifier = (typeof textObjectModifiers)[number];
 export type TextObjectType = (typeof textObjectTypes)[number];
 export type ScrollCommand = "<C-u>" | "<C-d>" | "<C-f>" | "<C-b>";
@@ -69,4 +71,8 @@ export const isTextObjectModifier = (ch: string): ch is TextObjectModifier => {
 
 export const isTextObjectType = (ch: string): ch is TextObjectType => {
     return textObjectTypeSet.has(ch);
+};
+
+export const isMacroCommand = (ch: string): ch is MacroCommand => {
+    return macroCommand === ch;
 };
