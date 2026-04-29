@@ -2,7 +2,7 @@ import { getFullScreenRows, getHalfScreenRows, type EditorConfig } from "./confi
 import type { Renderer } from "./renderer";
 import { type EditorState, resetState } from "./state";
 import { Line, getLines, joinLines } from "./line";
-import { toInputToken, isFunctionKey, MOVE_KEYS, type MoveKey } from "./keys";
+import { toInputToken, isFunctionKey, MOVE_KEYS, type MoveKey, isSpecialKey } from "./keys";
 import { hideElement, setElementFontsize, showElement } from "./dom";
 import { LOGICAL_HALF_WIDTH, addFirstWhitespace, calcLogicalWidth, getCountUntilNonWhitespace, logicalWidthToCol, removeFirstWhitespace } from "./utils";
 import {
@@ -354,6 +354,8 @@ export class Editor {
         }
 
         this.input.value = "";
+
+        if (isSpecialKey(e.key)) return;
 
         const input = toInputToken(e.key, e.ctrlKey);
         if (this.state.vi_macroRecording) {
