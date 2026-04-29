@@ -360,9 +360,6 @@ export class Editor {
             this.state.vi_macroTable[this.state.vi_macroRecording].push(input);
         }
         this.vi_executeKeypress(input);
-        for (const obj of Object.values(this.state.vi_macroTable)) {
-            console.log(obj);
-        }
 
         this.scheduleElementValueUpdate();
     };
@@ -405,6 +402,13 @@ export class Editor {
             this.processKeypress(input, { replace: true });
             this.scrollWindow();
             this.render();
+        }
+
+        if (this.state.vi_macroCallback) {
+            // 再帰無限ループを防ぐため関数の参照を保持し元の値は削除、その後呼び出す
+            const macroCallbackTemp = this.state.vi_macroCallback;
+            this.state.vi_macroCallback = null;
+            macroCallbackTemp();
         }
     }
 
@@ -1072,16 +1076,25 @@ export class Editor {
         } else if (datatype === NormalCmdType.MACRO_START) {
             if (this.state.vi_macroRecording !== null) throw new Error("vi_macroRecording must be null");
             if (!isValidMacroChar(data.arg)) {
-                console.log("data.arg is not valid char");
                 return 0;
             }
             this.vi_startMacro(data.arg);
 
         } else if (datatype === NormalCmdType.MACRO_FINISH) {
             if (this.state.vi_macroRecording === null) throw new Error("vi_macroRecording must be a char");
-            console.log("finish recording for: ", this.state.vi_macroRecording);
-            this.state.vi_macroTable[this.state.vi_macroRecording].pop(); // マクロを終了するqキーの記録を削除する
-            this.vi_finishMacro();
+            this.vi_finishMacro(this.state.vi_macroRecording);
+
+        } else if (datatype === NormalCmdType.MACRO_PLAY) {
+            if (!isValidMacroChar(data.arg)) {
+                return 0;
+            }
+            this.vi_playMacro(data.arg, count);
+            this.state.vi_macroLastPlayed = data.arg;
+
+        } else if (datatype === NormalCmdType.MACRO_REPEAT) {
+            if (!this.state.vi_macroLastPlayed) return 0;
+            this.vi_playMacro(this.state.vi_macroLastPlayed, count);
+
         }
 
         return 0;
@@ -1275,8 +1288,19 @@ export class Editor {
         this.state.vi_macroTable[macroChar] = [];
     }
 
-    private vi_finishMacro(): void {
+    private vi_finishMacro(key: MacroChar): void {
+        this.state.vi_macroTable[key].pop(); // マクロを終了するqキーの記録を削除する
         this.state.vi_macroRecording = null;
+    }
+
+    private vi_playMacro(key: MacroChar, count: number): void {
+        this.state.vi_macroCallback = () => {
+            for (let i = 0; i < count; i++) {
+                this.state.vi_macroTable[key].forEach((k) => {
+                    this.vi_executeKeypress(k);
+                });
+            }
+        };
     }
 
     private applyVisualTransform(
@@ -1440,30 +1464,6 @@ export class Editor {
         const { name, arg } = motion;
         this.state.vi_lastFindMotion = { name, arg };
     }
-
-    // private vi_processInputClone(input: string[]): void {
-    //     const [count, motion] = vi_getCountMotion(input.join(""));
-    //     if (motion === null) return;
-    //
-    //     const fn = this.vi_normalCmdMap[motion as NormalCmd];
-    //     if (isInsertionCmd(motion)) {
-    //         fn();
-    //         if (["a", "A"].includes(motion) && !this.isAtLineTail()) {
-    //             this.moveCursor(MOVE_KEYS.RIGHT);
-    //         }
-    //         for (let i = 0; i < count; i++) {
-    //             this.vi_insertBuffer(this.state.vi_insertBuf);
-    //         }
-    //         if (count >= 2 && ["o", "O"].includes(motion)) {
-    //             this.deleteRow(this.state.row);
-    //             this.moveCursor(MOVE_KEYS.UP);
-    //             this.moveCursorToLast();
-    //         }
-    //         this.vi_moveCursor(MOVE_KEYS.LEFT);
-    //     } else {
-    //         for (let i = 0; i < count; i++) fn();
-    //     }
-    // }
 
     private vi_insertBuffer(buf: string[]): void {
         for (const token of buf) {

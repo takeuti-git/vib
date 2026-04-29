@@ -41,6 +41,8 @@ export type EditorState = {
 
     vi_macroRecording: MacroChar | null;
     vi_macroTable: MacroTable;
+    vi_macroCallback: (() => void) | null; // マクロの実行は遅延評価しないと正常に動作しない
+    vi_macroLastPlayed: MacroChar | null; // @@の繰り返し用
 };
 
 type ViState =
@@ -98,6 +100,8 @@ export function createEditorState(config: Readonly<EditorConfig>): EditorState {
 
         vi_macroRecording: null,
         vi_macroTable: createMacroTable(),
+        vi_macroCallback: null,
+        vi_macroLastPlayed: null,
     };
 }
 
