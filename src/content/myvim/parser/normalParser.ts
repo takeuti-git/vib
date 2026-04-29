@@ -88,11 +88,8 @@ export function parseNormalInput(input: readonly string[], macroRecording = fals
         return UNKNOWN;
     }
 
-    if (macroRecording && cmd.isMacroCommand(first)) {
-        return OK({
-            type: NormalCmdType.MACRO_FINISH,
-            count,
-        });
+    if (macroRecording && cmd.isMacroRecordCommand(first)) {
+        return OK({ type: NormalCmdType.MACRO_FINISH, count });
     }
 
     if (isNoArgCmd(first)) {
@@ -104,7 +101,10 @@ export function parseNormalInput(input: readonly string[], macroRecording = fals
         ctx.next();
         const arg = ctx.read();
         if (!arg) return PENDING;
-        const command = WITH_ARG_CMD_MAP[first](count, arg)
+        if (cmd.isMacroPlayCommand(first) && arg === "@") {
+            return OK({ type: NormalCmdType.MACRO_REPEAT, count });
+        }
+        const command = WITH_ARG_CMD_MAP[first](count, arg);
         return OK(command);
     }
 
