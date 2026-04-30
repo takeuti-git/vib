@@ -52,7 +52,7 @@ export class Renderer {
         this.drawLines(state);
         this.drawCursor(state);
         this.drawStatusBar(state, state.vi_cmd.join(""));
-        this.adjustLineNumberMargin();
+        this.adjustLineNumberMargin(state);
     }
 
     public setStatusMsg(state: EditorState, text: string) {
@@ -68,7 +68,7 @@ export class Renderer {
     }
 
     private drawLines(state: EditorState): void {
-        const px = this.lineNumberMargin;
+        const px = this.lineNumberMargin(state.lines.length);
 
         const isLineNumberOn = this.config.lineNumbers !== "off";
         const isRelative = this.config.lineNumbers === "relative";
@@ -103,7 +103,7 @@ export class Renderer {
         const text = currLine.text;
         const lineheight = this.lineHeight;
         const x =
-            (state.logicalWidth - state.logicaloff) * this.halfFontSize + this.lineNumberMargin;
+            (state.logicalWidth - state.logicaloff) * this.halfFontSize + this.lineNumberMargin(state.lines.length);
         const y = (state.row - state.rowoff) * lineheight;
         const ch = text[state.col];
 
@@ -174,9 +174,9 @@ export class Renderer {
         this.ctx.textAlign = "start"; // 元に戻す
     }
 
-    private adjustLineNumberMargin() {
+    private adjustLineNumberMargin(state: EditorState) {
         // 行番号右の余白にlineTextがはみ出て描写されるのを消去する
-        const x = this.config.lineNumberCols * this.halfFontSize - 1;
+        const x = this.lineNumberMargin(state.lines.length);
         const w = -this.halfFontSize;
         const h = (this.config.screenrows - this.config.statusBarHeight) * this.lineHeight;
         this.ctx.clearRect(x, 0, w, h);
@@ -214,14 +214,14 @@ export class Renderer {
 
         const slicedText = text.slice(
             startCol,
-            startCol + this.config.screencols - this.lineNumberCols,
+            startCol + this.config.screencols - this.lineNumberCols(state),
         );
         const isVisualMode = state.vi_state.mode === "visual";
 
         if (state.vi_state.mode === "visual") {
             const vi_state = state.vi_state;
             if (isVisualMode && slicedText === "" && this.inVisualRange(vi_state, lineNumber, startCol)) {
-                this.drawCursorAt(state, this.lineNumberMargin, y - this.halfLineHeight);
+                this.drawCursorAt(state, this.lineNumberMargin(state.lines.length), y - this.halfLineHeight);
             } else {
                 Array.from(slicedText).forEach((ch, i) => {
                     this.drawChar(cursorX, y, ch);
@@ -379,14 +379,14 @@ export class Renderer {
     // | calculation helpers
     // ------------------------------
 
-    private get lineNumberMargin(): number {
+    private lineNumberMargin(LineLen: number): number {
         return this.config.lineNumbers !== "off"
-            ? this.config.lineNumberCols * this.halfFontSize
+            ? Math.max(this.config.minLineNumberCols, String(LineLen).length + 2) * this.halfFontSize
             : 0;
     }
 
-    private get lineNumberCols(): number {
-        return this.config.lineNumbers !== "off" ? this.config.lineNumberCols : 0;
+    private lineNumberCols(state: EditorState): number {
+        return this.config.lineNumbers !== "off" ? String(state.lines.length).length : 0;
     }
 
     private get lineHeight(): number {
