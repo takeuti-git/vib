@@ -290,7 +290,7 @@ export class Editor {
     /** Canvas要素内でのクリック座標を用いてカーソルを移動する */
     private handleCanvasMousedown = (e: MouseEvent): void => {
         const charWidth = this.config.baseFontSize / 2;
-        const lineNumberWidth = this.config.lineNumberCols * charWidth;
+        const lineNumberWidth = this.lineNumberCols * charWidth;
         const lineHeight = this.config.baseFontSize + this.config.lineHeightPadding;
 
         const clickX = e.offsetX - lineNumberWidth;
@@ -442,7 +442,7 @@ export class Editor {
         },
         ArrowRight: () => {
             this.config.screencols = Math.max(
-                2 + this.config.lineNumberCols,
+                2 + this.lineNumberCols,
                 this.config.screencols - 2,
             );
         },
@@ -1444,7 +1444,7 @@ export class Editor {
 
     private scrollLeftWithCursor(): void {
         this.state.logicaloff = Math.max(0, this.state.logicaloff - 1);
-        const border = this.state.logicaloff + this.config.screencols - 1 - this.config.lineNumberCols;
+        const border = this.state.logicaloff + this.config.screencols - 1 - this.lineNumberCols;
         if (this.state.logicalWidth > border) {
             this.vi_moveCursor(MOVE_KEYS.LEFT);
         }
@@ -1589,7 +1589,7 @@ export class Editor {
         }
 
         const screencols = this.config.screencols;
-        const lineNumberCols = this.config.lineNumberCols;
+        const lineNumberCols = this.lineNumberCols;
         if (this.state.logicalWidth + lineNumberCols >= this.state.logicaloff + screencols) {
             // スクロール時に常に列を開けるためLOGICAL_HALF_WIDHTを加算する
             this.state.logicaloff =
@@ -1985,6 +1985,10 @@ export class Editor {
 
     private getLineCount(first: InclusivePos, last: InclusivePos): number {
         return last.row - first.row + 1;
+    }
+
+    private get lineNumberCols(): number {
+        return String(this.state.lines.length).length + 2;
     }
 
     // ------------------------------

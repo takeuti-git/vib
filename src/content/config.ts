@@ -31,7 +31,7 @@ export type EditorConfig = {
     autoIndent: boolean;
 
     lineNumbers: LineNumberMode;
-    lineNumberCols: number;
+    minLineNumberCols: number;
 
     renderWhitespace: Whitespace;
 
@@ -54,7 +54,7 @@ export function createEditorConfig(): EditorConfig {
         autoIndent: true,
 
         lineNumbers: "relative",
-        lineNumberCols: 5,
+        minLineNumberCols: 4,
 
         renderWhitespace: "all",
 
