@@ -851,11 +851,17 @@ export class Editor {
                 const destRow = this.state.row; // put実行後の移動用に保存しておく
 
                 for (let i = 0; i < count; i++) {
-                    for (const ln of lines) {
+                    for (let j = 0; j < lines.length; j++) {
+                        const ln = lines[j] as string;
                         this.currentLine.text = ln;
+                        if (j < lines.length - 1) {
+                            this.insertNewLineNext();
+                        }
+                    }
+                    // 次の繰り返し用に1行用意しておく
+                    if (i < count - 1) {
                         this.insertNewLineNext();
                     }
-                    this.deleteRow(this.state.row);
                 }
                 this.moveCursorToPos(destRow, 0);
                 this.moveCursorToFirstNonWhitespace();
