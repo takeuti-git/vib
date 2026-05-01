@@ -87,6 +87,11 @@ export const NO_ARG_CMD_MAP: Record<NoArgsCommands, (count: Count) => NormalCmdC
         count,
         position: "before",
     }),
+    "<C-v>": (count) => ({
+        type: NormalCmdType.PUT,
+        count,
+        position: "after",
+    }),
 
     // REPLACE
     "R": (count) => ({
