@@ -411,6 +411,8 @@ export class Editor {
             const macroCallbackTemp = this.state.vi_macroCallback;
             this.state.vi_macroCallback = null;
             macroCallbackTemp();
+            const newText = joinLines(this.state.lines);
+            this.saveDiff(this.state.lastSnapshot, newText);
         }
     }
 
@@ -1308,6 +1310,7 @@ export class Editor {
         this.state.vi_macroCallback = () => {
             for (let i = 0; i < count; i++) {
                 this.state.vi_macroTable[key].forEach((k) => {
+                    this.disableSaveDiff = true;
                     this.vi_executeKeypress(k);
                 });
             }
