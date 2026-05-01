@@ -8,7 +8,7 @@
 - Firefox
 
 ## デモ
-<img width="400" alt="demo gif" src="https://github.com/user-attachments/assets/b4185dcb-3282-46f9-ba49-1cb6ea895300" />
+<img width="400" alt="demo gif ja" src="https://github.com/user-attachments/assets/560fe6dd-9638-440c-b18f-1ec919502dcf" />
 
 ## 機能
 
