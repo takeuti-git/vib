@@ -2,7 +2,7 @@ import { OperatorName } from "../operator";
 import { VisualCmdType, type VisualCmdContext } from "../visual";
 import type { Count } from "./count";
 
-type Operator = "d" | "c" | "y" | "<C-c>";
+type Operator = "d" | "c" | "y" | "<C-c>" | "<C-x>";
 
 type IndentOperator = ">" | "<";
 
@@ -32,6 +32,7 @@ export const NO_ARG_CMD_MAP: Record<NoArgCmd, Readonly<VisualCmdContext>> = {
     "c":     noCount({ type: VisualCmdType.OPERATOR, operator: OperatorName.CHANGE, linewise: false }),
     "y":     noCount({ type: VisualCmdType.OPERATOR, operator: OperatorName.YANK,   linewise: false }),
     "<C-c>": noCount({ type: VisualCmdType.OPERATOR, operator: OperatorName.YANK,   linewise: false }),
+    "<C-x>": noCount({ type: VisualCmdType.OPERATOR, operator: OperatorName.DELETE, linewise: false }),
 
     // SideSwitcher
     "o": noCount({ type: VisualCmdType.SWITCH_SIDE }),
