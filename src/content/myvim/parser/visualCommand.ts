@@ -2,7 +2,7 @@ import { OperatorName } from "../operator";
 import { VisualCmdType, type VisualCmdContext } from "../visual";
 import type { Count } from "./count";
 
-type Operator = "d" | "c" | "y";
+type Operator = "d" | "c" | "y" | "<C-c>" | "<C-x>";
 
 type IndentOperator = ">" | "<";
 
@@ -16,7 +16,7 @@ type Sugar = "s" | "x" | "X" | "D" | "C" | "Y" | "R" | "S";
 
 type JoinCommand = "J";
 
-type PutCommand = "p" | "P";
+type PutCommand = "p" | "P" | "<C-v>";
 
 type ReplaceCommand = "r";
 
@@ -28,9 +28,11 @@ const noCount = <T extends Omit<VisualCmdContext, "count">>(ctx: T) =>
 type NoArgCmd = Operator | SideSwitcher | CaseSwitcher | JoinCommand | Sugar;
 export const NO_ARG_CMD_MAP: Record<NoArgCmd, Readonly<VisualCmdContext>> = {
     // Operator
-    "d": noCount({ type: VisualCmdType.OPERATOR, operator: OperatorName.DELETE, linewise: false }),
-    "c": noCount({ type: VisualCmdType.OPERATOR, operator: OperatorName.CHANGE, linewise: false }),
-    "y": noCount({ type: VisualCmdType.OPERATOR, operator: OperatorName.YANK, linewise: false }),
+    "d":     noCount({ type: VisualCmdType.OPERATOR, operator: OperatorName.DELETE, linewise: false }),
+    "c":     noCount({ type: VisualCmdType.OPERATOR, operator: OperatorName.CHANGE, linewise: false }),
+    "y":     noCount({ type: VisualCmdType.OPERATOR, operator: OperatorName.YANK,   linewise: false }),
+    "<C-c>": noCount({ type: VisualCmdType.OPERATOR, operator: OperatorName.YANK,   linewise: false }),
+    "<C-x>": noCount({ type: VisualCmdType.OPERATOR, operator: OperatorName.DELETE, linewise: false }),
 
     // SideSwitcher
     "o": noCount({ type: VisualCmdType.SWITCH_SIDE }),
@@ -52,7 +54,7 @@ export const NO_ARG_CMD_MAP: Record<NoArgCmd, Readonly<VisualCmdContext>> = {
     "C": noCount({ type: VisualCmdType.OPERATOR, operator: OperatorName.CHANGE, linewise: true }),
     "R": noCount({ type: VisualCmdType.OPERATOR, operator: OperatorName.CHANGE, linewise: true }),
     "S": noCount({ type: VisualCmdType.OPERATOR, operator: OperatorName.CHANGE, linewise: true }),
-    "Y": noCount({ type: VisualCmdType.OPERATOR, operator: OperatorName.YANK, linewise: true }),
+    "Y": noCount({ type: VisualCmdType.OPERATOR, operator: OperatorName.YANK,   linewise: true }),
 };
 export function isNoArgCmdKey(key: string): key is NoArgCmd {
     return key in NO_ARG_CMD_MAP;
@@ -70,8 +72,9 @@ export const WITH_COUNT_CMD_MAP: Record<WithCountCmd, WithCountCmdFunc> = {
     ">": (count) => ({ type: VisualCmdType.OPERATOR, count, operator: OperatorName.INC_INDENT, linewise: false }),
 
     // Put
-    "p": (count) => ({ type: VisualCmdType.PUT, count, writeRegister: true }),
-    "P": (count) => ({ type: VisualCmdType.PUT, count, writeRegister: false }),
+    "p": (count) =>     ({ type: VisualCmdType.PUT, count, writeRegister: true }),
+    "P": (count) =>     ({ type: VisualCmdType.PUT, count, writeRegister: false }),
+    "<C-v>": (count) => ({ type: VisualCmdType.PUT, count, writeRegister: true }),
 
     // RepeatMotion
     ";": (count) => ({ type: VisualCmdType.REPEAT_MOT, count, reverse: false }),
