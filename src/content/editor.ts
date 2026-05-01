@@ -908,6 +908,9 @@ export class Editor {
                     }
                 }
             }
+            const newText = joinLines(this.state.lines);
+            this.saveDiff(this.state.lastSnapshot, newText);
+
             this.scrollWindow();
             this.render();
         });
