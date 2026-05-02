@@ -1132,6 +1132,28 @@ export class Editor {
                     }
                 }
             });
+        } else if (datatype === NormalCmdType.DECREMENT) {
+            const range = getNextNumberRange(this.state.lines, this.state.row, this.state.col);
+            if (!range) return 0;
+            const { first, last } = toInclusiveRange(range.begin, range.end, false);
+            this.applyVisualTransform(first, last, (selected) => {
+                // 0を含む時点の文字列の長さを取得
+                const len = (range.isPositive) ? selected.length : selected.length - 1;
+
+                const decremented = parseInt(selected) - 1;
+                if (range.isPositive) {
+                    if (decremented >= 0) {
+                        this.moveCursorToPos(this.state.row, last.col);
+                        return decremented.toString().padStart(len, "0");
+                    } else {
+                        this.moveCursorToPos(this.state.row, last.col + 1);
+                        return "-" + Math.abs(decremented).toString().padStart(len, "0");
+                    }
+                } else {
+                    this.moveCursorToPos(this.state.row, last.col);
+                    return "-" + Math.abs(decremented).toString().padStart(len, "0");
+                }
+            });
         }
 
         return 0;
