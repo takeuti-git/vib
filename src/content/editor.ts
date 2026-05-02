@@ -11,6 +11,7 @@ import {
     moveForward,
     moveTail,
     moveBackward,
+    getNextNumberRange,
 } from "./myvim/motionRange";
 import { parseNormalInput, parseVisualInput, ParseStatus } from "./myvim/parser";
 import { readClipboard, writeClipboard } from "./clipboard";
@@ -1086,6 +1087,7 @@ export class Editor {
                 }
                 return selected.toUpperCase();
             });
+            this.moveCursorToPos(first.row, first.col);
         } else if (datatype === NormalCmdType.MACRO_START) {
             if (this.state.vi_macroRecording !== null) throw new Error("vi_macroRecording must be null");
             if (!isValidMacroChar(data.arg)) {
@@ -1108,6 +1110,28 @@ export class Editor {
             if (!this.state.vi_macroLastPlayed) return 0;
             this.vi_playMacro(this.state.vi_macroLastPlayed, count);
 
+        } else if (datatype === NormalCmdType.INCREMENT) {
+            const range = getNextNumberRange(this.state.lines, this.state.row, this.state.col);
+            if (!range) return 0;
+            const { first, last } = toInclusiveRange(range.begin, range.end, false);
+            this.applyVisualTransform(first, last, (selected) => {
+                // 0を含む時点の文字列の長さを取得
+                const len = (range.isPositive) ? selected.length : selected.length - 1;
+
+                const incremented = parseInt(selected) + 1;
+                if (range.isPositive) {
+                    this.moveCursorToPos(this.state.row, last.col);
+                    return incremented.toString().padStart(len, "0");
+                } else {
+                    if (incremented < 0) {
+                        this.moveCursorToPos(this.state.row, last.col);
+                        return "-" + Math.abs(incremented).toString().padStart(len, "0");
+                    } else {
+                        this.moveCursorToPos(this.state.row, last.col - 1);
+                        return incremented.toString().padStart(len, "0");
+                    }
+                }
+            });
         }
 
         return 0;
@@ -1282,16 +1306,20 @@ export class Editor {
             this.applyVisualTransform(vi_state.visualFirst, vi_state.visualLast, (selected) => {
                 return data.arg.repeat(selected.length);
             });
+            this.moveCursorToPos(vi_state.visualFirst.row, vi_state.visualFirst.col);
         } else if (datatype === VisualCmdType.TO_LOWER) {
             this.applyVisualTransform(vi_state.visualFirst, vi_state.visualLast, (selected) => {
                 return selected.toLowerCase();
             });
+            this.moveCursorToPos(vi_state.visualFirst.row, vi_state.visualFirst.col);
         } else if (datatype === VisualCmdType.TO_UPPER) {
             this.applyVisualTransform(vi_state.visualFirst, vi_state.visualLast, (selected) => {
                 return selected.toUpperCase();
             });
+            this.moveCursorToPos(vi_state.visualFirst.row, vi_state.visualFirst.col);
         } else if (datatype === VisualCmdType.REVERSE_CASE) {
             this.applyVisualTransform(vi_state.visualFirst, vi_state.visualLast, swapCase);
+            this.moveCursorToPos(vi_state.visualFirst.row, vi_state.visualFirst.col);
         }
         return 0;
     }
@@ -1328,7 +1356,7 @@ export class Editor {
                 this.getLineSegments(line, index, first, last);
             line.text = prefix + transform(selected) + suffix;
         }
-        this.moveCursorToPos(first.row, first.col);
+        // this.moveCursorToPos(first.row, first.col);
         this.vi_goNormal();
     }
 
