@@ -70,12 +70,14 @@ export function getNextNumberRange(
     lines: Line[],
     row: number,
     startCol: number,
-): MotionRange | undefined {
+): Omit<MotionRange, "linewise"> & { isPositive: boolean } | undefined {
     const line = lines[row];
     if (!line) throw new Error(`lines[${row}] is undefined`);
+    const linelen = line.size;
     // 現在地から行の末尾までに数値が存在するか確認する, なければ終了, 前方は考慮しない
+    // ここでは値の正負を判定しない
     let numDetected;
-    for (let i = startCol; i < line.size; i++) {
+    for (let i = startCol; i < linelen; i++) {
         if (isNumber(line.text[i])) {
             numDetected = i;
             break;
@@ -83,28 +85,36 @@ export function getNextNumberRange(
     }
     if (numDetected === undefined) return undefined;
 
-    // numDetectedが連続する数値の途中にいるか確認, 結果に応じて数値の始まりを決定
-    let first = numDetected;
-    for (let i = first - 1; i >= 0; i--) {
-        if (!isNumber(line.text[i])) {
-            break;
-        }
-        first = i;
-    }
-
     // 数値の終端を探す
-    let last = first;
-    for (let i = first + 1; i < line.size; i++) {
+    let last = numDetected;
+    for (let i = last + 1; i < linelen; i++) {
         if (!isNumber(line.text[i])) {
             break;
         }
         last = i;
     }
 
+    // numDetectedが連続する数値の途中にいるか確認, 結果に応じて数値の始まりを決定
+    // 値の正負はここで判定する
+    let first = numDetected;
+    let isPositive = true;
+    for (let i = first - 1; i >= 0; i--) {
+        const ch = line.text[i];
+        if (ch === "-") {
+            isPositive = false;
+            first = i;
+            break;
+        }
+        if (!isNumber(ch)) {
+            break;
+        }
+        first = i;
+    }
+
     return {
         begin: { row, col: first },
         end:   { row, col: last + 1 },
-        linewise: false,
+        isPositive,
     };
 }
 
