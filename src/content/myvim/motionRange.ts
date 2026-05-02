@@ -5,6 +5,7 @@ import { getCountUntilNonWhitespace } from "../utils";
 import type { FindMoveOptions } from "./findCommand";
 import { MotionName, type MotionContext } from "./motion";
 import { isSymbol, isWhitespace } from "./symbols";
+import { isNumber } from "./utils";
 
 type AtLeastTwoArray<T> = [T, T, ...T[]];
 
@@ -63,6 +64,48 @@ export function getCountToNextChar(
         }
     }
     return undefined;
+}
+
+export function getNextNumberRange(
+    lines: Line[],
+    row: number,
+    startCol: number,
+): MotionRange | undefined {
+    const line = lines[row];
+    if (!line) throw new Error(`lines[${row}] is undefined`);
+    // 現在地から行の末尾までに数値が存在するか確認する, なければ終了, 前方は考慮しない
+    let numDetected;
+    for (let i = startCol; i < line.size; i++) {
+        if (isNumber(line.text[i])) {
+            numDetected = i;
+            break;
+        }
+    }
+    if (numDetected === undefined) return undefined;
+
+    // numDetectedが連続する数値の途中にいるか確認, 結果に応じて数値の始まりを決定
+    let first = numDetected;
+    for (let i = first - 1; i >= 0; i--) {
+        if (!isNumber(line.text[i])) {
+            break;
+        }
+        first = i;
+    }
+
+    // 数値の終端を探す
+    let last = first;
+    for (let i = first + 1; i < line.size; i++) {
+        if (!isNumber(line.text[i])) {
+            break;
+        }
+        last = i;
+    }
+
+    return {
+        begin: { row, col: first },
+        end:   { row, col: last + 1 },
+        linewise: false,
+    };
 }
 
 type HorizontalMotion = {
