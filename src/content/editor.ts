@@ -1118,7 +1118,7 @@ export class Editor {
                 // 0を含む時点の文字列の長さを取得
                 const len = (range.isPositive) ? selected.length : selected.length - 1;
 
-                const incremented = parseInt(selected) + 1;
+                const incremented = parseInt(selected) + count;
                 if (range.isPositive) {
                     this.moveCursorToPos(this.state.row, last.col);
                     return incremented.toString().padStart(len, "0");
@@ -1140,7 +1140,7 @@ export class Editor {
                 // 0を含む時点の文字列の長さを取得
                 const len = (range.isPositive) ? selected.length : selected.length - 1;
 
-                const decremented = parseInt(selected) - 1;
+                const decremented = parseInt(selected) - count;
                 if (range.isPositive) {
                     if (decremented >= 0) {
                         this.moveCursorToPos(this.state.row, last.col);
