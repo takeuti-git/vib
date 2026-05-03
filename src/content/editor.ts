@@ -1181,6 +1181,10 @@ export class Editor {
         const datatype = data.type;
         const count = data.count === null ? 1 : data.count;
 
+        const toFirstPos = () => {
+            this.moveCursorToPos(vi_state.visualFirst.row, vi_state.visualFirst.col);
+        };
+
         /** textobjの範囲を注入できる */
         const syncCursorAndVisual = (range?: TextRange) => {
             const first = vi_state.visualFirst;
@@ -1328,20 +1332,70 @@ export class Editor {
             this.applyVisualTransform(vi_state.visualFirst, vi_state.visualLast, (selected) => {
                 return data.arg.repeat(selected.length);
             });
-            this.moveCursorToPos(vi_state.visualFirst.row, vi_state.visualFirst.col);
+            toFirstPos();
+            this.vi_goNormal();
         } else if (datatype === VisualCmdType.TO_LOWER) {
             this.applyVisualTransform(vi_state.visualFirst, vi_state.visualLast, (selected) => {
                 return selected.toLowerCase();
             });
-            this.moveCursorToPos(vi_state.visualFirst.row, vi_state.visualFirst.col);
+            toFirstPos();
+            this.vi_goNormal();
         } else if (datatype === VisualCmdType.TO_UPPER) {
             this.applyVisualTransform(vi_state.visualFirst, vi_state.visualLast, (selected) => {
                 return selected.toUpperCase();
             });
-            this.moveCursorToPos(vi_state.visualFirst.row, vi_state.visualFirst.col);
+            toFirstPos();
+            this.vi_goNormal();
         } else if (datatype === VisualCmdType.REVERSE_CASE) {
             this.applyVisualTransform(vi_state.visualFirst, vi_state.visualLast, swapCase);
-            this.moveCursorToPos(vi_state.visualFirst.row, vi_state.visualFirst.col);
+            toFirstPos();
+            this.vi_goNormal();
+        } else if (datatype === VisualCmdType.INCREMENT) {
+            for (let i = vi_state.visualFirst.row; i <= vi_state.visualLast.row; i++) {
+                const range = getNextNumberRange(this.state.lines, i, 0);
+                if (!range) continue;
+                const { first, last } = toInclusiveRange(range.begin, range.end, false);
+                this.applyVisualTransform(first, last, (selected) => {
+                    // 0を含む時点の文字列の長さを取得
+                    const len = (range.isPositive) ? selected.length : selected.length - 1;
+
+                    const incremented = parseInt(selected) + count;
+                    if (range.isPositive) {
+                        return incremented.toString().padStart(len, "0");
+                    } else {
+                        if (incremented < 0) {
+                            return "-" + Math.abs(incremented).toString().padStart(len, "0");
+                        } else {
+                            return incremented.toString().padStart(len, "0");
+                        }
+                    }
+                });
+            }
+            toFirstPos();
+            this.vi_goNormal();
+        } else if (datatype === VisualCmdType.DECREMENT) {
+            for (let i = vi_state.visualFirst.row; i <= vi_state.visualLast.row; i++) {
+                const range = getNextNumberRange(this.state.lines, i, 0);
+                if (!range) continue;
+                const { first, last } = toInclusiveRange(range.begin, range.end, false);
+                this.applyVisualTransform(first, last, (selected) => {
+                    // 0を含む時点の文字列の長さを取得
+                    const len = (range.isPositive) ? selected.length : selected.length - 1;
+
+                    const decremented = parseInt(selected) - count;
+                    if (range.isPositive) {
+                        if (decremented >= 0) {
+                            return decremented.toString().padStart(len, "0");
+                        } else {
+                            return "-" + Math.abs(decremented).toString().padStart(len, "0");
+                        }
+                    } else {
+                        return "-" + Math.abs(decremented).toString().padStart(len, "0");
+                    }
+                });
+            }
+            toFirstPos();
+            this.vi_goNormal();
         }
         return 0;
     }
@@ -1379,7 +1433,7 @@ export class Editor {
             line.text = prefix + transform(selected) + suffix;
         }
         // this.moveCursorToPos(first.row, first.col);
-        this.vi_goNormal();
+        // this.vi_goNormal();
     }
 
     private getLineSegments(
