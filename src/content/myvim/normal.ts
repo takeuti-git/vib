@@ -26,6 +26,8 @@ export const NormalCmdType = {
     MACRO_FINISH: "MACRO_FINISH",
     MACRO_PLAY:  "MACRO_PLAY",
     MACRO_REPEAT: "MACRO_REPEAT",
+    INCREMENT:   "INCREMENT",
+    DECREMENT:   "DECREMENT",
 } as const;
 
 type NormalCmdType = (typeof NormalCmdType)[keyof typeof NormalCmdType];
@@ -52,6 +54,8 @@ export type NormalCmdContext = { count: Count } & (
     | { type: typeof NormalCmdType.MACRO_FINISH; }
     | { type: typeof NormalCmdType.MACRO_PLAY; arg: string; }
     | { type: typeof NormalCmdType.MACRO_REPEAT; }
+    | { type: typeof NormalCmdType.INCREMENT; }
+    | { type: typeof NormalCmdType.DECREMENT; }
 );
 
 type PutPosition = "before" | "after";

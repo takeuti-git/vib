@@ -2,7 +2,7 @@ import { OperatorName } from "../operator";
 import { VisualCmdType, type VisualCmdContext } from "../visual";
 import type { Count } from "./count";
 
-type Operator = "d" | "c" | "y" | "<C-c>" | "<C-x>";
+type Operator = "d" | "c" | "y" | "<C-c>";
 
 type IndentOperator = ">" | "<";
 
@@ -22,6 +22,9 @@ type ReplaceCommand = "r";
 
 type RepeatMotionCommand = ";" | ",";
 
+type IncrementCommand = "<C-a>";
+type DecrementCommand = "<C-x>";
+
 const noCount = <T extends Omit<VisualCmdContext, "count">>(ctx: T) => 
     ({ ...ctx, count: null }) as T & { count: null };
 
@@ -32,7 +35,6 @@ export const NO_ARG_CMD_MAP: Record<NoArgCmd, Readonly<VisualCmdContext>> = {
     "c":     noCount({ type: VisualCmdType.OPERATOR, operator: OperatorName.CHANGE, linewise: false }),
     "y":     noCount({ type: VisualCmdType.OPERATOR, operator: OperatorName.YANK,   linewise: false }),
     "<C-c>": noCount({ type: VisualCmdType.OPERATOR, operator: OperatorName.YANK,   linewise: false }),
-    "<C-x>": noCount({ type: VisualCmdType.OPERATOR, operator: OperatorName.DELETE, linewise: false }),
 
     // SideSwitcher
     "o": noCount({ type: VisualCmdType.SWITCH_SIDE }),
@@ -60,7 +62,10 @@ export function isNoArgCmdKey(key: string): key is NoArgCmd {
     return key in NO_ARG_CMD_MAP;
 }
 
-type WithCountCmd = InsertCommand | IndentOperator | PutCommand | RepeatMotionCommand;
+type WithCountCmd = (
+    | InsertCommand | IndentOperator | PutCommand | RepeatMotionCommand
+    | IncrementCommand | DecrementCommand
+);
 type WithCountCmdFunc = (count: Count) => Readonly<VisualCmdContext>;
 export const WITH_COUNT_CMD_MAP: Record<WithCountCmd, WithCountCmdFunc> = {
     // Insert
@@ -79,6 +84,10 @@ export const WITH_COUNT_CMD_MAP: Record<WithCountCmd, WithCountCmdFunc> = {
     // RepeatMotion
     ";": (count) => ({ type: VisualCmdType.REPEAT_MOT, count, reverse: false }),
     ",": (count) => ({ type: VisualCmdType.REPEAT_MOT, count, reverse: true }),
+
+    // Increment
+    "<C-a>": (count) => ({ type: VisualCmdType.INCREMENT, count, progressive: false }),
+    "<C-x>": (count) => ({ type: VisualCmdType.DECREMENT, count, progressive: false }),
 };
 export function isWithCountCmdKey(key: string): key is WithCountCmd {
     return key in WITH_COUNT_CMD_MAP;

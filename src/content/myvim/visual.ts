@@ -18,6 +18,8 @@ export const VisualCmdType = {
     REVERSE_CASE: "reverse_case",
     SWITCH_SIDE:  "switch_side",
     SCROLL:       "scroll",
+    INCREMENT:    "INCREMENT",
+    DECREMENT:    "DECREMENT",
 } as const;
 
 
@@ -36,4 +38,6 @@ export type VisualCmdContext = { count: Count } & (
     | { type: typeof VisualCmdType.REVERSE_CASE; }
     | { type: typeof VisualCmdType.SWITCH_SIDE; }
     | { type: typeof VisualCmdType.SCROLL; kind: ScrollCommand; }
+    | { type: typeof VisualCmdType.INCREMENT; progressive: boolean; }
+    | { type: typeof VisualCmdType.DECREMENT; progressive: boolean; }
 );

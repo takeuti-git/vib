@@ -19,6 +19,8 @@ type NoArgsCommands = (
     | cmd.SwitchCaseCommand
     | cmd.RepeatOperatorCommand
     | cmd.RepeatMotionCommand
+    | cmd.IncrementCommand
+    | cmd.DecrementCommand
 );
 
 export function isNoArgCmd(key: string): key is keyof typeof NO_ARG_CMD_MAP {
@@ -204,6 +206,18 @@ export const NO_ARG_CMD_MAP: Record<NoArgsCommands, (count: Count) => NormalCmdC
         type: NormalCmdType.REPEAT_MOT,
         count,
         reverse: true,
+    }),
+
+    // INCREMENT
+    "<C-a>": (count) => ({
+        type: NormalCmdType.INCREMENT,
+        count,
+    }),
+
+    // DECREMENT
+    "<C-x>": (count) => ({
+        type: NormalCmdType.DECREMENT,
+        count,
     }),
 };
 

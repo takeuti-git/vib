@@ -11,6 +11,7 @@ import {
     moveForward,
     moveTail,
     moveBackward,
+    getNextNumberRange,
 } from "./myvim/motionRange";
 import { parseNormalInput, parseVisualInput, ParseStatus } from "./myvim/parser";
 import { readClipboard, writeClipboard } from "./clipboard";
@@ -1086,6 +1087,7 @@ export class Editor {
                 }
                 return selected.toUpperCase();
             });
+            this.moveCursorToPos(first.row, first.col);
         } else if (datatype === NormalCmdType.MACRO_START) {
             if (this.state.vi_macroRecording !== null) throw new Error("vi_macroRecording must be null");
             if (!isValidMacroChar(data.arg)) {
@@ -1108,6 +1110,50 @@ export class Editor {
             if (!this.state.vi_macroLastPlayed) return 0;
             this.vi_playMacro(this.state.vi_macroLastPlayed, count);
 
+        } else if (datatype === NormalCmdType.INCREMENT) {
+            const range = getNextNumberRange(this.state.lines, this.state.row, this.state.col);
+            if (!range) return 0;
+            const { first, last } = toInclusiveRange(range.begin, range.end, false);
+            this.applyVisualTransform(first, last, (selected) => {
+                // 0を含む時点の文字列の長さを取得
+                const len = (range.isPositive) ? selected.length : selected.length - 1;
+
+                const incremented = parseInt(selected) + count;
+                if (range.isPositive) {
+                    this.moveCursorToPos(this.state.row, last.col);
+                    return incremented.toString().padStart(len, "0");
+                } else {
+                    if (incremented < 0) {
+                        this.moveCursorToPos(this.state.row, last.col);
+                        return "-" + Math.abs(incremented).toString().padStart(len, "0");
+                    } else {
+                        this.moveCursorToPos(this.state.row, last.col - 1);
+                        return incremented.toString().padStart(len, "0");
+                    }
+                }
+            });
+        } else if (datatype === NormalCmdType.DECREMENT) {
+            const range = getNextNumberRange(this.state.lines, this.state.row, this.state.col);
+            if (!range) return 0;
+            const { first, last } = toInclusiveRange(range.begin, range.end, false);
+            this.applyVisualTransform(first, last, (selected) => {
+                // 0を含む時点の文字列の長さを取得
+                const len = (range.isPositive) ? selected.length : selected.length - 1;
+
+                const decremented = parseInt(selected) - count;
+                if (range.isPositive) {
+                    if (decremented >= 0) {
+                        this.moveCursorToPos(this.state.row, last.col);
+                        return decremented.toString().padStart(len, "0");
+                    } else {
+                        this.moveCursorToPos(this.state.row, last.col + 1);
+                        return "-" + Math.abs(decremented).toString().padStart(len, "0");
+                    }
+                } else {
+                    this.moveCursorToPos(this.state.row, last.col);
+                    return "-" + Math.abs(decremented).toString().padStart(len, "0");
+                }
+            });
         }
 
         return 0;
@@ -1134,6 +1180,10 @@ export class Editor {
         const data = parseResult.value;
         const datatype = data.type;
         const count = data.count === null ? 1 : data.count;
+
+        const toFirstPos = () => {
+            this.moveCursorToPos(vi_state.visualFirst.row, vi_state.visualFirst.col);
+        };
 
         /** textobjの範囲を注入できる */
         const syncCursorAndVisual = (range?: TextRange) => {
@@ -1282,16 +1332,74 @@ export class Editor {
             this.applyVisualTransform(vi_state.visualFirst, vi_state.visualLast, (selected) => {
                 return data.arg.repeat(selected.length);
             });
+            toFirstPos();
+            this.vi_goNormal();
         } else if (datatype === VisualCmdType.TO_LOWER) {
             this.applyVisualTransform(vi_state.visualFirst, vi_state.visualLast, (selected) => {
                 return selected.toLowerCase();
             });
+            toFirstPos();
+            this.vi_goNormal();
         } else if (datatype === VisualCmdType.TO_UPPER) {
             this.applyVisualTransform(vi_state.visualFirst, vi_state.visualLast, (selected) => {
                 return selected.toUpperCase();
             });
+            toFirstPos();
+            this.vi_goNormal();
         } else if (datatype === VisualCmdType.REVERSE_CASE) {
             this.applyVisualTransform(vi_state.visualFirst, vi_state.visualLast, swapCase);
+            toFirstPos();
+            this.vi_goNormal();
+        } else if (datatype === VisualCmdType.INCREMENT) {
+            let multiplier = 1; // g<C-a>の段階的インクリメントに用いる
+            for (let i = vi_state.visualFirst.row; i <= vi_state.visualLast.row; i++) {
+                const range = getNextNumberRange(this.state.lines, i, 0);
+                if (!range) continue;
+                const { first, last } = toInclusiveRange(range.begin, range.end, false);
+                this.applyVisualTransform(first, last, (selected) => {
+                    // 0を含む時点の文字列の長さを取得
+                    const len = (range.isPositive) ? selected.length : selected.length - 1;
+
+                    const incremented = parseInt(selected) + (count * multiplier);
+                    if (range.isPositive) {
+                        return incremented.toString().padStart(len, "0");
+                    } else {
+                        if (incremented < 0) {
+                            return "-" + Math.abs(incremented).toString().padStart(len, "0");
+                        } else {
+                            return incremented.toString().padStart(len, "0");
+                        }
+                    }
+                });
+                if (data.progressive) multiplier++;
+            }
+            toFirstPos();
+            this.vi_goNormal();
+        } else if (datatype === VisualCmdType.DECREMENT) {
+            let multiplier = 1; // g<C-x>の段階的デクリメントに用いる
+            for (let i = vi_state.visualFirst.row; i <= vi_state.visualLast.row; i++) {
+                const range = getNextNumberRange(this.state.lines, i, 0);
+                if (!range) continue;
+                const { first, last } = toInclusiveRange(range.begin, range.end, false);
+                this.applyVisualTransform(first, last, (selected) => {
+                    // 0を含む時点の文字列の長さを取得
+                    const len = (range.isPositive) ? selected.length : selected.length - 1;
+
+                    const decremented = parseInt(selected) - (count * multiplier);
+                    if (range.isPositive) {
+                        if (decremented >= 0) {
+                            return decremented.toString().padStart(len, "0");
+                        } else {
+                            return "-" + Math.abs(decremented).toString().padStart(len, "0");
+                        }
+                    } else {
+                        return "-" + Math.abs(decremented).toString().padStart(len, "0");
+                    }
+                });
+                if (data.progressive) multiplier++;
+            }
+            toFirstPos();
+            this.vi_goNormal();
         }
         return 0;
     }
@@ -1328,8 +1436,8 @@ export class Editor {
                 this.getLineSegments(line, index, first, last);
             line.text = prefix + transform(selected) + suffix;
         }
-        this.moveCursorToPos(first.row, first.col);
-        this.vi_goNormal();
+        // this.moveCursorToPos(first.row, first.col);
+        // this.vi_goNormal();
     }
 
     private getLineSegments(
