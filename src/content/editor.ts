@@ -1351,6 +1351,7 @@ export class Editor {
             toFirstPos();
             this.vi_goNormal();
         } else if (datatype === VisualCmdType.INCREMENT) {
+            let multiplier = 1; // g<C-a>の段階的インクリメントに用いる
             for (let i = vi_state.visualFirst.row; i <= vi_state.visualLast.row; i++) {
                 const range = getNextNumberRange(this.state.lines, i, 0);
                 if (!range) continue;
@@ -1359,7 +1360,7 @@ export class Editor {
                     // 0を含む時点の文字列の長さを取得
                     const len = (range.isPositive) ? selected.length : selected.length - 1;
 
-                    const incremented = parseInt(selected) + count;
+                    const incremented = parseInt(selected) + (count * multiplier);
                     if (range.isPositive) {
                         return incremented.toString().padStart(len, "0");
                     } else {
@@ -1370,10 +1371,12 @@ export class Editor {
                         }
                     }
                 });
+                if (data.progressive) multiplier++;
             }
             toFirstPos();
             this.vi_goNormal();
         } else if (datatype === VisualCmdType.DECREMENT) {
+            let multiplier = 1; // g<C-x>の段階的デクリメントに用いる
             for (let i = vi_state.visualFirst.row; i <= vi_state.visualLast.row; i++) {
                 const range = getNextNumberRange(this.state.lines, i, 0);
                 if (!range) continue;
@@ -1382,7 +1385,7 @@ export class Editor {
                     // 0を含む時点の文字列の長さを取得
                     const len = (range.isPositive) ? selected.length : selected.length - 1;
 
-                    const decremented = parseInt(selected) - count;
+                    const decremented = parseInt(selected) - (count * multiplier);
                     if (range.isPositive) {
                         if (decremented >= 0) {
                             return decremented.toString().padStart(len, "0");
@@ -1393,6 +1396,7 @@ export class Editor {
                         return "-" + Math.abs(decremented).toString().padStart(len, "0");
                     }
                 });
+                if (data.progressive) multiplier++;
             }
             toFirstPos();
             this.vi_goNormal();
