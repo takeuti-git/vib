@@ -13,6 +13,7 @@ import {
 import { NormalCmdType } from "../normal";
 import { MOTION_KEY_TO_NAME, MotionName, MotionType } from "../motion";
 import { toCount } from "./count";
+import { VisualCmdType } from "../visual";
 
 export function parseVisualInput(input: readonly string[]): VisualCmdParseResult {
     let i = 0;
@@ -108,6 +109,36 @@ export function parseVisualInput(input: readonly string[]): VisualCmdParseResult
         if (!arg) return PENDING;
         const command = visualCmd.WITH_ARG_CMD_MAP[first](count, arg);
         return OK(command);
+    }
+
+    if (first === "g") {
+        ctx.next();
+        const second = ctx.read();
+        if (!second) return PENDING;
+
+        if (second === "g") {
+            return OK({
+                type: VisualCmdType.MOTION,
+                count,
+                motion: {
+                    type: MotionType.CHAR,
+                    name: MotionName.firstLine,
+                },
+            });
+        } else if (second === "<C-a>") {
+            return OK({
+                type: VisualCmdType.INCREMENT,
+                count,
+                progressive: true,
+            });
+        } else if (second === "<C-x>") {
+            return OK({
+                type: VisualCmdType.DECREMENT,
+                count,
+                progressive: true,
+            });
+        }
+        return UNKNOWN;
     }
 
     // 以上の処理のどれにも当てはまらないときは移動入力として解析する

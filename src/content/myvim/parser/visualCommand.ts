@@ -86,8 +86,8 @@ export const WITH_COUNT_CMD_MAP: Record<WithCountCmd, WithCountCmdFunc> = {
     ",": (count) => ({ type: VisualCmdType.REPEAT_MOT, count, reverse: true }),
 
     // Increment
-    "<C-a>": (count) => ({ type: VisualCmdType.INCREMENT, count }),
-    "<C-x>": (count) => ({ type: VisualCmdType.DECREMENT, count }),
+    "<C-a>": (count) => ({ type: VisualCmdType.INCREMENT, count, progressive: false }),
+    "<C-x>": (count) => ({ type: VisualCmdType.DECREMENT, count, progressive: false }),
 };
 export function isWithCountCmdKey(key: string): key is WithCountCmd {
     return key in WITH_COUNT_CMD_MAP;

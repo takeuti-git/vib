@@ -38,6 +38,6 @@ export type VisualCmdContext = { count: Count } & (
     | { type: typeof VisualCmdType.REVERSE_CASE; }
     | { type: typeof VisualCmdType.SWITCH_SIDE; }
     | { type: typeof VisualCmdType.SCROLL; kind: ScrollCommand; }
-    | { type: typeof VisualCmdType.INCREMENT; }
-    | { type: typeof VisualCmdType.DECREMENT; }
+    | { type: typeof VisualCmdType.INCREMENT; progressive: boolean; }
+    | { type: typeof VisualCmdType.DECREMENT; progressive: boolean; }
 );
