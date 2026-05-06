@@ -247,16 +247,12 @@ export class Editor {
 
     private handleCompositionEnd = (): void => {
         // 日本語変換が終わったとき
+        for (const ch of this.input.value) {
+            this.vi_executeKeypress(ch);
+        }
         if (this.state.vi_state.mode === "insert") {
-            const value = this.input.value;
-            this.insertText(value);
-            this.scrollWindow();
-            this.render();
             this.syncElementValue();
-
-            if (value !== "") {
-                this.state.vi_insertBuf.push(value);
-            }
+            this.state.vi_insertBuf.push(this.input.value);
         }
         this.input.value = "";
         this.input.style.zIndex = "-1";
