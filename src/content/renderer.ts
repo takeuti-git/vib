@@ -208,29 +208,30 @@ export class Renderer {
     ): void {
         this.ctx.textAlign = "start";
         const startCol = logicalWidthToCol(state.logicaloff, text);
-        const subPixelOffset =
-            this.calcWidth(text.slice(0, startCol)) - state.logicaloff * this.halfFontSize;
-        let cursorX = x + subPixelOffset;
+        const isTextOverflow = this.calcWidth(text.slice(0, startCol)) !== (state.logicaloff * this.halfFontSize);
+        let cursorX = x;
 
         const slicedText = text.slice(
             startCol,
             startCol + this.config.screencols - this.lineNumberCols(state),
         );
+        // 全角文字があふれるなら"<"に置き換える
+        const offsetText = (isTextOverflow && slicedText !== "") ? "<" + slicedText.slice(1) : slicedText;
         const isVisualMode = state.vi_state.mode === "visual";
 
         if (state.vi_state.mode === "visual") {
             const vi_state = state.vi_state;
-            if (isVisualMode && slicedText === "" && this.inVisualRange(vi_state, lineNumber, startCol)) {
+            if (isVisualMode && offsetText === "" && this.inVisualRange(vi_state, lineNumber, startCol)) {
                 this.drawCursorAt(state, this.lineNumberMargin(state.lines.length), y - this.halfLineHeight);
             } else {
-                Array.from(slicedText).forEach((ch, i) => {
+                Array.from(offsetText).forEach((ch, i) => {
                     this.drawChar(cursorX, y, ch);
 
                     if (this.config.renderWhitespace === "all") {
                         if (ch === " " /* half width whitespace */) {
                             this.drawEmptyHalfWidth(cursorX, y);
                         } else if (ch === "　" /* full width whitespace */) {
-                            this.drawEmptyFullWidth(cursorX, y, slicedText, i);
+                            this.drawEmptyFullWidth(cursorX, y, offsetText, i);
                         }
                     }
                     if (isVisualMode && this.inVisualRange(vi_state, lineNumber, i + startCol)) {
@@ -240,14 +241,14 @@ export class Renderer {
                 });
             }
         } else {
-            Array.from(slicedText).forEach((ch, i) => {
+            Array.from(offsetText).forEach((ch, i) => {
                 this.drawChar(cursorX, y, ch);
 
                 if (this.config.renderWhitespace === "all") {
                     if (ch === " " /* half width whitespace */) {
                         this.drawEmptyHalfWidth(cursorX, y);
                     } else if (ch === "　" /* full width whitespace */) {
-                        this.drawEmptyFullWidth(cursorX, y, slicedText, i);
+                        this.drawEmptyFullWidth(cursorX, y, offsetText, i);
                     }
                 }
                 cursorX += this.calcWidth(ch);
