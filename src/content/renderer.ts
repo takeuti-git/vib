@@ -52,7 +52,6 @@ export class Renderer {
         this.drawLines(state);
         this.drawCursor(state);
         this.drawStatusBar(state, state.vi_cmd.join(""));
-        this.adjustLineNumberMargin(state);
     }
 
     public setStatusMsg(state: EditorState, text: string) {
@@ -172,14 +171,6 @@ export class Renderer {
         const rc = `${row + 1},${col + 1}(${width})`;
         this.ctx.fillText(rc, x, this.bottomTextY);
         this.ctx.textAlign = "start"; // 元に戻す
-    }
-
-    private adjustLineNumberMargin(state: EditorState) {
-        // 行番号右の余白にlineTextがはみ出て描写されるのを消去する
-        const x = this.lineNumberMargin(state.lines.length);
-        const w = -this.halfFontSize;
-        const h = (this.config.screenrows - this.config.statusBarHeight) * this.lineHeight;
-        this.ctx.clearRect(x, 0, w, h);
     }
 
     private drawLineNumber(
