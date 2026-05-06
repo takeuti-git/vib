@@ -11,7 +11,7 @@ export default defineManifest(() => {
     manifest_version: 3,
     name: "VIB",
     version: "0.1.0",
-    permissions: ["storage", "scripting", "tabs"],
+    permissions: [],
 
     content_scripts: [
       {
