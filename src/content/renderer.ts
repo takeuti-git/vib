@@ -381,7 +381,7 @@ export class Renderer {
 
     private lineNumberMargin(LineLen: number): number {
         return this.config.lineNumbers !== "off"
-            ? Math.max(this.config.minLineNumberCols, String(LineLen).length + 3) * this.halfFontSize
+            ? Math.max(this.config.minLineNumberCols, String(LineLen).length + 2) * this.halfFontSize
             : 0;
     }
 

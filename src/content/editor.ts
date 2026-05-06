@@ -2108,7 +2108,7 @@ export class Editor {
     }
 
     private get lineNumberCols(): number {
-        return Math.max(this.config.minLineNumberCols, String(this.state.lines.length).length + 3);
+        return Math.max(this.config.minLineNumberCols, String(this.state.lines.length).length + 2);
     }
 
     // ------------------------------

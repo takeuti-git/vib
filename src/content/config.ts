@@ -54,7 +54,7 @@ export function createEditorConfig(): EditorConfig {
         autoIndent: true,
 
         lineNumbers: "relative",
-        minLineNumberCols: 4,
+        minLineNumberCols: 0,
 
         renderWhitespace: "all",
 
