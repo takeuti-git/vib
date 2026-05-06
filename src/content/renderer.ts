@@ -199,39 +199,22 @@ export class Renderer {
     ): void {
         this.ctx.textAlign = "start";
         const startCol = logicalWidthToCol(state.logicaloff, text);
-        const isTextOverflow = this.calcWidth(text.slice(0, startCol)) !== (state.logicaloff * this.halfFontSize);
         let cursorX = x;
 
         const slicedText = text.slice(
             startCol,
             startCol + this.config.screencols - this.lineNumberCols(state),
         );
+        const isTextOverflow = (
+            this.calcWidth(text.slice(0, startCol)) !== (state.logicaloff * this.halfFontSize) &&
+            slicedText !== ""
+        );
         // 全角文字があふれるなら"<"に置き換える
-        const offsetText = (isTextOverflow && slicedText !== "") ? "<" + slicedText.slice(1) : slicedText;
+        const offsetText = (isTextOverflow) ? "<" + slicedText.slice(1) : slicedText;
         const isVisualMode = state.vi_state.mode === "visual";
 
-        if (state.vi_state.mode === "visual") {
-            const vi_state = state.vi_state;
-            if (isVisualMode && offsetText === "" && this.inVisualRange(vi_state, lineNumber, startCol)) {
-                this.drawCursorAt(state, this.lineNumberMargin(state.lines.length), y - this.halfLineHeight);
-            } else {
-                Array.from(offsetText).forEach((ch, i) => {
-                    this.drawChar(cursorX, y, ch);
-
-                    if (this.config.renderWhitespace === "all") {
-                        if (ch === " " /* half width whitespace */) {
-                            this.drawEmptyHalfWidth(cursorX, y);
-                        } else if (ch === "　" /* full width whitespace */) {
-                            this.drawEmptyFullWidth(cursorX, y, offsetText, i);
-                        }
-                    }
-                    if (isVisualMode && this.inVisualRange(vi_state, lineNumber, i + startCol)) {
-                        this.drawCursorAt(state, cursorX, y - this.halfLineHeight, ch);
-                    }
-                    cursorX += this.calcWidth(ch);
-                });
-            }
-        } else {
+        /** 文字を描画する共通処理 */
+        const drawLineString = (callback?: (ch: string, i: number) => void) => {
             Array.from(offsetText).forEach((ch, i) => {
                 this.drawChar(cursorX, y, ch);
 
@@ -242,8 +225,25 @@ export class Renderer {
                         this.drawEmptyFullWidth(cursorX, y, offsetText, i);
                     }
                 }
+
+                callback?.(ch, i);
                 cursorX += this.calcWidth(ch);
             });
+        };
+
+        if (state.vi_state.mode === "visual") {
+            const vi_state = state.vi_state;
+            if (isVisualMode && offsetText === "" && this.inVisualRange(vi_state, lineNumber, startCol)) {
+                this.drawCursorAt(state, this.lineNumberMargin(state.lines.length), y - this.halfLineHeight);
+            } else {
+                drawLineString((ch: string, i: number) => {
+                    if (isVisualMode && this.inVisualRange(vi_state, lineNumber, i + startCol)) {
+                        this.drawCursorAt(state, cursorX, y - this.halfLineHeight, ch);
+                    }
+                });
+            }
+        } else {
+            drawLineString();
         }
     }
 
