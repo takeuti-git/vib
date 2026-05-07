@@ -198,23 +198,34 @@ export class Renderer {
         text: string
     ): void {
         this.ctx.textAlign = "start";
-        const startCol = logicalWidthToCol(state.logicaloff, text);
-        let cursorX = x;
+        const lineTextWidth = this.getLineTextWidth(state);
 
-        const slicedText = text.slice(
-            startCol,
-            startCol + this.config.screencols - this.lineNumberCols(state),
+        const startCol = logicalWidthToCol(state.logicaloff, text);
+        const startOffsetText = text.slice(startCol);
+        const endCol = logicalWidthToCol(lineTextWidth, startOffsetText) + 1;
+        /** 前後の溢れた全角文字を含む. 末尾の1文字は半角でも含まれてしまうが影響がないため許容する */
+        const sliced = startOffsetText.slice(0, endCol);
+
+        const isLeftOverflow = (
+            sliced !== "" &&
+            this.calcWidth(text.slice(0, startCol)) !== (state.logicaloff * this.halfFontSize)
         );
-        const isTextOverflow = (
-            this.calcWidth(text.slice(0, startCol)) !== (state.logicaloff * this.halfFontSize) &&
-            slicedText !== ""
-        );
-        // 全角文字があふれるなら"<"に置き換える
-        const offsetText = (isTextOverflow) ? "<" + slicedText.slice(1) : slicedText;
-        const isVisualMode = state.vi_state.mode === "visual";
+
+        /** 文字列の左側を"<"に置き換える */
+        const leftAlignedText = (isLeftOverflow) ? "<" + sliced.slice(1) : sliced;
+        /** endColに文字が存在する=文字があふれている可能性 */
+        const isRightOverflow = (startOffsetText[endCol] && this.calcWidth(leftAlignedText) > lineTextWidth * this.halfFontSize);
+        /** 文字列の右側を">"に置き換える */
+        const offsetText =
+            (isRightOverflow) ? leftAlignedText.slice(0, -1) + ">"
+            : leftAlignedText;
+
+        /** 描画するx座標 */
+        let cursorX = x;
 
         /** 文字を描画する共通処理 */
         const drawLineString = (callback?: (ch: string, i: number) => void) => {
+            // 値とインデックスを安全に扱うため、文字列を配列化しforEachメソッドを使えるようにする
             Array.from(offsetText).forEach((ch, i) => {
                 this.drawChar(cursorX, y, ch);
 
@@ -230,6 +241,8 @@ export class Renderer {
                 cursorX += this.calcWidth(ch);
             });
         };
+
+        const isVisualMode = state.vi_state.mode === "visual";
 
         if (state.vi_state.mode === "visual") {
             const vi_state = state.vi_state;
@@ -399,6 +412,10 @@ export class Renderer {
             width += isFullWidth(ch) ? this.config.baseFontSize : this.halfFontSize;
         }
         return width;
+    }
+
+    private getLineTextWidth(state: EditorState): number {
+        return this.config.screencols - this.lineNumberCols(state) - 2;
     }
 
     private inVisualRange(visualState: VisualState, row: number, col: number): boolean {
