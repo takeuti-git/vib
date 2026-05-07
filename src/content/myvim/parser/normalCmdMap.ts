@@ -117,20 +117,30 @@ export const NO_ARG_CMD_MAP: Record<NoArgsCommands, (count: Count) => NormalCmdC
         count,
         kind: ScrollCommand.UP_HALF,
     }),
-    "<C-d>": (count) => ({
-        type: NormalCmdType.SCROLL,
-        count,
-        kind: ScrollCommand.DOWN_HALF,
-    }),
     "<C-b>": (count) => ({
         type: NormalCmdType.SCROLL,
         count,
         kind: ScrollCommand.UP_FULL,
     }),
+    "<C-y>": (count) => ({
+        type: NormalCmdType.SCROLL,
+        count,
+        kind: ScrollCommand.UP_ONELINE,
+    }),
+    "<C-d>": (count) => ({
+        type: NormalCmdType.SCROLL,
+        count,
+        kind: ScrollCommand.DOWN_HALF,
+    }),
     "<C-f>": (count) => ({
         type: NormalCmdType.SCROLL,
         count,
         kind: ScrollCommand.DOWN_FULL,
+    }),
+    "<C-e>": (count) => ({
+        type: NormalCmdType.SCROLL,
+        count,
+        kind: ScrollCommand.DOWN_ONELINE,
     }),
 
     // SUGAR

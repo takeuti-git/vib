@@ -1491,17 +1491,23 @@ export class Editor {
                 this.scrollUp();
             }
         },
+        "UP_FULL": (count) => {
+            for (let i = 0; i < count; i++) this.pageUp();
+        },
+        "UP_ONELINE": (count) => {
+            // TODO: unimplemented
+        },
         "DOWN_HALF": () => {
             for (let i = 0; i < this.state.vi_scrollAmount; i++) {
                 this.vi_moveCursor(MOVE_KEYS.DOWN);
                 this.scrollDown();
             }
         },
-        "UP_FULL": (count) => {
-            for (let i = 0; i < count; i++) this.pageUp();
-        },
         "DOWN_FULL": (count) => {
             for (let i = 0; i < count; i++) this.pageDown();
+        },
+        "DOWN_ONELINE": (count) => {
+            // TODO: unimplemented
         },
     };
 
