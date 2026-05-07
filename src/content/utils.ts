@@ -56,3 +56,10 @@ export function removeFirstWhitespace(text: string, count = 1): string {
 export function addFirstWhitespace(text: string, count = 1): string {
     return " ".repeat(count) + text;
 }
+
+export function* enumerate<T>(iterable: Iterable<T>): Generator<[T, number]> {
+    let i = 0;
+    for (const v of iterable) {
+        yield [v, i++];
+    }
+}

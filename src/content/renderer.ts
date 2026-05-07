@@ -1,7 +1,7 @@
 import type { EditorConfig } from "./config";
 import type { EditorState, VisualState } from "./state";
 import type { Line } from "./line";
-import { isFullWidth, logicalWidthToCol } from "./utils";
+import { enumerate, isFullWidth, logicalWidthToCol } from "./utils";
 
 type DrawingOptions = {
     stroke: boolean;
@@ -225,8 +225,7 @@ export class Renderer {
 
         /** 文字を描画する共通処理 */
         const drawLineString = (callback?: (ch: string, i: number) => void) => {
-            // 値とインデックスを安全に扱うため、文字列を配列化しforEachメソッドを使えるようにする
-            Array.from(offsetText).forEach((ch, i) => {
+            for (const [ch, i] of enumerate(offsetText)) {
                 this.drawChar(cursorX, y, ch);
 
                 if (this.config.renderWhitespace === "all") {
@@ -239,7 +238,7 @@ export class Renderer {
 
                 callback?.(ch, i);
                 cursorX += this.calcWidth(ch);
-            });
+            }
         };
 
         const isVisualMode = state.vi_state.mode === "visual";
