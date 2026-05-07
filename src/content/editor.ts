@@ -1495,7 +1495,7 @@ export class Editor {
             for (let i = 0; i < count; i++) this.pageUp();
         },
         "UP_ONELINE": (count) => {
-            // TODO: unimplemented
+            for (let i = 0; i < count; i++) this.scrollUpWithCursor();
         },
         "DOWN_HALF": () => {
             for (let i = 0; i < this.state.vi_scrollAmount; i++) {
@@ -1507,7 +1507,7 @@ export class Editor {
             for (let i = 0; i < count; i++) this.pageDown();
         },
         "DOWN_ONELINE": (count) => {
-            // TODO: unimplemented
+            for (let i = 0; i < count; i++) this.scrollDownWithCursor();
         },
     };
 
