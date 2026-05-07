@@ -1576,12 +1576,14 @@ export class Editor {
         const screenrows = getFullScreenRows(this.config) - 1;
         this.state.row = Math.max(screenrows, this.state.rowoff);
         this.state.rowoff = Math.max(0, this.state.row - screenrows);
+        this.clampCursorCol();
     }
 
     private pageDown(): void {
         const screenrows = getFullScreenRows(this.config);
         this.state.row = Math.min(this.state.lines.length - 1, this.state.rowoff + screenrows - 1);
         this.state.rowoff = this.state.row;
+        this.clampCursorCol();
     }
 
     private setLastFindMotion(motion: Extract<MotionContext, { arg: string }>): void {
