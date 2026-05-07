@@ -4,7 +4,7 @@ import { type EditorState, resetState } from "./state";
 import { Line, getLines, joinLines } from "./line";
 import { toInputToken, isFunctionKey, MOVE_KEYS, type MoveKey, isSpecialKey } from "./keys";
 import { hideElement, setElementFontsize, showElement } from "./dom";
-import { LOGICAL_HALF_WIDTH, addFirstWhitespace, calcLogicalWidth, getCountUntilNonWhitespace, logicalWidthToCol, removeFirstWhitespace } from "./utils";
+import { addFirstWhitespace, calcLogicalWidth, getCountUntilNonWhitespace, logicalWidthToCol, removeFirstWhitespace } from "./utils";
 import {
     getCountToNextChar,
     getMotionRange,
@@ -1706,10 +1706,12 @@ export class Editor {
 
         const screencols = this.config.screencols;
         const lineNumberCols = this.lineNumberCols;
-        if (this.state.logicalWidth + lineNumberCols >= this.state.logicaloff + screencols) {
-            // スクロール時に常に列を開けるためLOGICAL_HALF_WIDHTを加算する
+        const currCharWidth = calcLogicalWidth(this.currentLine.text[this.state.col] ?? "");
+
+        if (currCharWidth + this.state.logicalWidth + lineNumberCols >= this.state.logicaloff + screencols) {
+            // increase logicaloff
             this.state.logicaloff =
-                this.state.logicalWidth - screencols + lineNumberCols + LOGICAL_HALF_WIDTH;
+                this.state.logicalWidth - screencols + lineNumberCols + currCharWidth;
         }
     }
 
