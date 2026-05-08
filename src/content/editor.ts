@@ -272,7 +272,7 @@ export class Editor {
         } else if (e.deltaX > 0) {
             // right
             for (let i = 0; i < 6; i++) {
-                this.scrollRightWithCursor();
+                this.scrollRightWheel();
             }
         } else if (e.deltaX < 0) {
             // left
@@ -1559,29 +1559,38 @@ export class Editor {
         this.state.logicaloff += 1;
         if (this.state.logicalWidth < this.state.logicaloff) {
             this.vi_moveCursor(MOVE_KEYS.RIGHT);
-            if (this.state.col < this.currentLine.size - 1) return;
-            // 表示中の行の中で最もwidthが大きい行に移動する
-
-            const slicedLines = this.state.lines.slice(
-                this.state.rowoff,
-                this.state.rowoff + this.config.screenrows - this.config.statusBarHeight
-            );
-
-            const widthIndexes = slicedLines.map(
-                (ln, i) => ({ width: calcLogicalWidth(ln.text), idx: i + this.state.rowoff })
-            );
-
-            const maxWidthRow = widthIndexes.reduce(
-                (a, b) => (a.width > b.width ? a : b)
-            ).idx;
-            const maxWidthLine = this.state.lines[maxWidthRow] as Line;
-
-            const destCol = Math.min(
-                maxWidthLine.size - 1,
-                logicalWidthToCol(this.state.logicalWidth, maxWidthLine.text) + 1
-            );
-            this.moveCursorToPos(maxWidthRow, destCol);
         }
+    }
+
+    /** ホイール操作の場合は,スクロールと同時に最も幅の広い行に移動することがある */
+    private scrollRightWheel(): void {
+        this.state.logicaloff += 1;
+        if (this.state.logicalWidth < this.state.logicaloff) {
+            this.vi_moveCursor(MOVE_KEYS.RIGHT);
+            if (this.state.col < this.currentLine.size - 1) return;
+            this.moveToWidestLine();
+            this.vi_moveCursor(MOVE_KEYS.RIGHT);
+        }
+    }
+
+    private moveToWidestLine(): void {
+        // 表示中の行の中で最もwidthが大きい行に移動する
+        const slicedLines = this.state.lines.slice(
+            this.state.rowoff,
+            this.state.rowoff + this.config.screenrows - this.config.statusBarHeight
+        );
+        const widthIndexes = slicedLines.map(
+            (ln, i) => ({ width: calcLogicalWidth(ln.text), idx: i + this.state.rowoff })
+        );
+        const maxWidthRow = widthIndexes.reduce(
+            (a, b) => (a.width > b.width ? a : b)
+        ).idx;
+        const maxWidthLine = this.state.lines[maxWidthRow] as Line;
+        const destCol = Math.min(
+            maxWidthLine.size - 1,
+            logicalWidthToCol(this.state.logicalWidth, maxWidthLine.text)
+        );
+        this.moveCursorToPos(maxWidthRow, destCol);
     }
 
     private scrollLeftWithCursor(): void {
