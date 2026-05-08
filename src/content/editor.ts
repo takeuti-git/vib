@@ -1561,20 +1561,26 @@ export class Editor {
             this.vi_moveCursor(MOVE_KEYS.RIGHT);
             if (this.state.col < this.currentLine.size - 1) return;
             // 表示中の行の中で最もwidthが大きい行に移動する
-            let destRow = this.state.row;
-            const lines = this.state.lines;
 
-            const slicedLines =
-                lines.slice(
-                    this.state.rowoff, this.state.rowoff + this.config.screenrows - this.config.statusBarHeight
-            ).map((ln, i) => ({ ln, idx: this.state.rowoff + i }));
+            const slicedLines = this.state.lines.slice(
+                this.state.rowoff,
+                this.state.rowoff + this.config.screenrows - this.config.statusBarHeight
+            );
 
-            for (const { ln, idx } of slicedLines) {
-                if (calcLogicalWidth(lines[destRow].text) < calcLogicalWidth(ln.text)) {
-                    destRow = idx;
-                }
-            }
-            this.moveCursorToPos(destRow, this.state.col);
+            const widthIndexes = slicedLines.map(
+                (ln, i) => ({ width: calcLogicalWidth(ln.text), idx: i + this.state.rowoff })
+            );
+
+            const maxWidthRow = widthIndexes.reduce(
+                (a, b) => (a.width > b.width ? a : b)
+            ).idx;
+            const maxWidthLine = this.state.lines[maxWidthRow] as Line;
+
+            const destCol = Math.min(
+                maxWidthLine.size - 1,
+                logicalWidthToCol(this.state.logicalWidth, maxWidthLine.text) + 1
+            );
+            this.moveCursorToPos(maxWidthRow, destCol);
         }
     }
 
