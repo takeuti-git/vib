@@ -90,3 +90,7 @@ export function getHalfScreenRows(config: Readonly<EditorConfig>): number {
 export function getFullScreenRows(config: Readonly<EditorConfig>): number {
     return config.screenrows - config.statusBarHeight;
 }
+
+export function getHalfScreenCols(config: Readonly<EditorConfig>): number {
+    return Math.max(1, config.screencols / 2);
+}

@@ -1,4 +1,4 @@
-import { getFullScreenRows, getHalfScreenRows, type EditorConfig } from "./config";
+import { getFullScreenRows, getHalfScreenCols, getHalfScreenRows, type EditorConfig } from "./config";
 import type { Renderer } from "./renderer";
 import { type EditorState, resetState } from "./state";
 import { Line, getLines, joinLines } from "./line";
@@ -1510,12 +1510,18 @@ export class Editor {
             for (let i = 0; i < count; i++) this.scrollDownWithCursor();
         },
         "RIGHT_CHAR": (count) => {
+            for (let i = 0; i < count; i++) this.scrollRightWithCursor();
         },
         "RIGHT_HALF": (count) => {
+            const amount = count * getHalfScreenCols(this.config);
+            for (let i = 0; i < amount; i++) this.scrollRightWithCursor();
         },
         "LEFT_CHAR": (count) => {
+            for (let i = 0; i < count; i++) this.scrollLeftWithCursor();
         },
         "LEFT_HALF": (count) => {
+            const amount = count * getHalfScreenCols(this.config);
+            for (let i = 0; i < amount; i++) this.scrollLeftWithCursor();
         },
     };
 
