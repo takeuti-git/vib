@@ -1734,7 +1734,7 @@ export class Editor {
 
         const screencols = this.config.screencols;
         const lineNumberCols = this.lineNumberCols;
-        const currCharWidth = calcLogicalWidth(this.currentLine.text[this.state.col] ?? "");
+        const currCharWidth = calcLogicalWidth(this.currentLine.text[this.state.col] ?? " ");
 
         if (currCharWidth + this.state.logicalWidth + lineNumberCols >= this.state.logicaloff + screencols) {
             // increase logicaloff
