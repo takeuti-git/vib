@@ -14,6 +14,7 @@ import { toCount } from "./count";
 import { MOTION_KEY_TO_NAME, MotionName, MotionType, type MotionContext } from "../motion";
 import { NormalCmdType } from "../normal";
 import { OPERATOR_KEY_TO_NAME } from "../operator";
+import { ScrollCommand } from "../scroll";
 
 const ZERO_MOTION: MotionContext = {
     type: MotionType.CHAR,
@@ -211,6 +212,29 @@ export function parseNormalInput(input: readonly string[], macroRecording = fals
             return { status: result.status };
         }
         return cmd(result.value);
+    }
+
+    if (first === "z") {
+        ctx.next();
+
+        const second = ctx.next();
+        if (!second) return PENDING;
+
+        const cmd = (kind: ScrollCommand) => OK({ type: NormalCmdType.SCROLL, count, kind });
+        switch (second) {
+            case "z":
+                throw new Error("zz is not implemented yet");
+            case "l":
+                return cmd(ScrollCommand.RIGHT_CHAR);
+            case "h":
+                return cmd(ScrollCommand.LEFT_CHAR);
+            case "L":
+                return cmd(ScrollCommand.RIGHT_HALF);
+            case "H":
+                return cmd(ScrollCommand.LEFT_HALF);
+            default:
+                return UNKNOWN;
+        }
     }
 
     // 以上の処理のどれにも当てはまらないときは移動入力として解析する

@@ -1,4 +1,4 @@
-import { getFullScreenRows, getHalfScreenRows, type EditorConfig } from "./config";
+import { getFullScreenRows, getHalfScreenCols, getHalfScreenRows, type EditorConfig } from "./config";
 import type { Renderer } from "./renderer";
 import { type EditorState, resetState } from "./state";
 import { Line, getLines, joinLines } from "./line";
@@ -272,7 +272,7 @@ export class Editor {
         } else if (e.deltaX > 0) {
             // right
             for (let i = 0; i < 6; i++) {
-                this.scrollRightWithCursor();
+                this.scrollRightWheel();
             }
         } else if (e.deltaX < 0) {
             // left
@@ -1509,6 +1509,20 @@ export class Editor {
         "DOWN_ONELINE": (count) => {
             for (let i = 0; i < count; i++) this.scrollDownWithCursor();
         },
+        "RIGHT_CHAR": (count) => {
+            for (let i = 0; i < count; i++) this.scrollRightWithCursor();
+        },
+        "RIGHT_HALF": (count) => {
+            const amount = count * getHalfScreenCols(this.config);
+            for (let i = 0; i < amount; i++) this.scrollRightWithCursor();
+        },
+        "LEFT_CHAR": (count) => {
+            for (let i = 0; i < count; i++) this.scrollLeftWithCursor();
+        },
+        "LEFT_HALF": (count) => {
+            const amount = count * getHalfScreenCols(this.config);
+            for (let i = 0; i < amount; i++) this.scrollLeftWithCursor();
+        },
     };
 
     /** 1行上にスクロールする */
@@ -1545,23 +1559,38 @@ export class Editor {
         this.state.logicaloff += 1;
         if (this.state.logicalWidth < this.state.logicaloff) {
             this.vi_moveCursor(MOVE_KEYS.RIGHT);
-            if (this.state.col < this.currentLine.size - 1) return;
-            // 表示中の行の中で最もwidthが大きい行に移動する
-            let destRow = this.state.row;
-            const lines = this.state.lines;
-
-            const slicedLines =
-                lines.slice(
-                    this.state.rowoff, this.state.rowoff + this.config.screenrows - this.config.statusBarHeight
-            ).map((ln, i) => ({ ln, idx: this.state.rowoff + i }));
-
-            for (const { ln, idx } of slicedLines) {
-                if (calcLogicalWidth(lines[destRow].text) < calcLogicalWidth(ln.text)) {
-                    destRow = idx;
-                }
-            }
-            this.moveCursorToPos(destRow, this.state.col);
         }
+    }
+
+    /** ホイール操作の場合は,スクロールと同時に最も幅の広い行に移動することがある */
+    private scrollRightWheel(): void {
+        this.state.logicaloff += 1;
+        if (this.state.logicalWidth < this.state.logicaloff) {
+            this.vi_moveCursor(MOVE_KEYS.RIGHT);
+            if (this.state.col < this.currentLine.size - 1) return;
+            this.moveToWidestLine();
+            this.vi_moveCursor(MOVE_KEYS.RIGHT);
+        }
+    }
+
+    private moveToWidestLine(): void {
+        // 表示中の行の中で最もwidthが大きい行に移動する
+        const slicedLines = this.state.lines.slice(
+            this.state.rowoff,
+            this.state.rowoff + this.config.screenrows - this.config.statusBarHeight
+        );
+        const widthIndexes = slicedLines.map(
+            (ln, i) => ({ width: calcLogicalWidth(ln.text), idx: i + this.state.rowoff })
+        );
+        const maxWidthRow = widthIndexes.reduce(
+            (a, b) => (a.width > b.width ? a : b)
+        ).idx;
+        const maxWidthLine = this.state.lines[maxWidthRow] as Line;
+        const destCol = Math.min(
+            maxWidthLine.size - 1,
+            logicalWidthToCol(this.state.logicalWidth, maxWidthLine.text)
+        );
+        this.moveCursorToPos(maxWidthRow, destCol);
     }
 
     private scrollLeftWithCursor(): void {
@@ -1714,7 +1743,7 @@ export class Editor {
 
         const screencols = this.config.screencols;
         const lineNumberCols = this.lineNumberCols;
-        const currCharWidth = calcLogicalWidth(this.currentLine.text[this.state.col] ?? "");
+        const currCharWidth = calcLogicalWidth(this.currentLine.text[this.state.col] ?? " ");
 
         if (currCharWidth + this.state.logicalWidth + lineNumberCols >= this.state.logicaloff + screencols) {
             // increase logicaloff
