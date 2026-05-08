@@ -1509,6 +1509,14 @@ export class Editor {
         "DOWN_ONELINE": (count) => {
             for (let i = 0; i < count; i++) this.scrollDownWithCursor();
         },
+        "RIGHT_CHAR": (count) => {
+        },
+        "RIGHT_HALF": (count) => {
+        },
+        "LEFT_CHAR": (count) => {
+        },
+        "LEFT_HALF": (count) => {
+        },
     };
 
     /** 1行上にスクロールする */
