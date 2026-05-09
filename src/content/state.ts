@@ -5,7 +5,8 @@ import type { InsertCommand } from "./myvim/insert";
 import { createMacroTable, type MacroChar, type MacroTable } from "./myvim/macro";
 import type { MotionContext } from "./myvim/motion";
 import type { OperatorName } from "./myvim/operator";
-import type { InclusivePos, Position } from "./types/motion";
+import type { InclusivePos } from "./types/motion";
+import type { DiffStackElement } from "./types/patch";
 
 type RepeatableCmd = { count: number } & (
     | { type: "operator", operator: Exclude<OperatorName, "YANK">, motion: MotionContext }
@@ -24,10 +25,10 @@ export type EditorState = {
     logicaloff: number;
     lines: Line[];
     lastSnapshot: string;
-    diffStack: string[];
-    cursorStack: Position[];
-    stackPtr: number;
-    diffDirty: boolean;
+    diffStack: DiffStackElement[];
+    diffStackPtr: number;
+    /** 差分保存を割り込みで無効化するフラグ */
+    disableSaveDiff: boolean;
     cursorStyle: "full" | "under" | "vertical";
 
     vi_state: ViState;
@@ -84,9 +85,8 @@ export function createEditorState(config: Readonly<EditorConfig>): EditorState {
         lines: [new Line()],
         lastSnapshot: "",
         diffStack: [],
-        cursorStack: [],
-        stackPtr: 0,
-        diffDirty: false,
+        diffStackPtr: 0,
+        disableSaveDiff: false,
 
         vi_state: { mode: "normal" },
         vi_cmd: [],
@@ -115,9 +115,7 @@ export function resetState(state: EditorState, config: Readonly<EditorConfig>): 
     state.lines = [new Line()];
     state.lastSnapshot = "";
     state.diffStack = [];
-    state.cursorStack = [];
-    state.stackPtr = 0;
-    state.diffDirty = false;
+    state.diffStackPtr = 0;
     state.vi_state = { mode: "normal" };
     state.vi_cmd = [];
     state.vi_lastCmd = null;

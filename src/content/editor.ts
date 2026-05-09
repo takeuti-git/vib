@@ -20,7 +20,7 @@ import {
     FIND_REPEAT_OPTIONS,
     type FindMoveOptions,
 } from "./myvim/findCommand";
-import { createDiff, toRange } from "./undo";
+import { redo, saveDiff, undo } from "./undo";
 import type { ExclusivePos, InclusivePos, InclusiveRange, TextRange } from "./types/motion";
 import { InsertCommand } from "./myvim/insert";
 import { ScrollCommand } from "./myvim/scroll";
@@ -615,7 +615,7 @@ export class Editor {
     private vi_executeInsert(insertKind: InsertCommand, count: number): void {
         this.insertMap[insertKind]();
 
-        this.disableSaveDiff = true; // insertへの移行入力は差分として扱わない
+        this.state.disableSaveDiff = true; // insertへの移行入力は差分として扱わない
 
         if (
             (insertKind === InsertCommand.APPEND || insertKind === InsertCommand.APPEND_LAST) &&
@@ -1414,7 +1414,7 @@ export class Editor {
         this.state.vi_macroCallback = () => {
             for (let i = 0; i < count; i++) {
                 this.state.vi_macroTable[key].forEach((k) => {
-                    this.disableSaveDiff = true;
+                    this.state.disableSaveDiff = true;
                     this.vi_executeKeypress(k);
                 });
             }
@@ -2162,133 +2162,28 @@ export class Editor {
     // | undo / redo
     // ------------------------------
 
-    /** 差分保存を割り込みで無効化するフラグ */
-    private disableSaveDiff = false;
-
     private saveDiff(oldText: string, newText: string): void {
-        if (this.disableSaveDiff) {
-            this.disableSaveDiff = false;
-            return;
-        }
-
-        if (oldText === newText) {
-            return;
-        }
-
-        const diff = createDiff(oldText, newText);
-        this.state.diffStack[this.state.stackPtr] = diff;
-        this.state.cursorStack[this.state.stackPtr] = { row: this.state.row, col: this.state.col };
-
-        this.state.lastSnapshot = newText;
-        this.state.stackPtr++;
-        this.state.diffStack.length = this.state.stackPtr; // ptr以降の要素を切り捨て, undo後に編集すると以降の履歴を削除する
-        this.state.cursorStack.length = this.state.stackPtr; // ptr以降の要素を切り捨て, undo後に編集すると以降の履歴を削除する
+        saveDiff(this.state, oldText, newText);
     }
 
     private undo(): string | void {
-        if (this.state.stackPtr === 0) {
+        const cursor = undo(this.state);
+        if (!cursor) {
             console.log("Already at oldest change");
             return;
         }
-        // この時点でptrは1以上ある
-        this.state.stackPtr--;
-        this.applyReverse(this.state.diffStack[this.state.stackPtr]!.split("\n"));
+        this.state.row = cursor.row;
+        this.state.col = cursor.col;
+        this.clampCursor();
+        this.syncPreferredWidth();
     }
 
     private redo(): string | void {
-        if (this.state.stackPtr === this.state.diffStack.length) {
+        const cursor = redo(this.state);
+        if (!cursor) {
             console.log("Already at newest change");
             return;
         }
-        this.applyForward(this.state.diffStack[this.state.stackPtr]!.split("\n"));
-        this.state.stackPtr++;
-    }
-
-    private applyReverse(diffLines: string[]): void {
-        const result: Line[] = [];
-        let newPos = 0;
-
-        let i = 0;
-        while (i < diffLines.length && !diffLines[i]!.startsWith("@@")) i++;
-
-        while (i < diffLines.length) {
-            const dline = diffLines[i]!;
-            if (!dline.startsWith("@@")) {
-                i++;
-                continue;
-            }
-
-            const { newStart } = toRange(dline);
-            i++;
-
-            while (newPos < newStart - 1) {
-                result.push(this.state.lines[newPos++]!);
-            }
-
-            while (i < diffLines.length && !diffLines[i]!.startsWith("@@")) {
-                const line = diffLines[i]!;
-                const firstCh = line[0];
-                if      (firstCh === " ") { result.push(new Line(line.slice(1))); newPos++; }
-                else if (firstCh === "-") { result.push(new Line(line.slice(1))); }
-                else if (firstCh === "+") { newPos++; }
-                i++;
-            }
-        }
-
-        while (newPos < this.state.lines.length) result.push(this.state.lines[newPos++]!);
-
-        if (result.length === 0) {
-            result.push(new Line());
-        }
-        this.state.lines = result;
-        this.state.lastSnapshot = joinLines(result);
-
-        const cursor = (
-            this.state.stackPtr === 0
-            ? { row: 0, col: 0 }
-            : this.state.cursorStack[this.state.stackPtr]
-        );
-        if (!cursor) throw new Error("cursor is undefined");
-        this.moveCursorToPos(cursor.row, cursor.col);
-        this.clampCursor();
-    }
-
-    private applyForward(diffLines: string[]): void {
-        const result: Line[] = [];
-        let oldPos = 0;
-
-        let i = 0;
-        while (i < diffLines.length && !diffLines[i]!.startsWith("@@")) i++;
-
-        while (i < diffLines.length) {
-            const dline = diffLines[i]!;
-            if (!dline.startsWith("@@")) {
-                i++;
-                continue;
-            }
-
-            const { oldStart } = toRange(dline);
-            i++;
-
-            while (oldPos < oldStart - 1) result.push(this.state.lines[oldPos++]!);
-
-            while (i < diffLines.length && !diffLines[i]!.startsWith("@@")) {
-                const line = diffLines[i]!;
-                const firstCh = line[0];
-                if      (firstCh === " ") { result.push(new Line(line.slice(1))); oldPos++; }
-                else if (firstCh === "+") { result.push(new Line(line.slice(1))); }
-                else if (firstCh === "-") { oldPos++; }
-                i++;
-            }
-        }
-
-        while (oldPos < this.state.lines.length) result.push(this.state.lines[oldPos++]!);
-
-        this.state.lines = result;
-        this.state.lastSnapshot = joinLines(result);
-
-        const cursor = this.state.cursorStack[this.state.stackPtr];
-        if (!cursor) throw new Error("cursor is undefined");
         this.moveCursorToPos(cursor.row, cursor.col);
     }
 }
