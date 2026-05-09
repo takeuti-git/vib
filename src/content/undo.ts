@@ -15,12 +15,21 @@ export function createDiffHunks(oldText: string, newText: string): Hunk[] {
 }
 
 function applyHunk(lines: Line[], hunk: Hunk): void {
+    const lenBeforeApply = lines.length;
+    const firstLineBeforeApply = lines[0];
+
     const removes = hunk.lines.filter(l => l[0] === "-");
     const inserts = hunk.lines.filter(l => l[0] === "+");
     const cursor  = hunk.oldStart - 1;
 
     lines.splice(cursor, removes.length);
     lines.splice(cursor, 0, ...inserts.map(l => new Line(l.slice(1))));
+
+    // 空の状態からredoした際に1行増えてしまうため、末尾のLineを削除する。
+    // state.linesはカーソル表示用に常に1行分を確保するため
+    if (firstLineBeforeApply?.isEmpty() && lenBeforeApply === 1) {
+        lines.pop();
+    }
 }
 
 function revertHunk(lines: Line[], hunk: Hunk): void {
