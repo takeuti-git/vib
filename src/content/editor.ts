@@ -1444,6 +1444,12 @@ export class Editor {
                 this.vi_goNormal();
 
             } break;
+            case VisualCmdType.INSERT: {
+                throw new Error("unimplemented");
+            }
+            case VisualCmdType.SCROLL: {
+                throw new Error("unimplemented");
+            }
             default: {
                 const unreachable: never = datatype;
                 throw new Error(`unreachable: ${unreachable}`);
