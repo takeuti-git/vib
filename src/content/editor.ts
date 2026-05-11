@@ -259,6 +259,7 @@ export class Editor {
     };
 
     private handleCanvasWheel = (e: WheelEvent): void => {
+        e.preventDefault();
         if (e.deltaY < 0) {
             // up
             for (let i = 0; i < 3; i++) {
