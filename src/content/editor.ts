@@ -145,7 +145,23 @@ export class Editor {
             this.render();
         });
         this.canvas.addEventListener("wheel", this.handleCanvasWheel);
-        this.canvas.addEventListener("mousedown", this.handleCanvasMousedown);
+        this.canvas.addEventListener("mousedown", (e) => {
+            if (this.state.vi_state.mode === "visual") this.vi_goNormal();
+            this.handleCanvasMousedown(e);
+        });
+        this.canvas.addEventListener("mousemove", (e) => {
+            if (e.buttons === 1) {
+                this.handleCanvasMousedown(e);
+
+                if (this.state.vi_state.mode === "normal") {
+                    this.vi_goNormal();
+                    this.vi_goVisual(false);
+                }
+                else if (this.state.vi_state.mode === "visual") {
+                    this.syncCursorAndVisual();
+                }
+            }
+        });
 
         this.input.addEventListener("compositionstart", this.handleCompositionStart);
         this.input.addEventListener("compositionend", this.handleCompositionEnd);
@@ -1184,6 +1200,48 @@ export class Editor {
         return 0;
     }
 
+    private syncCursorAndVisual(range?: TextRange) {
+        if (this.state.vi_state.mode !== "visual") throw new Error("vi_state.mode should be 'visual'");
+        const vi_state = this.state.vi_state; // クロージャで使うためnarrow後にローカル変数にバインド
+        const first = vi_state.visualFirst;
+        const last = vi_state.visualLast;
+
+        if (range) {
+            if (vi_state.linewise !== false)
+                throw new Error("vi_state.linewise must be false at this point");
+            vi_state.rangeSide = "first";
+            first.row = range.end.row;
+            first.col = range.end.col;
+            last.row  = range.end.row;
+            last.col  = range.end.col - 1; // getMotionRangeはend.colを排他的範囲で返すため包括的範囲に変換する
+        }
+
+        // sync cusror and first/last
+        // カーソルがどちらかのsideを追い越すようなときに値を入れ替える
+        if (vi_state.rangeSide === "first") {
+            first.row = this.state.row;
+            first.col = this.state.col;
+            if (
+                (first.row === last.row && first.col > last.col) ||
+                (first.row > last.row)
+            ) {
+                vi_state.rangeSide = "last";
+                [first.row, last.row] = [last.row, first.row];
+                [first.col, last.col] = [last.col, first.col];
+            }
+        } else {
+            last.row = this.state.row;
+            last.col = this.state.col;
+            if (
+                (last.row === first.row && last.col < first.col) ||
+                (last.row < first.row)
+            ) {
+                vi_state.rangeSide = "first";
+                [first.row, last.row] = [last.row, first.row];
+                [first.col, last.col] = [last.col, first.col];
+            }
+        }
+    };
     private vi_executeVisual(input: readonly string[]): 0 | 1 | 2 {
         if (this.state.vi_state.mode !== "visual") throw new Error("vi_state.mode should be 'visual'");
         const vi_state = this.state.vi_state; // クロージャで使うためnarrow後にローカル変数にバインド
@@ -1210,48 +1268,6 @@ export class Editor {
             this.moveCursorToPos(vi_state.visualFirst.row, vi_state.visualFirst.col);
         };
 
-        /** textobjの範囲を注入できる */
-        const syncCursorAndVisual = (range?: TextRange) => {
-            const first = vi_state.visualFirst;
-            const last = vi_state.visualLast;
-
-            if (range) {
-                if (vi_state.linewise !== false)
-                    throw new Error("vi_state.linewise must be false at this point");
-                vi_state.rangeSide = "first";
-                first.row = range.end.row;
-                first.col = range.end.col;
-                last.row  = range.end.row;
-                last.col  = range.end.col - 1; // getMotionRangeはend.colを排他的範囲で返すため包括的範囲に変換する
-            }
-
-            // sync cusror and first/last
-            // カーソルがどちらかのsideを追い越すようなときに値を入れ替える
-            if (vi_state.rangeSide === "first") {
-                first.row = this.state.row;
-                first.col = this.state.col;
-                if (
-                    (first.row === last.row && first.col > last.col) ||
-                    (first.row > last.row)
-                ) {
-                    vi_state.rangeSide = "last";
-                    [first.row, last.row] = [last.row, first.row];
-                    [first.col, last.col] = [last.col, first.col];
-                }
-            } else {
-                last.row = this.state.row;
-                last.col = this.state.col;
-                if (
-                    (last.row === first.row && last.col < first.col) ||
-                    (last.row < first.row)
-                ) {
-                    vi_state.rangeSide = "first";
-                    [first.row, last.row] = [last.row, first.row];
-                    [first.col, last.col] = [last.col, first.col];
-                }
-            }
-        };
-
         switch (datatype) {
             case VisualCmdType.SWITCH_SIDE: {
                 const dest = (vi_state.rangeSide === "first") ? vi_state.visualLast : vi_state.visualFirst;
@@ -1269,14 +1285,14 @@ export class Editor {
                     if (!range) return 0;
                     vi_state.linewise = false; // textobj選択が成功したらvisual_lineではなくなる
                     this.moveCursorToPos(range.begin.row, range.begin.col);
-                    syncCursorAndVisual(range);
+                    this.syncCursorAndVisual(range);
                     this.moveCursorToPos(range.end.row, range.end.col - 1);
                     vi_state.charCount = this.getCharCount(vi_state.visualFirst, vi_state.visualLast);
                     vi_state.lineCount = this.getLineCount(vi_state.visualFirst, vi_state.visualLast);
                     return 0;
                 }
                 this.vi_executeMotion(motion, count);
-                syncCursorAndVisual();
+                this.syncCursorAndVisual();
                 if (vi_state.linewise) {
                     vi_state.visualFirst.col = 0;
                     vi_state.visualLast.col = this.state.lines[vi_state.visualLast.row]!.size - 1;
@@ -1293,7 +1309,7 @@ export class Editor {
                 // 入力(";" | ",")によって移動方向が反転するため、動的にoptionsを生成する
                 const optionsFn = FIND_REPEAT_OPTIONS[lastMotion.name];
                 this.moveUntilNextChar(lastMotion.arg, { limit: count, ...optionsFn(data.reverse) });
-                syncCursorAndVisual();
+                this.syncCursorAndVisual();
 
             } break;
             case VisualCmdType.OPERATOR: {
