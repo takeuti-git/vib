@@ -6,13 +6,14 @@ import type { Count } from "./parser/count";
 
 // prettier-ignore
 export const NormalCmdType = {
-    OPERATOR:    "operator",
     GO_INSERT:   "insert",
+    GO_REPLACE:  "go_replace", // モードの移行
+    GO_VISUAL:   "go_visual",
+    GO_COMMAND:   "go_command",
+    OPERATOR:    "operator",
     MOTION:      "motion",
     PUT:         "put",
     REPLACE:     "replace", // 引数を伴う置き換え処理
-    GO_REPLACE:  "go_replace", // モードの移行
-    GO_VISUAL:   "go_visual",
     REPEAT_OPE:  "repeat_ope",
     REPEAT_MOT:  "repeat_mot",
     JOIN:        "join",
@@ -37,6 +38,7 @@ export type NormalCmdContext = { count: Count } & (
     | { type: typeof NormalCmdType.GO_INSERT; command: InsertCommand; }
     | { type: typeof NormalCmdType.GO_REPLACE; }
     | { type: typeof NormalCmdType.GO_VISUAL; linewise: boolean; }
+    | { type: typeof NormalCmdType.GO_COMMAND; }
     | { type: typeof NormalCmdType.OPERATOR; operator: OperatorName; innerCount: Count; motion: MotionContext; }
     | { type: typeof NormalCmdType.MOTION; motion: MotionContext }
     | { type: typeof NormalCmdType.PUT; position: PutPosition }

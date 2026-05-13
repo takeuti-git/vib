@@ -46,15 +46,17 @@ export type EditorState = {
     vi_macroLastPlayed: MacroChar | null; // @@の繰り返し用
 };
 
-type ViState =
-    | NormalState
-    | InsertState
-    | ReplaceState
-    | VisualState
+type Satisfies<Constraint, Target extends Constraint> = Target;
+
+type ViState = Satisfies<
+    { mode: string },
+    NormalState | InsertState | ReplaceState | VisualState | CommandState
+>;
 
 type NormalState = {
     mode: "normal";
 };
+
 export type VisualState = {
     mode: "visual";
     rangeSide: "first" | "last";
@@ -71,6 +73,12 @@ type InsertState = {
 
 type ReplaceState = {
     mode: "replace";
+};
+
+type CommandState = {
+    mode: "command";
+    col: number;
+    width: number;
 };
 
 export function createEditorState(config: Readonly<EditorConfig>): EditorState {

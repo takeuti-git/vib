@@ -420,6 +420,10 @@ export class Editor {
             this.processKeypress(input, { replace: true });
             this.scrollWindow();
             this.render();
+
+        } else if (this.state.vi_state.mode === "command") {
+            throw new Error("TODO: command mode");
+
         }
 
         if (this.state.vi_macroCallback) {
@@ -1193,6 +1197,10 @@ export class Editor {
                 });
 
             } break;
+            case NormalCmdType.GO_COMMAND: {
+                this.vi_goCommand();
+
+            } break;
             default: {
                 const unreachable: never = datatype;
                 throw new Error(`unreachable: ${unreachable}`);
@@ -1743,6 +1751,15 @@ export class Editor {
             linewise,
             charCount: linewise ? this.currentLine.size : 1,
             lineCount: 1,
+        };
+    }
+
+    private vi_goCommand(): void {
+        this.state.vi_cmd = [":"];
+        this.state.vi_state = {
+            mode: "command",
+            col: 1,
+            width: 1,
         };
     }
 

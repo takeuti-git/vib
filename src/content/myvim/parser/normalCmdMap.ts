@@ -10,6 +10,7 @@ type NoArgsCommands = (
     | cmd.GoInsertCommand
     | cmd.GoReplaceCommand
     | cmd.GoVisualCommand
+    | cmd.GoCommandCommand
     | cmd.SugarCommand
     | cmd.JoinCommand
     | cmd.PutCommand
@@ -227,6 +228,12 @@ export const NO_ARG_CMD_MAP: Record<NoArgsCommands, (count: Count) => NormalCmdC
     // DECREMENT
     "<C-x>": (count) => ({
         type: NormalCmdType.DECREMENT,
+        count,
+    }),
+
+    // GO_COMMAND
+    ":": (count) => ({
+        type: NormalCmdType.GO_COMMAND,
         count,
     }),
 };
