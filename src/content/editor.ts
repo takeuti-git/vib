@@ -149,19 +149,7 @@ export class Editor {
             if (this.state.vi_state.mode === "visual") this.vi_goNormal();
             this.handleCanvasMousedown(e);
         });
-        this.canvas.addEventListener("mousemove", (e) => {
-            if (e.buttons === 1) {
-                this.handleCanvasMousedown(e);
-
-                if (this.state.vi_state.mode === "normal") {
-                    this.vi_goNormal();
-                    this.vi_goVisual();
-                }
-                else if (this.state.vi_state.mode === "visual") {
-                    this.syncCursorAndVisual();
-                }
-            }
-        });
+        this.canvas.addEventListener("mousemove", this.handleCanvasMousemove);
 
         this.input.addEventListener("compositionstart", this.handleCompositionStart);
         this.input.addEventListener("compositionend", this.handleCompositionEnd);
@@ -328,6 +316,20 @@ export class Editor {
         this.clampCursor(); // 存在する行を超えたクリックに対応
         this.scrollWindow();
         this.render();
+    };
+
+    private handleCanvasMousemove = (e: MouseEvent): void => {
+        if (e.buttons === 1) {
+            this.handleCanvasMousedown(e);
+
+            if (this.state.vi_state.mode === "normal") {
+                this.vi_goNormal();
+                this.vi_goVisual();
+            }
+            else if (this.state.vi_state.mode === "visual") {
+                this.syncCursorAndVisual();
+            }
+        }
     };
 
     private handleEditorKeydown = (e: KeyboardEvent): void => {
