@@ -155,7 +155,7 @@ export class Editor {
 
                 if (this.state.vi_state.mode === "normal") {
                     this.vi_goNormal();
-                    this.vi_goVisual(false);
+                    this.vi_goVisual();
                 }
                 else if (this.state.vi_state.mode === "visual") {
                     this.syncCursorAndVisual();
@@ -1072,7 +1072,7 @@ export class Editor {
             } break;
             case NormalCmdType.GO_VISUAL: {
                 const isLinewise = data.linewise;
-                this.vi_goVisual(isLinewise);
+                this.vi_goVisual({ linewise: isLinewise });
                 if (this.state.vi_state.mode !== "visual") throw new Error("vi_state.mode is not visual. call vi_goVisual() before this line");
                 if (this.state.vi_state.linewise) {
                     this.state.vi_state.visualFirst.col = 0;
@@ -1730,7 +1730,7 @@ export class Editor {
         this.state.vi_insertBuf = [];
     }
 
-    private vi_goVisual(linewise: boolean): void {
+    private vi_goVisual({ linewise = false } = {}): void {
         const row = this.state.row;
         const col = this.state.col;
         this.state.vi_state = {
