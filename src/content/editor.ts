@@ -420,6 +420,12 @@ export class Editor {
             this.processKeypress(input, { replace: true });
             this.scrollWindow();
             this.render();
+
+        } else if (this.state.vi_state.mode === "command") {
+            const freeInput = this.executeFreeInput(input);
+            if (freeInput !== undefined) {
+                console.log("free input is:", freeInput);
+            }
         }
 
         if (this.state.vi_macroCallback) {
@@ -451,7 +457,78 @@ export class Editor {
 
             const newText = joinLines(this.state.lines);
             this.saveDiff(this.state.lastSnapshot, newText);
+
+            this.state.vi_callbackOnSuccess?.();
+            this.state.vi_callbackOnSuccess = null;
         }
+    }
+
+    private executeFreeInput(input: string): string[] | undefined {
+        if (this.state.vi_state.mode !== "command") {
+            throw new Error("state.vi_state.mode is not command");
+        }
+        if (input.length === 1) {
+            this.state.vi_cmd.splice(this.state.vi_state.sBarCol, 0, input);
+            this.state.vi_state.sBarCol += 1;
+            this.state.vi_state.sBarVisualCol += calcLogicalWidth(input);
+        } else {
+            switch (input) {
+                case "Enter": {
+                    console.log("TODO: Enter to send input");
+                    const input = [...this.state.vi_cmd];
+                    this.vi_goNormal();
+                    this.render();
+                    return input;
+                }
+
+                case "Delete": {
+                    // Deleteは仕様上必ず1文字の削除が発生するため、行末にいるときと同じ扱いか、1文字右にずれる
+                    // 1文字ずれた後にBackspaceと同じ処理を実行しカーソル位置の削除を実現
+                    const currCh = this.state.vi_cmd[this.state.vi_state.sBarCol] ?? " ";
+                    this.state.vi_state.sBarVisualCol = Math.min(
+                        calcLogicalWidth(this.state.vi_cmd.join("")),
+                        this.state.vi_state.sBarVisualCol + calcLogicalWidth(currCh)
+                    );
+                    this.state.vi_state.sBarCol = Math.min(this.state.vi_cmd.length, this.state.vi_state.sBarCol + 1);
+                    // fallthrough
+                }
+                case "Backspace": {
+                    const targetIdx = this.state.vi_state.sBarCol - 1;
+                    const targetCh = this.state.vi_cmd[targetIdx];
+                    if (!targetCh) throw new Error("targetIdx is undefined");
+
+                    const canDelete = this.state.vi_state.sBarCol !== 1 || this.state.vi_cmd.length === 1;
+                    if (canDelete) {
+                        this.state.vi_cmd.splice(targetIdx, 1);
+                        this.state.vi_state.sBarCol -= 1;
+                        this.state.vi_state.sBarVisualCol -= calcLogicalWidth(targetCh);
+                    }
+                } break;
+
+                case "ArrowLeft": {
+                    const targetCh = this.state.vi_cmd[this.state.vi_state.sBarCol - 1] ?? " ";
+                    this.state.vi_state.sBarVisualCol = Math.max(
+                        1,
+                        this.state.vi_state.sBarVisualCol - calcLogicalWidth(targetCh)
+                    );
+                    this.state.vi_state.sBarCol = Math.max(1, this.state.vi_state.sBarCol - 1);
+                } break;
+
+                case "ArrowRight": {
+                    const targetCh = this.state.vi_cmd[this.state.vi_state.sBarCol] ?? " ";
+                    this.state.vi_state.sBarVisualCol = Math.min(
+                        calcLogicalWidth(this.state.vi_cmd.join("")),
+                        this.state.vi_state.sBarVisualCol + calcLogicalWidth(targetCh)
+                    );
+                    this.state.vi_state.sBarCol = Math.min(this.state.vi_cmd.length, this.state.vi_state.sBarCol + 1);
+                } break;
+            }
+        }
+
+        if (this.state.vi_cmd.length === 0) {
+            this.vi_goNormal();
+        }
+        this.render();
     }
 
     private resizeMap: Record<string, () => void> = {
@@ -1193,6 +1270,10 @@ export class Editor {
                 });
 
             } break;
+            case NormalCmdType.GO_COMMAND: {
+                this.vi_goCommand();
+
+            } break;
             default: {
                 const unreachable: never = datatype;
                 throw new Error(`unreachable: ${unreachable}`);
@@ -1743,6 +1824,18 @@ export class Editor {
             linewise,
             charCount: linewise ? this.currentLine.size : 1,
             lineCount: 1,
+        };
+    }
+
+    private vi_goCommand(): void {
+        this.state.vi_state = {
+            mode: "command",
+            sBarCol: 1, // 初期文字分(:)を加算
+            sBarVisualCol: 1, // 初期文字分(:)を加算
+        };
+        this.state.vi_callbackOnSuccess = () => {
+            this.state.vi_cmd = [":"];
+            this.render();
         };
     }
 

@@ -50,8 +50,14 @@ export class Renderer {
     public render(state: EditorState): void {
         this.clear();
         this.drawLines(state);
-        this.drawCursor(state);
-        this.drawStatusBar(state, state.vi_cmd.join(""));
+        if (state.vi_state.mode === "command") {
+            this.drawStatusBar(state, state.vi_cmd.join(""));
+            this.drawCursorAtStatusBar(state);
+        } else {
+            this.drawCursor(state);
+            this.drawStatusBar(state, state.vi_cmd.join(""));
+        }
+        // this.drawStatusBar(state, state.vi_cmd.join(""));
     }
 
     public setStatusMsg(state: EditorState, text: string) {
@@ -109,9 +115,17 @@ export class Renderer {
         this.drawCursorAt(state, x, y, ch);
     }
 
-    private drawCursorAt(state: EditorState, x: number, y: number, ch?: string): void {
-        if (!ch) ch = " ";
-        else if (ch.length > 1) throw new Error("ch must be a char or empty char");
+    private drawCursorAtStatusBar(state: EditorState): void {
+        if (state.vi_state.mode !== "command") throw new Error("mode is not command");
+
+        const x = state.vi_state.sBarVisualCol * this.halfFontSize;
+        const y = (this.config.screenrows - 1) * this.lineHeight;
+        const ch = state.vi_cmd[state.vi_state.sBarCol];
+        this.drawCursorAt(state, x, y, ch);
+    }
+
+    private drawCursorAt(state: EditorState, x: number, y: number, ch = " "): void {
+        if (ch.length > 1) throw new Error("ch must be a char or empty char");
 
         const isUnder = state.cursorStyle === "under";
         const isVertical = state.cursorStyle === "vertical";
@@ -130,14 +144,18 @@ export class Renderer {
     private drawStatusBar(state: EditorState, text: string): void {
         this.drawStatusBarBg();
 
-        const vi_mode = `-- ${
-            (state.vi_state.mode === "visual" && state.vi_state.linewise)
+        if (state.vi_state.mode === "command") {
+            this.drawStatusBarText(0, text);
+        } else {
+            const modeLabel = (state.vi_state.mode === "visual" && state.vi_state.linewise)
                 ? "VISUAL LINE"
-                : state.vi_state.mode.toUpperCase()
-        } --` + ((state.vi_macroRecording) ? `recording @${state.vi_macroRecording}` : "");
-        this.drawStatusBarText(0, vi_mode);
-
-        this.drawStatusBarText(this.calcWidth(vi_mode) + 24, text);
+                : state.vi_state.mode.toUpperCase();
+            const macroSuffix = (state.vi_macroRecording)
+                ? ` recording @${state.vi_macroRecording}`
+                : "";
+            const statusText = `-- ${modeLabel} --${macroSuffix}   ${text}`;
+            this.drawStatusBarText(0, statusText);
+        }
 
         this.drawStatusBarRC(state.row, state.col, state.logicalWidth);
     }
@@ -160,7 +178,10 @@ export class Renderer {
     private drawStatusBarText(x: number, text: string): void {
         this.ctx.fillStyle = this.config.colors.statusBar.text;
         this.ctx.textAlign = "start";
-        this.ctx.fillText(text, x, this.bottomTextY);
+        for (const ch of text) {
+            this.drawChar(x, this.bottomTextY, ch, this.config.colors.statusBar.text);
+            x += this.calcWidth(ch);
+        }
     }
 
     /** draw row/col in the status bar */
@@ -226,7 +247,7 @@ export class Renderer {
         /** 文字を描画する共通処理 */
         const drawLineString = (callback?: (ch: string, i: number) => void) => {
             for (const [ch, i] of enumerate(offsetText)) {
-                this.drawChar(cursorX, y, ch);
+                this.drawChar(cursorX, y, ch, this.config.colors.text.normal);
 
                 if (this.config.renderWhitespace === "all") {
                     if (ch === " " /* half width whitespace */) {
@@ -241,15 +262,13 @@ export class Renderer {
             }
         };
 
-        const isVisualMode = state.vi_state.mode === "visual";
-
         if (state.vi_state.mode === "visual") {
             const vi_state = state.vi_state;
-            if (isVisualMode && offsetText === "" && this.inVisualRange(vi_state, lineNumber, startCol)) {
+            if (offsetText === "" && this.inVisualRange(vi_state, lineNumber, startCol)) {
                 this.drawCursorAt(state, this.lineNumberMargin(state.lines.length), y - this.halfLineHeight);
             } else {
                 drawLineString((ch: string, i: number) => {
-                    if (isVisualMode && this.inVisualRange(vi_state, lineNumber, i + startCol)) {
+                    if (this.inVisualRange(vi_state, lineNumber, i + startCol)) {
                         this.drawCursorAt(state, cursorX, y - this.halfLineHeight, ch);
                     }
                 });
@@ -264,7 +283,7 @@ export class Renderer {
         this.ctx.fillText("~", 0, y);
     }
 
-    private drawChar(x: number, y: number, ch: string): void {
+    private drawChar(x: number, y: number, ch: string, color: string): void {
         // if (ch === "\r") {
         //     this.ctx.fillStyle = "red";
         //     this.ctx.fillRect(x, y - this.halfLineHeight, this.halfFontSize, this.lineHeight);
@@ -279,7 +298,7 @@ export class Renderer {
         //     this.ctx.fillText("N", x, y);
         //     return;
         // }
-        this.ctx.fillStyle = this.config.colors.text.normal;
+        this.ctx.fillStyle = color;
         this.ctx.fillText(ch, x, y);
     }
 
