@@ -18,7 +18,6 @@ type RepeatableCmd = { count: number } & (
 export type EditorState = {
     row: number; // 現在の行数
     col: number; // 現在の行内の文字数
-    px: number; // フォント幅を考慮したピクセル単位のx座標
     visualCol: number; // 全角半角を考慮したカーソル位置(半角:1,全角:2)
     /** preferredVisualCol */
     prefVisualCol: number; // 最後に左右移動した値の保持
@@ -90,7 +89,6 @@ export function createEditorState(config: Readonly<EditorConfig>): EditorState {
     return {
         row: 0,
         col: 0,
-        px: 0,
         visualCol: 0,
         prefVisualCol: 0,
         rowoff: 0,
@@ -123,7 +121,6 @@ export function createEditorState(config: Readonly<EditorConfig>): EditorState {
 export function resetState(state: EditorState, config: Readonly<EditorConfig>): void {
     state.row = 0;
     state.col = 0;
-    state.px = 0;
     state.visualCol = 0;
     state.prefVisualCol = 0;
     state.rowoff = 0;
