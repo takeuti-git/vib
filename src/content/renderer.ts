@@ -118,9 +118,9 @@ export class Renderer {
     private drawCursorAtStatusBar(state: EditorState): void {
         if (state.vi_state.mode !== "command") throw new Error("mode is not command");
 
-        const x = state.vi_state.width * this.halfFontSize;
+        const x = state.vi_state.sBarVisualCol * this.halfFontSize;
         const y = (this.config.screenrows - 1) * this.lineHeight;
-        const ch = state.vi_cmd[state.vi_state.col];
+        const ch = state.vi_cmd[state.vi_state.sBarCol];
         this.drawCursorAt(state, x, y, ch);
     }
 

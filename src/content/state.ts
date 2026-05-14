@@ -79,8 +79,10 @@ type ReplaceState = {
 
 type CommandState = {
     mode: "command";
-    col: number;
-    width: number;
+    /** statusBarCol */
+    sBarCol: number;
+    /** statusBarVisualCol */
+    sBarVisualCol: number;
 };
 
 export function createEditorState(config: Readonly<EditorConfig>): EditorState {
