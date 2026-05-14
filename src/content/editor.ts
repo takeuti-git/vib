@@ -470,6 +470,7 @@ export class Editor {
         if (input.length === 1) {
             this.state.vi_cmd.splice(this.state.vi_state.col, 0, input);
             this.state.vi_state.col += 1;
+            this.state.vi_state.width += calcLogicalWidth(input);
         } else {
             switch (input) {
                 case "Enter": {
@@ -483,25 +484,42 @@ export class Editor {
                 case "Delete": {
                     // Deleteは仕様上必ず1文字の削除が発生するため、行末にいるときと同じ扱いか、1文字右にずれる
                     // 1文字ずれた後にBackspaceと同じ処理を実行しカーソル位置の削除を実現
+                    const currCh = this.state.vi_cmd[this.state.vi_state.col] ?? " ";
+                    this.state.vi_state.width = Math.min(
+                        calcLogicalWidth(this.state.vi_cmd.join("")),
+                        this.state.vi_state.width + calcLogicalWidth(currCh)
+                    );
                     this.state.vi_state.col = Math.min(this.state.vi_cmd.length, this.state.vi_state.col + 1);
                     // fallthrough
                 }
                 case "Backspace": {
                     const targetIdx = this.state.vi_state.col - 1;
-                    if (!this.state.vi_cmd[targetIdx]) throw new Error("targetIdx is undefined");
+                    const targetCh = this.state.vi_cmd[targetIdx];
+                    if (!targetCh) throw new Error("targetIdx is undefined");
 
                     const canDelete = this.state.vi_state.col !== 1 || this.state.vi_cmd.length === 1;
                     if (canDelete) {
                         this.state.vi_cmd.splice(targetIdx, 1);
                         this.state.vi_state.col -= 1;
+                        this.state.vi_state.width -= calcLogicalWidth(targetCh);
                     }
                 } break;
 
                 case "ArrowLeft": {
+                    const targetCh = this.state.vi_cmd[this.state.vi_state.col - 1] ?? " ";
+                    this.state.vi_state.width = Math.max(
+                        1,
+                        this.state.vi_state.width - calcLogicalWidth(targetCh)
+                    );
                     this.state.vi_state.col = Math.max(1, this.state.vi_state.col - 1);
                 } break;
 
                 case "ArrowRight": {
+                    const targetCh = this.state.vi_cmd[this.state.vi_state.col] ?? " ";
+                    this.state.vi_state.width = Math.min(
+                        calcLogicalWidth(this.state.vi_cmd.join("")),
+                        this.state.vi_state.width + calcLogicalWidth(targetCh)
+                    );
                     this.state.vi_state.col = Math.min(this.state.vi_cmd.length, this.state.vi_state.col + 1);
                 } break;
             }
