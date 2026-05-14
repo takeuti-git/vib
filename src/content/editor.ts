@@ -422,8 +422,10 @@ export class Editor {
             this.render();
 
         } else if (this.state.vi_state.mode === "command") {
-            throw new Error("TODO: command mode");
-
+            const freeInput = this.executeFreeInput(input);
+            if (freeInput !== undefined) {
+                console.log("free input is:", freeInput);
+            }
         }
 
         if (this.state.vi_macroCallback) {
@@ -459,6 +461,56 @@ export class Editor {
             this.state.vi_callbackOnSuccess?.();
             this.state.vi_callbackOnSuccess = null;
         }
+    }
+
+    private executeFreeInput(input: string): string[] | undefined {
+        if (this.state.vi_state.mode !== "command") {
+            throw new Error("state.vi_state.mode is not command");
+        }
+        if (input.length === 1) {
+            this.state.vi_cmd.splice(this.state.vi_state.col, 0, input);
+            this.state.vi_state.col += 1;
+        } else {
+            switch (input) {
+                case "Enter": {
+                    console.log("TODO: Enter to send input");
+                    const input = [...this.state.vi_cmd];
+                    this.vi_goNormal();
+                    this.render();
+                    return input;
+                }
+
+                case "Delete": {
+                    // Deleteは仕様上必ず1文字の削除が発生するため、行末にいるときと同じ扱いか、1文字右にずれる
+                    // 1文字ずれた後にBackspaceと同じ処理を実行しカーソル位置の削除を実現
+                    this.state.vi_state.col = Math.min(this.state.vi_cmd.length, this.state.vi_state.col + 1);
+                    // fallthrough
+                }
+                case "Backspace": {
+                    const targetIdx = this.state.vi_state.col - 1;
+                    if (!this.state.vi_cmd[targetIdx]) throw new Error("targetIdx is undefined");
+
+                    const canDelete = this.state.vi_state.col !== 1 || this.state.vi_cmd.length === 1;
+                    if (canDelete) {
+                        this.state.vi_cmd.splice(targetIdx, 1);
+                        this.state.vi_state.col -= 1;
+                    }
+                } break;
+
+                case "ArrowLeft": {
+                    this.state.vi_state.col = Math.max(1, this.state.vi_state.col - 1);
+                } break;
+
+                case "ArrowRight": {
+                    this.state.vi_state.col = Math.min(this.state.vi_cmd.length, this.state.vi_state.col + 1);
+                } break;
+            }
+        }
+
+        if (this.state.vi_cmd.length === 0) {
+            this.vi_goNormal();
+        }
+        this.render();
     }
 
     private resizeMap: Record<string, () => void> = {
