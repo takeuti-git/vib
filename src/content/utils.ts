@@ -3,28 +3,28 @@ export function isFullWidth(ch: string): boolean {
     return ch.codePointAt(0)! > 0x7f;
 }
 
-export const LOGICAL_HALF_WIDTH = 1;
-export const LOGICAL_FULL_WIDTH = 2;
+export const HALF_WIDTH = 1;
+export const FULL_WIDTH = 2;
 
-function getLogicalWidth(ch: string): number {
-    return isFullWidth(ch) ? LOGICAL_FULL_WIDTH : LOGICAL_HALF_WIDTH;
+function getStringWidth(ch: string): number {
+    return isFullWidth(ch) ? FULL_WIDTH : HALF_WIDTH;
 }
 
-export function calcLogicalWidth(text: string): number {
+export function calcStringWidth(text: string): number {
     let width = 0;
     for (const ch of text) {
-        width += getLogicalWidth(ch);
+        width += getStringWidth(ch);
     }
     return width;
 }
 
-/** 与えられたlogicalWidthを文字列に対応するcolに変換する */
-export function logicalWidthToCol(logicalWidth: number, text: string): number {
+/** 与えられたstringWidthを文字列に対応するcolに変換する */
+export function stringWidthToCol(stringWidth: number, text: string): number {
     let width = 0;
     let col = 0;
     for (const ch of text) {
-        width += calcLogicalWidth(ch);
-        if (width > logicalWidth) break;
+        width += calcStringWidth(ch);
+        if (width > stringWidth) break;
         col++;
     }
     return col;

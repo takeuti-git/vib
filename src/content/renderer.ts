@@ -1,7 +1,7 @@
 import type { EditorConfig } from "./config";
 import type { EditorState, VisualState } from "./state";
 import type { Line } from "./line";
-import { enumerate, isFullWidth, logicalWidthToCol } from "./utils";
+import { enumerate, isFullWidth, stringWidthToCol } from "./utils";
 
 type DrawingOptions = {
     stroke: boolean;
@@ -221,9 +221,9 @@ export class Renderer {
         this.ctx.textAlign = "start";
         const lineTextWidth = this.getLineTextWidth(state);
 
-        const startCol = logicalWidthToCol(state.visualColoff, text);
+        const startCol = stringWidthToCol(state.visualColoff, text);
         const startOffsetText = text.slice(startCol);
-        const endCol = logicalWidthToCol(lineTextWidth, startOffsetText) + 1;
+        const endCol = stringWidthToCol(lineTextWidth, startOffsetText) + 1;
         /** 前後の溢れた全角文字を含む. 末尾の1文字は半角でも含まれてしまうが影響がないため許容する */
         const sliced = startOffsetText.slice(0, endCol);
 
