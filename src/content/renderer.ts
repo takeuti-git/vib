@@ -108,7 +108,7 @@ export class Renderer {
         const text = currLine.text;
         const lineheight = this.lineHeight;
         const x =
-            (state.logicalWidth - state.logicaloff) * this.halfFontSize + this.lineNumberMargin(state.lines.length);
+            (state.visualCol - state.visualColoff) * this.halfFontSize + this.lineNumberMargin(state.lines.length);
         const y = (state.row - state.rowoff) * lineheight;
         const ch = text[state.col];
 
@@ -157,7 +157,7 @@ export class Renderer {
             this.drawStatusBarText(0, statusText);
         }
 
-        this.drawStatusBarRC(state.row, state.col, state.logicalWidth);
+        this.drawStatusBarRC(state.row, state.col, state.visualCol);
     }
 
     private get bottomTextY(): number {
@@ -221,7 +221,7 @@ export class Renderer {
         this.ctx.textAlign = "start";
         const lineTextWidth = this.getLineTextWidth(state);
 
-        const startCol = logicalWidthToCol(state.logicaloff, text);
+        const startCol = logicalWidthToCol(state.visualColoff, text);
         const startOffsetText = text.slice(startCol);
         const endCol = logicalWidthToCol(lineTextWidth, startOffsetText) + 1;
         /** 前後の溢れた全角文字を含む. 末尾の1文字は半角でも含まれてしまうが影響がないため許容する */
@@ -229,7 +229,7 @@ export class Renderer {
 
         const isLeftOverflow = (
             sliced !== "" &&
-            this.calcWidth(text.slice(0, startCol)) !== (state.logicaloff * this.halfFontSize)
+            this.calcWidth(text.slice(0, startCol)) !== (state.visualColoff * this.halfFontSize)
         );
 
         /** 文字列の左側を"<"に置き換える */
