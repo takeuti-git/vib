@@ -455,6 +455,9 @@ export class Editor {
 
             const newText = joinLines(this.state.lines);
             this.saveDiff(this.state.lastSnapshot, newText);
+
+            this.state.vi_callbackOnSuccess?.();
+            this.state.vi_callbackOnSuccess = null;
         }
     }
 
@@ -1755,11 +1758,14 @@ export class Editor {
     }
 
     private vi_goCommand(): void {
-        this.state.vi_cmd = [":"];
         this.state.vi_state = {
             mode: "command",
-            col: 1,
-            width: 1,
+            col: 1,   // 初期文字分(:)を加算
+            width: 1, // 初期文字分(:)を加算
+        };
+        this.state.vi_callbackOnSuccess = () => {
+            this.state.vi_cmd = [":"];
+            this.render();
         };
     }
 

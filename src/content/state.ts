@@ -44,6 +44,8 @@ export type EditorState = {
     vi_macroTable: MacroTable;
     vi_macroCallback: (() => void) | null; // マクロの実行は遅延評価しないと正常に動作しない
     vi_macroLastPlayed: MacroChar | null; // @@の繰り返し用
+
+    vi_callbackOnSuccess: (() => void) | null;
 };
 
 type Satisfies<Constraint, Target extends Constraint> = Target;
@@ -110,6 +112,8 @@ export function createEditorState(config: Readonly<EditorConfig>): EditorState {
         vi_macroTable: createMacroTable(),
         vi_macroCallback: null,
         vi_macroLastPlayed: null,
+
+        vi_callbackOnSuccess: null,
     };
 }
 
@@ -135,4 +139,5 @@ export function resetState(state: EditorState, config: Readonly<EditorConfig>): 
     state.vi_scrollAmount = getHalfScreenRows(config);
     state.vi_macroRecording = null;
     // 試験的にvi_macroHashはリセットしない
+    state.vi_callbackOnSuccess = null;
 }
