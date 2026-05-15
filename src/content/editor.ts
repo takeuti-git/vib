@@ -4,7 +4,7 @@ import { type EditorState, resetState } from "./state";
 import { Line, getLines, joinLines } from "./line";
 import { toInputToken, isFunctionKey, MOVE_KEYS, type MoveKey, isSpecialKey } from "./keys";
 import { hideElement, setElementFontsize, showElement } from "./dom";
-import { addFirstWhitespace, calcLogicalWidth, getCountUntilNonWhitespace, logicalWidthToCol, removeFirstWhitespace } from "./utils";
+import { addFirstWhitespace, calcStringWidth, getCountUntilNonWhitespace, stringWidthToCol, removeFirstWhitespace } from "./utils";
 import {
     getCountToNextChar,
     getMotionRange,
@@ -301,18 +301,18 @@ export class Editor {
         const targetRow = Math.floor(clickY / lineHeight) + this.state.rowoff;
 
         const targetLine = this.state.lines[targetRow] ?? this.state.lines[this.state.lines.length - 1] as Line;
-        const startCol = logicalWidthToCol(this.state.logicaloff, targetLine.text);
-        const hiddenTextWidth = calcLogicalWidth(targetLine.text.slice(0, startCol));
-        const cursorLogiWidth = (
+        const startCol = stringWidthToCol(this.state.visualColoff, targetLine.text);
+        const hiddenTextWidth = calcStringWidth(targetLine.text.slice(0, startCol));
+        const visualCol = (
             Math.floor(clickX / charWidth) + hiddenTextWidth
-            + (this.state.logicaloff !== hiddenTextWidth ? 1 : 0) // 全角文字が画面間にある状態のずれを解決する
+            + (this.state.visualColoff !== hiddenTextWidth ? 1 : 0) // 全角文字が画面間にある状態のずれを解決する
         );
-        const targetCol = logicalWidthToCol(cursorLogiWidth, targetLine.text);
+        const targetCol = stringWidthToCol(visualCol, targetLine.text);
 
         this.state.row = targetRow;
         this.state.col = targetCol;
-        this.state.logicalWidth = calcLogicalWidth(targetLine.text.slice(0, targetCol));
-        this.state.preferredWidth = cursorLogiWidth;
+        this.state.visualCol = calcStringWidth(targetLine.text.slice(0, targetCol));
+        this.state.prefVisualCol = visualCol;
         this.clampCursor(); // 存在する行を超えたクリックに対応
         this.scrollWindow();
         this.render();
@@ -470,7 +470,7 @@ export class Editor {
         if (input.length === 1) {
             this.state.vi_cmd.splice(this.state.vi_state.sBarCol, 0, input);
             this.state.vi_state.sBarCol += 1;
-            this.state.vi_state.sBarVisualCol += calcLogicalWidth(input);
+            this.state.vi_state.sBarVisualCol += calcStringWidth(input);
         } else {
             switch (input) {
                 case "Enter": {
@@ -486,8 +486,8 @@ export class Editor {
                     // 1文字ずれた後にBackspaceと同じ処理を実行しカーソル位置の削除を実現
                     const currCh = this.state.vi_cmd[this.state.vi_state.sBarCol] ?? " ";
                     this.state.vi_state.sBarVisualCol = Math.min(
-                        calcLogicalWidth(this.state.vi_cmd.join("")),
-                        this.state.vi_state.sBarVisualCol + calcLogicalWidth(currCh)
+                        calcStringWidth(this.state.vi_cmd.join("")),
+                        this.state.vi_state.sBarVisualCol + calcStringWidth(currCh)
                     );
                     this.state.vi_state.sBarCol = Math.min(this.state.vi_cmd.length, this.state.vi_state.sBarCol + 1);
                     // fallthrough
@@ -501,7 +501,7 @@ export class Editor {
                     if (canDelete) {
                         this.state.vi_cmd.splice(targetIdx, 1);
                         this.state.vi_state.sBarCol -= 1;
-                        this.state.vi_state.sBarVisualCol -= calcLogicalWidth(targetCh);
+                        this.state.vi_state.sBarVisualCol -= calcStringWidth(targetCh);
                     }
                 } break;
 
@@ -509,7 +509,7 @@ export class Editor {
                     const targetCh = this.state.vi_cmd[this.state.vi_state.sBarCol - 1] ?? " ";
                     this.state.vi_state.sBarVisualCol = Math.max(
                         1,
-                        this.state.vi_state.sBarVisualCol - calcLogicalWidth(targetCh)
+                        this.state.vi_state.sBarVisualCol - calcStringWidth(targetCh)
                     );
                     this.state.vi_state.sBarCol = Math.max(1, this.state.vi_state.sBarCol - 1);
                 } break;
@@ -517,8 +517,8 @@ export class Editor {
                 case "ArrowRight": {
                     const targetCh = this.state.vi_cmd[this.state.vi_state.sBarCol] ?? " ";
                     this.state.vi_state.sBarVisualCol = Math.min(
-                        calcLogicalWidth(this.state.vi_cmd.join("")),
-                        this.state.vi_state.sBarVisualCol + calcLogicalWidth(targetCh)
+                        calcStringWidth(this.state.vi_cmd.join("")),
+                        this.state.vi_state.sBarVisualCol + calcStringWidth(targetCh)
                     );
                     this.state.vi_state.sBarCol = Math.min(this.state.vi_cmd.length, this.state.vi_state.sBarCol + 1);
                 } break;
@@ -604,7 +604,7 @@ export class Editor {
         "firstChar": () => this.moveCursorToFirstNonWhitespace(),
         "last": () => {
             this.moveCursorToLast();
-            this.setMaxPreferredWidth();
+            this.setMaxPrefVisualCol();
         },
         "firstLine": () => this.moveCursorToBOF(),
         "lastLine": () => this.moveCursorToEOF(),
@@ -784,7 +784,7 @@ export class Editor {
                     // 全ての行が削除された場合のfallback
                     this.insertRow(0, "");
                 }
-                if (this.state.logicalWidth >= calcLogicalWidth(this.currentLine.text)) {
+                if (this.state.visualCol >= calcStringWidth(this.currentLine.text)) {
                     this.moveCursorToLast();
                 }
             } else {
@@ -1714,16 +1714,16 @@ export class Editor {
     }
 
     private scrollRightWithCursor(): void {
-        this.state.logicaloff += 1;
-        if (this.state.logicalWidth < this.state.logicaloff) {
+        this.state.visualColoff += 1;
+        if (this.state.visualCol < this.state.visualColoff) {
             this.vi_moveCursor(MOVE_KEYS.RIGHT);
         }
     }
 
     /** ホイール操作の場合は,スクロールと同時に最も幅の広い行に移動することがある */
     private scrollRightWheel(): void {
-        this.state.logicaloff += 1;
-        if (this.state.logicalWidth < this.state.logicaloff) {
+        this.state.visualColoff += 1;
+        if (this.state.visualCol < this.state.visualColoff) {
             this.vi_moveCursor(MOVE_KEYS.RIGHT);
             if (this.state.col < this.currentLine.size - 1) return;
             this.moveToWidestLine();
@@ -1738,7 +1738,7 @@ export class Editor {
             this.state.rowoff + this.config.screenrows - this.config.statusBarHeight
         );
         const widthIndexes = slicedLines.map(
-            (ln, i) => ({ width: calcLogicalWidth(ln.text), idx: i + this.state.rowoff })
+            (ln, i) => ({ width: calcStringWidth(ln.text), idx: i + this.state.rowoff })
         );
         const maxWidthRow = widthIndexes.reduce(
             (a, b) => (a.width > b.width ? a : b)
@@ -1746,15 +1746,15 @@ export class Editor {
         const maxWidthLine = this.state.lines[maxWidthRow] as Line;
         const destCol = Math.min(
             maxWidthLine.size - 1,
-            logicalWidthToCol(this.state.logicalWidth, maxWidthLine.text)
+            stringWidthToCol(this.state.visualCol, maxWidthLine.text)
         );
         this.moveCursorToPos(maxWidthRow, destCol);
     }
 
     private scrollLeftWithCursor(): void {
-        this.state.logicaloff = Math.max(0, this.state.logicaloff - 1);
-        const border = this.state.logicaloff + this.config.screencols - 1 - this.lineNumberCols;
-        if (this.state.logicalWidth > border) {
+        this.state.visualColoff = Math.max(0, this.state.visualColoff - 1);
+        const border = this.state.visualColoff + this.config.screencols - 1 - this.lineNumberCols;
+        if (this.state.visualCol > border) {
             this.vi_moveCursor(MOVE_KEYS.LEFT);
         }
     }
@@ -1906,19 +1906,19 @@ export class Editor {
                 this.state.row - this.config.screenrows + 1 + this.config.statusBarHeight;
         }
 
-        if (this.state.logicalWidth < this.state.logicaloff) {
-            // decrease logicaloff
-            this.state.logicaloff = this.state.logicalWidth;
+        if (this.state.visualCol < this.state.visualColoff) {
+            // decrease visualColoff
+            this.state.visualColoff = this.state.visualCol;
         }
 
         const screencols = this.config.screencols;
         const lineNumberCols = this.lineNumberCols;
-        const currCharWidth = calcLogicalWidth(this.currentLine.text[this.state.col] ?? " ");
+        const currCharWidth = calcStringWidth(this.currentLine.text[this.state.col] ?? " ");
 
-        if (currCharWidth + this.state.logicalWidth + lineNumberCols >= this.state.logicaloff + screencols) {
-            // increase logicaloff
-            this.state.logicaloff =
-                this.state.logicalWidth - screencols + lineNumberCols + currCharWidth;
+        if (currCharWidth + this.state.visualCol + lineNumberCols >= this.state.visualColoff + screencols) {
+            // increase visualColoff
+            this.state.visualColoff =
+                this.state.visualCol - screencols + lineNumberCols + currCharWidth;
         }
     }
 
@@ -1932,8 +1932,8 @@ export class Editor {
                     const prevLineLen = prevLine.size;
                     this.state.row--;
                     this.state.col = prevLineLen;
-                    this.state.logicalWidth = calcLogicalWidth(prevLine.text);
-                    this.syncPreferredWidth();
+                    this.state.visualCol = calcStringWidth(prevLine.text);
+                    this.syncPrefVisualCol();
                 }
                 break;
             }
@@ -1944,8 +1944,8 @@ export class Editor {
                 } else if (this.nextLine && this.state.col === currLine.size) {
                     this.state.row++;
                     this.state.col = 0;
-                    this.state.logicalWidth = 0;
-                    this.syncPreferredWidth();
+                    this.state.visualCol = 0;
+                    this.syncPrefVisualCol();
                 }
                 break;
             }
@@ -1955,7 +1955,7 @@ export class Editor {
                 } else {
                     // 先頭行にいるとき
                     this.state.col = 0;
-                    this.state.logicalWidth = 0;
+                    this.state.visualCol = 0;
                 }
                 break;
             }
@@ -1966,7 +1966,7 @@ export class Editor {
                     // 末尾行にいるとき
                     const text = this.currentLine.text;
                     this.state.col = text.length;
-                    this.state.logicalWidth = calcLogicalWidth(text);
+                    this.state.visualCol = calcStringWidth(text);
                 }
                 break;
             }
@@ -2031,8 +2031,8 @@ export class Editor {
             this.insertTextInLine(currLine, text);
         }
         this.state.col += text.length;
-        this.state.logicalWidth += calcLogicalWidth(text);
-        this.syncPreferredWidth();
+        this.state.visualCol += calcStringWidth(text);
+        this.syncPrefVisualCol();
     }
 
     /** col - 1 の文字を削除する */
@@ -2046,22 +2046,22 @@ export class Editor {
             const modified = text.slice(0, this.state.col - 1) + text.slice(this.state.col);
             currLine.text = modified;
             this.state.col--;
-            this.state.logicalWidth -= calcLogicalWidth(targetChar);
+            this.state.visualCol -= calcStringWidth(targetChar);
         } else {
             // append two lines
             const prevLine = this.prevLine as Line;
             this.state.col = prevLine.size;
-            this.state.logicalWidth = calcLogicalWidth(prevLine.text);
+            this.state.visualCol = calcStringWidth(prevLine.text);
             this.appendTextToLine(prevLine, currLine.text);
             this.deleteRow(this.state.row);
             this.state.row--;
         }
-        this.syncPreferredWidth();
+        this.syncPrefVisualCol();
     }
 
     private indent(): void {
         const tabstop = this.config.tabstop;
-        const count = tabstop - (this.state.logicalWidth % tabstop);
+        const count = tabstop - (this.state.visualCol % tabstop);
         this.insertText(" ".repeat(count));
     }
 
@@ -2083,8 +2083,8 @@ export class Editor {
         return this.state.lines[this.state.row - 1];
     }
 
-    private syncPreferredWidth(): void {
-        this.state.preferredWidth = this.state.logicalWidth;
+    private syncPrefVisualCol(): void {
+        this.state.prefVisualCol = this.state.visualCol;
     }
 
     /** appendedRow: インデント調整の参照元となる行数 */
@@ -2099,14 +2099,14 @@ export class Editor {
             newLine.text = " ".repeat(whitespaceCount) + text;
             this.state.row = row;
             this.state.col = whitespaceCount;
-            this.state.logicalWidth = whitespaceCount;
-            this.syncPreferredWidth();
+            this.state.visualCol = whitespaceCount;
+            this.syncPrefVisualCol();
         } else {
             newLine.text = text;
             this.state.row = row;
             this.state.col = 0;
-            this.state.logicalWidth = 0;
-            this.syncPreferredWidth();
+            this.state.visualCol = 0;
+            this.syncPrefVisualCol();
         }
         this.state.lines.splice(row, 0, newLine);
     }
@@ -2143,26 +2143,26 @@ export class Editor {
     private moveCursorLeft(): void {
         const prevChar = this.currentLine.text.slice(this.state.col - 1, this.state.col);
         this.state.col--;
-        this.state.logicalWidth -= calcLogicalWidth(prevChar);
-        this.syncPreferredWidth();
+        this.state.visualCol -= calcStringWidth(prevChar);
+        this.syncPrefVisualCol();
     }
 
     private moveCursorRight(): void {
         const currChar = this.currentLine.text.slice(this.state.col, this.state.col + 1);
         this.state.col++;
-        this.state.logicalWidth += calcLogicalWidth(currChar);
-        this.syncPreferredWidth();
+        this.state.visualCol += calcStringWidth(currChar);
+        this.syncPrefVisualCol();
     }
 
     private moveCursorUp(): void {
         const prevLine = this.prevLine; // 1つ上の行
         if (!prevLine) throw new Error("moveCursorUp called at first row");
         this.state.row--;
-        this.recalcColWidth(prevLine);
+        this.recalcColAndVisualCol(prevLine);
         if (this.state.col >= prevLine.size && !prevLine.isEmpty()) {
             const lastChar = prevLine.text.slice(-1);
             this.state.col--;
-            this.state.logicalWidth -= calcLogicalWidth(lastChar);
+            this.state.visualCol -= calcStringWidth(lastChar);
         }
     }
 
@@ -2170,53 +2170,53 @@ export class Editor {
         const nextLine = this.nextLine; // 1つ下の行
         if (!nextLine) throw new Error("moveCursorDown called at last row");
         this.state.row++;
-        this.recalcColWidth(nextLine);
+        this.recalcColAndVisualCol(nextLine);
         if (this.state.col >= nextLine.size && !nextLine.isEmpty()) {
             const lastChar = nextLine.text.slice(-1);
             this.state.col--;
-            this.state.logicalWidth -= calcLogicalWidth(lastChar);
+            this.state.visualCol -= calcStringWidth(lastChar);
         }
     }
 
     private moveCursorToFirst(): void {
         this.state.col = 0;
-        this.state.logicalWidth = 0;
-        this.syncPreferredWidth();
+        this.state.visualCol = 0;
+        this.syncPrefVisualCol();
     }
 
     private moveCursorToFirstNonWhitespace(): void {
         const line = this.currentLine;
         const start = getCountUntilNonWhitespace(line.text);
         this.state.col = start;
-        this.state.logicalWidth = calcLogicalWidth(line.text.slice(0, start));
-        this.syncPreferredWidth();
+        this.state.visualCol = calcStringWidth(line.text.slice(0, start));
+        this.syncPrefVisualCol();
     }
 
     private moveCursorToLast(): void {
         const line = this.currentLine;
         const end = line.isEmpty() ? 0 : line.size - 1;
         this.state.col = end;
-        this.state.logicalWidth = calcLogicalWidth(line.text.slice(0, end));
-        this.syncPreferredWidth();
+        this.state.visualCol = calcStringWidth(line.text.slice(0, end));
+        this.syncPrefVisualCol();
     }
 
     private moveCursorToBOF(): void {
         this.state.row = 0;
         const firstLine = this.currentLine;
-        this.recalcColWidth(firstLine);
+        this.recalcColAndVisualCol(firstLine);
     }
 
     private moveCursorToEOF(): void {
         this.state.row = this.state.lines.length - 1;
         const lastLine = this.currentLine;
-        this.recalcColWidth(lastLine);
+        this.recalcColAndVisualCol(lastLine);
     }
 
-    private recalcColWidth(destLine: Line): void {
-        const logicalWidth = Math.min(this.state.preferredWidth, calcLogicalWidth(destLine.text));
-        const col = logicalWidthToCol(logicalWidth, destLine.text);
+    private recalcColAndVisualCol(destLine: Line): void {
+        const visualCol = Math.min(this.state.prefVisualCol, calcStringWidth(destLine.text));
+        const col = stringWidthToCol(visualCol, destLine.text);
         this.state.col = col;
-        this.state.logicalWidth = calcLogicalWidth(destLine.text.slice(0, col));
+        this.state.visualCol = calcStringWidth(destLine.text.slice(0, col));
     }
 
     private moveCursorToPos(row: number, col: number) {
@@ -2224,8 +2224,8 @@ export class Editor {
         if (!destLine) throw new Error(`lines[${row}] is undefined`);
         this.state.row = row;
         this.state.col = col;
-        this.state.logicalWidth = calcLogicalWidth(destLine.text.slice(0, col));
-        this.syncPreferredWidth();
+        this.state.visualCol = calcStringWidth(destLine.text.slice(0, col));
+        this.syncPrefVisualCol();
     }
 
     /**
@@ -2238,7 +2238,7 @@ export class Editor {
         this.clampCursorCol();
     }
 
-    /** preferredWidthを変更しない */
+    /** prefVisualColを変更しない */
     private clampCursorRow(): void {
         const maybeLine = this.state.lines[this.state.row];
         if (!maybeLine) {
@@ -2247,7 +2247,7 @@ export class Editor {
         }
     }
 
-    /** preferredWidthを変更しない */
+    /** prefVisualColを変更しない */
     private clampCursorCol(): void {
         const maybeChar = this.currentLine.text[this.state.col];
         if (!maybeChar) {
@@ -2255,7 +2255,7 @@ export class Editor {
             const line = this.currentLine;
             const col = line.isEmpty() ? 0 : line.size - 1;
             this.state.col = col;
-            this.state.logicalWidth = calcLogicalWidth(line.text.slice(0, col));
+            this.state.visualCol = calcStringWidth(line.text.slice(0, col));
         }
     }
 
@@ -2285,8 +2285,8 @@ export class Editor {
     }
 
     /** 上下移動で行末に張り付きながら移動するため非常に高い値を設定する($モーション) */
-    private setMaxPreferredWidth(): void {
-        this.state.preferredWidth = Infinity;
+    private setMaxPrefVisualCol(): void {
+        this.state.prefVisualCol = Infinity;
     }
 
     private getCharCount(first: InclusivePos, last: InclusivePos): number {
@@ -2345,7 +2345,7 @@ export class Editor {
         this.state.row = cursor.row;
         this.state.col = cursor.col;
         this.clampCursor();
-        this.syncPreferredWidth();
+        this.syncPrefVisualCol();
     }
 
     private redo(): string | void {

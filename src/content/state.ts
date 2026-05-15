@@ -16,15 +16,15 @@ type RepeatableCmd = { count: number } & (
 );
 
 export type EditorState = {
-    row: number; // 現在の行数
-    col: number; // 現在の行内の文字数
-    px: number; // フォント幅を考慮したピクセル単位のx座標
-    logicalWidth: number; // 全角半角を考慮した文字数(半角:1, 全角: 2)
-    preferredWidth: number; // 最後に左右移動した値の保持
-    rowoff: number; // 縦スクロール時の行のずれ
-    logicaloff: number;
+    row: number;                           // カーソルの行位置
+    col: number;                           // カーソルの列位置(文字数が基準)
+    visualCol: number;                     // 全角半角を考慮したカーソル位置(半角:1,全角:2)
+    /** preferredVisualCol */
+    prefVisualCol: number;                 // 最後に左右移動した値の保持
+    rowoff: number;                        // 縦スクロール時の行のずれ
+    visualColoff: number;                  // 横スクロール時の列のずれ
     lines: Line[];
-    lastSnapshot: string;
+    lastSnapshot: string;                  // diff検出に用いる
     diffStack: DiffStackElement[];
     diffStackPtr: number;
     /** 差分保存を割り込みで無効化するフラグ */
@@ -43,7 +43,7 @@ export type EditorState = {
     vi_macroRecording: MacroChar | null;
     vi_macroTable: MacroTable;
     vi_macroCallback: (() => void) | null; // マクロの実行は遅延評価しないと正常に動作しない
-    vi_macroLastPlayed: MacroChar | null; // @@の繰り返し用
+    vi_macroLastPlayed: MacroChar | null;  // @@の繰り返し用
 
     vi_callbackOnSuccess: (() => void) | null;
 };
@@ -89,11 +89,10 @@ export function createEditorState(config: Readonly<EditorConfig>): EditorState {
     return {
         row: 0,
         col: 0,
-        px: 0,
-        logicalWidth: 0,
-        preferredWidth: 0,
+        visualCol: 0,
+        prefVisualCol: 0,
         rowoff: 0,
-        logicaloff: 0,
+        visualColoff: 0,
         lines: [new Line()],
         lastSnapshot: "",
         diffStack: [],
@@ -122,10 +121,10 @@ export function createEditorState(config: Readonly<EditorConfig>): EditorState {
 export function resetState(state: EditorState, config: Readonly<EditorConfig>): void {
     state.row = 0;
     state.col = 0;
-    state.px = 0;
-    state.logicalWidth = 0;
+    state.visualCol = 0;
+    state.prefVisualCol = 0;
     state.rowoff = 0;
-    state.logicaloff = 0;
+    state.visualColoff = 0;
     state.lines = [new Line()];
     state.lastSnapshot = "";
     state.diffStack = [];
