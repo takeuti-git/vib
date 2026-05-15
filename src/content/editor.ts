@@ -295,7 +295,7 @@ export class Editor {
         const lineNumberWidth = this.lineNumberCols * charWidth;
         const lineHeight = this.config.baseFontSize + this.config.lineHeightPadding;
 
-        const clickX = e.offsetX - lineNumberWidth;
+        const clickX = Math.max(0, e.offsetX - lineNumberWidth);
         const clickY = e.offsetY;
 
         const targetRow = Math.floor(clickY / lineHeight) + this.state.rowoff;
@@ -311,7 +311,7 @@ export class Editor {
 
         this.state.row = targetRow;
         this.state.col = targetCol;
-        this.state.visualCol = calcStringWidth(targetLine.text.slice(0, targetCol));
+        this.state.visualCol = visualCol;
         this.state.prefVisualCol = visualCol;
         this.clampCursor(); // 存在する行を超えたクリックに対応
         this.scrollWindow();
