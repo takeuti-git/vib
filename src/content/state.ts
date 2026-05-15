@@ -16,15 +16,15 @@ type RepeatableCmd = { count: number } & (
 );
 
 export type EditorState = {
-    row: number; // 現在の行数
-    col: number; // 現在の行内の文字数
-    visualCol: number; // 全角半角を考慮したカーソル位置(半角:1,全角:2)
+    row: number;                           // カーソルの行位置
+    col: number;                           // カーソルの列位置(文字数が基準)
+    visualCol: number;                     // 全角半角を考慮したカーソル位置(半角:1,全角:2)
     /** preferredVisualCol */
-    prefVisualCol: number; // 最後に左右移動した値の保持
-    rowoff: number; // 縦スクロール時の行のずれ
-    visualColoff: number;
+    prefVisualCol: number;                 // 最後に左右移動した値の保持
+    rowoff: number;                        // 縦スクロール時の行のずれ
+    visualColoff: number;                  // 横スクロール時の列のずれ
     lines: Line[];
-    lastSnapshot: string;
+    lastSnapshot: string;                  // diff検出に用いる
     diffStack: DiffStackElement[];
     diffStackPtr: number;
     /** 差分保存を割り込みで無効化するフラグ */
@@ -43,7 +43,7 @@ export type EditorState = {
     vi_macroRecording: MacroChar | null;
     vi_macroTable: MacroTable;
     vi_macroCallback: (() => void) | null; // マクロの実行は遅延評価しないと正常に動作しない
-    vi_macroLastPlayed: MacroChar | null; // @@の繰り返し用
+    vi_macroLastPlayed: MacroChar | null;  // @@の繰り返し用
 
     vi_callbackOnSuccess: (() => void) | null;
 };
