@@ -522,6 +522,18 @@ export class Editor {
                     );
                     this.state.vi_state.sBarCol = Math.min(this.state.vi_cmd.length, this.state.vi_state.sBarCol + 1);
                 } break;
+
+                case "<C-v>": {
+                    readClipboard().then((text) => {
+                        if (!text) return;
+                        // 改行を含む文字列の1行目だけを貼り付け
+                        const firstEle = text.split(/\r?\n/)[0];
+                        if (!firstEle) return;
+                        for (const ch of firstEle) {
+                            this.executeFreeInput(ch);
+                        }
+                    });
+                } break;
             }
         }
 
