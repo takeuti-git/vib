@@ -392,39 +392,49 @@ export class Editor {
             return;
         }
 
-        // processing
-        if (this.state.vi_state.mode === "normal" || this.state.vi_state.mode === "visual") {
-            if (input.length !== 1 && input !== "Enter" && !input.startsWith("<")) {
-                return;
-            }
-            this.state.vi_cmd.push(input);
+        const mode = this.state.vi_state.mode;
+        switch (mode) {
+            case "normal":
+            case "visual": {
+                if (input.length !== 1 && input !== "Enter" && !input.startsWith("<")) {
+                    return;
+                }
+                this.state.vi_cmd.push(input);
 
-            if (this.state.vi_cmd.length > 6) {
-                this.resetCmd();
-                this.setStatusMsg("too long");
-                return;
-            }
-            const result = (
-                this.state.vi_state.mode === "normal"
-                ? this.vi_executeNormal(this.state.vi_cmd)
-                : this.vi_executeVisual(this.state.vi_cmd)
-            );
-            this.executeResult(result);
+                if (this.state.vi_cmd.length > 6) {
+                    this.resetCmd();
+                    this.setStatusMsg("too long");
+                    return;
+                }
+                const result = (
+                    this.state.vi_state.mode === "normal"
+                        ? this.vi_executeNormal(this.state.vi_cmd)
+                        : this.vi_executeVisual(this.state.vi_cmd)
+                );
+                this.executeResult(result);
+            } break;
 
-        } else if (this.state.vi_state.mode === "insert") {
-            this.processKeypress(input);
-            this.scrollWindow();
-            this.render();
+            case "insert": {
+                this.processKeypress(input);
+                this.scrollWindow();
+                this.render();
+            } break;
 
-        } else if (this.state.vi_state.mode === "replace") {
-            this.processKeypress(input, { replace: true });
-            this.scrollWindow();
-            this.render();
+            case "replace": {
+                this.processKeypress(input, { replace: true });
+                this.scrollWindow();
+                this.render();
+            } break;
 
-        } else if (this.state.vi_state.mode === "command") {
-            const freeInput = this.executeFreeInput(input);
-            if (freeInput !== undefined) {
-                console.log("free input is:", freeInput);
+            case "command": {
+                const freeInput = this.executeFreeInput(input);
+                if (freeInput !== undefined) {
+                    console.log("free input is:", freeInput);
+                }
+            } break;
+
+            default: {
+                throw new Error(`unexpected mode: ${mode satisfies never}`);
             }
         }
 
@@ -1282,10 +1292,11 @@ export class Editor {
                 });
 
             } break;
+
             case NormalCmdType.GO_COMMAND: {
                 this.vi_goCommand();
-
             } break;
+
             default: {
                 const unreachable: never = datatype;
                 throw new Error(`unreachable: ${unreachable}`);
