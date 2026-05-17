@@ -50,14 +50,8 @@ export class Renderer {
     public render(state: EditorState): void {
         this.clear();
         this.drawLines(state);
-        if (state.vi_state.mode === "command") {
-            this.drawStatusBar(state, state.vi_cmd.join(""));
-            this.drawCursorAtStatusBar(state);
-        } else {
-            this.drawCursor(state);
-            this.drawStatusBar(state, state.vi_cmd.join(""));
-        }
-        // this.drawStatusBar(state, state.vi_cmd.join(""));
+        this.drawStatusBar(state, state.vi_cmd.join(""));
+        this.drawCursor(state);
     }
 
     public setStatusMsg(state: EditorState, text: string) {
@@ -104,15 +98,19 @@ export class Renderer {
     }
 
     private drawCursor(state: EditorState): void {
-        const currLine = state.lines[state.row] as Line;
-        const text = currLine.text;
-        const lineheight = this.lineHeight;
-        const x =
-            (state.visualCol - state.visualColoff) * this.halfFontSize + this.lineNumberMargin(state.lines.length);
-        const y = (state.row - state.rowoff) * lineheight;
-        const ch = text[state.col];
+        if (state.vi_state.mode === "command") {
+            this.drawCursorAtStatusBar(state);
+        } else {
+            const currLine = state.lines[state.row] as Line;
+            const text = currLine.text;
+            const lineheight = this.lineHeight;
+            const x =
+                (state.visualCol - state.visualColoff) * this.halfFontSize + this.lineNumberMargin(state.lines.length);
+            const y = (state.row - state.rowoff) * lineheight;
+            const ch = text[state.col];
 
-        this.drawCursorAt(state, x, y, ch);
+            this.drawCursorAt(state, x, y, ch);
+        }
     }
 
     private drawCursorAtStatusBar(state: EditorState): void {
