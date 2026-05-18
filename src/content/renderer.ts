@@ -50,7 +50,7 @@ export class Renderer {
     public render(state: EditorState): void {
         this.clear();
         this.drawLines(state);
-        this.drawStatusBar(state, state.vi_cmd.join(""));
+        this.drawStatusBar(state, state.vi.cmd.join(""));
         this.drawCursor(state);
     }
 
@@ -67,12 +67,12 @@ export class Renderer {
     }
 
     private drawLines(state: EditorState): void {
-        const px = this.lineNumberMargin(state.lines.length);
+        const px = this.lineNumberPadding(state.lines.length);
 
         const isLineNumberOn = this.config.lineNumbers !== "off";
         const isRelative = this.config.lineNumbers === "relative";
         for (let y = 0; y < this.config.screenrows - this.config.statusBarHeight; y++) {
-            const targetRow = y + state.rowoff;
+            const targetRow = y + state.scroll.rowoff;
             const py = y * this.lineHeight + this.halfLineHeight;
 
             const line = state.lines[targetRow];
@@ -85,48 +85,48 @@ export class Renderer {
 
             if (!isLineNumberOn) continue;
 
-            const isCurrentRow = state.row === targetRow;
+            const isCurrentRow = state.cursor.row === targetRow;
             const absoluteRowNumber = targetRow + 1;
 
             const rowDisplayNumber = isRelative
                 ? isCurrentRow
                     ? absoluteRowNumber
-                    : Math.abs(state.row - targetRow)
+                    : Math.abs(state.cursor.row - targetRow)
                 : absoluteRowNumber;
             this.drawLineNumber(state, px, py, targetRow, rowDisplayNumber);
         }
     }
 
     private drawCursor(state: EditorState): void {
-        if (state.vi_state.mode === "command") {
+        if (state.vi.state.mode === "command") {
             this.drawCursorAtStatusBar(state);
         } else {
-            const currLine = state.lines[state.row] as Line;
+            const currLine = state.lines[state.cursor.row] as Line;
             const text = currLine.text;
             const lineheight = this.lineHeight;
             const x =
-                (state.visualCol - state.visualColoff) * this.halfFontSize + this.lineNumberMargin(state.lines.length);
-            const y = (state.row - state.rowoff) * lineheight;
-            const ch = text[state.col];
+                (state.cursor.visualCol - state.scroll.visualColoff) * this.halfFontSize + this.lineNumberPadding(state.lines.length);
+            const y = (state.cursor.row - state.scroll.rowoff) * lineheight;
+            const ch = text[state.cursor.col];
 
             this.drawCursorAt(state, x, y, ch);
         }
     }
 
     private drawCursorAtStatusBar(state: EditorState): void {
-        if (state.vi_state.mode !== "command") throw new Error("mode is not command");
+        if (state.vi.state.mode !== "command") throw new Error("mode is not command");
 
-        const x = state.vi_state.sBarVisualCol * this.halfFontSize;
+        const x = state.vi.state.sBarVisualCol * this.halfFontSize;
         const y = (this.config.screenrows - 1) * this.lineHeight;
-        const ch = state.vi_cmd[state.vi_state.sBarCol];
+        const ch = state.vi.cmd[state.vi.state.sBarCol];
         this.drawCursorAt(state, x, y, ch);
     }
 
     private drawCursorAt(state: EditorState, x: number, y: number, ch = " "): void {
         if (ch.length > 1) throw new Error("ch must be a char or empty char");
 
-        const isUnder = state.cursorStyle === "under";
-        const isVertical = state.cursorStyle === "vertical";
+        const isUnder = state.cursor.style === "under";
+        const isVertical = state.cursor.style === "vertical";
 
         const y_ = isUnder ? y + this.lineHeight : y;
         const w = isVertical ? 1 : this.calcWidth(ch);
@@ -142,20 +142,20 @@ export class Renderer {
     private drawStatusBar(state: EditorState, text: string): void {
         this.drawStatusBarBg();
 
-        if (state.vi_state.mode === "command") {
+        if (state.vi.state.mode === "command") {
             this.drawStatusBarText(0, text);
         } else {
-            const modeLabel = (state.vi_state.mode === "visual" && state.vi_state.linewise)
+            const modeLabel = (state.vi.state.mode === "visual" && state.vi.state.linewise)
                 ? "VISUAL LINE"
-                : state.vi_state.mode.toUpperCase();
-            const macroSuffix = (state.vi_macroRecording)
-                ? ` recording @${state.vi_macroRecording}`
+                : state.vi.state.mode.toUpperCase();
+            const macroSuffix = (state.vi.macro.recording)
+                ? ` recording @${state.vi.macro.recording}`
                 : "";
             const statusText = `-- ${modeLabel} --${macroSuffix}   ${text}`;
             this.drawStatusBarText(0, statusText);
         }
 
-        this.drawStatusBarRC(state.row, state.col, state.visualCol);
+        this.drawStatusBarRC(state.cursor.row, state.cursor.col, state.cursor.visualCol);
     }
 
     private get bottomTextY(): number {
@@ -200,7 +200,7 @@ export class Renderer {
         lineNum: number,
     ): void {
         this.ctx.fillStyle =
-            row === state.row
+            row === state.cursor.row
                 ? this.config.colors.lineNumber.current
                 : this.config.colors.lineNumber.normal;
         this.ctx.textAlign = "right";
@@ -217,26 +217,26 @@ export class Renderer {
         text: string
     ): void {
         this.ctx.textAlign = "start";
-        const lineTextWidth = this.getLineTextWidth(state);
+        const lineTextWidth = this.getLineTextWidth(state.lines);
 
-        const startCol = stringWidthToCol(state.visualColoff, text);
+        const startCol = stringWidthToCol(state.scroll.visualColoff, text);
         const startOffsetText = text.slice(startCol);
         const endCol = stringWidthToCol(lineTextWidth, startOffsetText) + 1;
         /** 前後の溢れた全角文字を含む. 末尾の1文字は半角でも含まれてしまうが影響がないため許容する */
         const sliced = startOffsetText.slice(0, endCol);
 
-        const isLeftOverflow = (
+        const leftOverflow = (
             sliced !== "" &&
-            this.calcWidth(text.slice(0, startCol)) !== (state.visualColoff * this.halfFontSize)
+            this.calcWidth(text.slice(0, startCol)) !== (state.scroll.visualColoff * this.halfFontSize)
         );
 
         /** 文字列の左側を"<"に置き換える */
-        const leftAlignedText = (isLeftOverflow) ? "<" + sliced.slice(1) : sliced;
+        const leftAlignedText = (leftOverflow) ? "<" + sliced.slice(1) : sliced;
         /** endColに文字が存在する=文字があふれている可能性 */
-        const isRightOverflow = (startOffsetText[endCol] && this.calcWidth(leftAlignedText) > lineTextWidth * this.halfFontSize);
+        const rightOverflow = (startOffsetText[endCol] && this.calcWidth(leftAlignedText) > lineTextWidth * this.halfFontSize);
         /** 文字列の右側を">"に置き換える */
         const offsetText =
-            (isRightOverflow) ? leftAlignedText.slice(0, -1) + ">"
+            (rightOverflow) ? leftAlignedText.slice(0, -1) + ">"
             : leftAlignedText;
 
         /** 描画するx座標 */
@@ -260,10 +260,10 @@ export class Renderer {
             }
         };
 
-        if (state.vi_state.mode === "visual") {
-            const vi_state = state.vi_state;
+        if (state.vi.state.mode === "visual") {
+            const vi_state = state.vi.state;
             if (offsetText === "" && this.inVisualRange(vi_state, lineNumber, startCol)) {
-                this.drawCursorAt(state, this.lineNumberMargin(state.lines.length), y - this.halfLineHeight);
+                this.drawCursorAt(state, this.lineNumberPadding(state.lines.length), y - this.halfLineHeight);
             } else {
                 drawLineString((ch: string, i: number) => {
                     if (this.inVisualRange(vi_state, lineNumber, i + startCol)) {
@@ -400,14 +400,14 @@ export class Renderer {
     // | calculation helpers
     // ------------------------------
 
-    private lineNumberMargin(LineLen: number): number {
+    private lineNumberPadding(lineLen: number): number {
         return this.config.lineNumbers !== "off"
-            ? Math.max(this.config.minLineNumberCols, String(LineLen).length + 2) * this.halfFontSize
+            ? Math.max(this.config.minLineNumberCols, String(lineLen).length + 2) * this.halfFontSize
             : 0;
     }
 
-    private lineNumberCols(state: EditorState): number {
-        return this.config.lineNumbers !== "off" ? String(state.lines.length).length : 0;
+    private lineNumberCols(lineLen: number): number {
+        return this.config.lineNumbers !== "off" ? String(lineLen).length : 0;
     }
 
     private get lineHeight(): number {
@@ -430,15 +430,15 @@ export class Renderer {
         return width;
     }
 
-    private getLineTextWidth(state: EditorState): number {
-        return this.config.screencols - this.lineNumberCols(state) - 2;
+    private getLineTextWidth(lines: Line[]): number {
+        return this.config.screencols - this.lineNumberCols(lines.length) - 2;
     }
 
     private inVisualRange(visualState: VisualState, row: number, col: number): boolean {
         const first = visualState.visualFirst;
         const last = visualState.visualLast;
         if (row < first.row || row > last.row) {
-            // 完全に対象外の範囲が除かれる
+            // 対象外の行範囲が除かれる
             return false;
         }
         if (

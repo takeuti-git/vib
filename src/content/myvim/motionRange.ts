@@ -168,20 +168,23 @@ function WORDHelper(ctx: ForwardMovingCtx): void {
     }
 }
 
-export function moveForward(state: EditorState, separator: "word" | "WORD"): HorizontalMotion {
-    const currLine = state.lines[state.row];
+export function moveForward(
+    state: Pick<EditorState, "lines" | "cursor">,
+    separator: "word" | "WORD"
+): HorizontalMotion {
+    const currLine = state.lines[state.cursor.row];
     if (!currLine) {
         throw new Error("currLine is undefined");
     }
 
-    const startRow = state.row;
-    const startCol = state.col;
+    const startRow = state.cursor.row;
+    const startCol = state.cursor.col;
 
     const ctx: ForwardMovingCtx = {
         distance: 0,
         line: currLine,
-        row: state.row,
-        col: state.col,
+        row: state.cursor.row,
+        col: state.cursor.col,
         doStop: false,
         moveToNext: "any",
     };
@@ -227,20 +230,23 @@ type BackwardMovingCtx = MovingCtx & {
     stopAt: "unknown" | "any" | "normal" | "symbol";
 };
 
-export function moveBackward(state: EditorState, separator: "word" | "WORD"): HorizontalMotion {
-    const currLine = state.lines[state.row];
+export function moveBackward(
+    state: Pick<EditorState, "lines" | "cursor">,
+    separator: "word" | "WORD"
+): HorizontalMotion {
+    const currLine = state.lines[state.cursor.row];
     if (!currLine) throw new Error("currLine is undefined");
 
     const ctx: BackwardMovingCtx = {
         distance: 0,
         line: currLine,
-        row: state.row,
-        col: state.col,
+        row: state.cursor.row,
+        col: state.cursor.col,
         doStop: false,
         stopAt: "unknown",
     };
 
-    const prevChar = currLine.text[state.col - 1] ?? " ";
+    const prevChar = currLine.text[state.cursor.col - 1] ?? " ";
 
     if (separator === "WORD") {
         ctx.stopAt = isWhitespace(prevChar) ? "unknown" : "any";
@@ -248,7 +254,7 @@ export function moveBackward(state: EditorState, separator: "word" | "WORD"): Ho
         ctx.stopAt = isWhitespace(prevChar) ? "unknown" : isSymbol(prevChar) ? "symbol" : "normal";
     }
 
-    const startRow = state.row;
+    const startRow = state.cursor.row;
 
     if (ctx.stopAt === "unknown") {
         for (; ctx.row >= 0; ctx.row--) {
@@ -269,7 +275,7 @@ export function moveBackward(state: EditorState, separator: "word" | "WORD"): Ho
                 continue;
             }
 
-            ctx.col = ctx.row === startRow ? state.col - 1 : line.size - 1;
+            ctx.col = ctx.row === startRow ? state.cursor.col - 1 : line.size - 1;
 
             for (; ctx.col >= 0; ctx.col--) {
                 ctx.distance++;
@@ -298,7 +304,7 @@ export function moveBackward(state: EditorState, separator: "word" | "WORD"): Ho
 
     const targetLine = state.lines[ctx.row];
     if (!targetLine) {
-        const distance = state.col;
+        const distance = state.cursor.col;
         return { distance, destRow: 0, destCol: 0 };
     }
 
@@ -330,17 +336,20 @@ type TailMovingCtx = MovingCtx & {
 };
 
 /** 単語の末尾まで移動する */
-export function moveTail(state: EditorState, separator: "word" | "WORD"): HorizontalMotion {
-    const currLine = state.lines[state.row];
+export function moveTail(
+    state: Pick<EditorState, "lines" | "cursor">,
+    separator: "word" | "WORD"
+): HorizontalMotion {
+    const currLine = state.lines[state.cursor.row];
     if (!currLine) throw new Error("currLine is undefined");
 
-    const nextChar = currLine.text[state.col + 1] ?? " ";
+    const nextChar = currLine.text[state.cursor.col + 1] ?? " ";
 
     const ctx: TailMovingCtx = {
         distance: 0,
         line: currLine,
-        row: state.row,
-        col: state.col,
+        row: state.cursor.row,
+        col: state.cursor.col,
         doStop: false,
         stopAt: "unknown",
     };
@@ -351,8 +360,8 @@ export function moveTail(state: EditorState, separator: "word" | "WORD"): Horizo
         ctx.stopAt = isWhitespace(nextChar) ? "unknown" : isSymbol(nextChar) ? "symbol" : "normal";
     }
 
-    const startRow = state.row;
-    const startCol = state.col;
+    const startRow = state.cursor.row;
+    const startCol = state.cursor.col;
 
     if (ctx.stopAt === "unknown") {
         // 行を跨いで空白でない文字の先頭まで移動する
@@ -386,7 +395,7 @@ export function moveTail(state: EditorState, separator: "word" | "WORD"): Horizo
     const targetLine = state.lines[ctx.row];
     if (!targetLine) {
         // targetLine is EOF; fastforward
-        const distance = ctx.row - state.row;
+        const distance = ctx.row - state.cursor.row;
         return { distance, destRow: state.lines.length - 1, destCol: ctx.col };
     }
 
@@ -417,11 +426,12 @@ export function moveTail(state: EditorState, separator: "word" | "WORD"): Horizo
  * - linewiseならend.row+1, そうでないならend.col+1
  **/
 export function getMotionRange(
-    state: Readonly<EditorState>,
-    motion: Readonly<MotionContext>,
+    state: Pick<EditorState, "lines" | "cursor">,
+    motion: MotionContext,
     count: number,
 ): MotionRange | undefined {
-    const { row, col, lines } = state;
+    const { lines } = state;
+    const { row, col } = state.cursor;
     const maxRow = lines.length - 1;
     const currLine = lines[row];
     if (!currLine) throw new Error("currLine is undefined");
@@ -489,13 +499,13 @@ export function getMotionRange(
                 }
                 case MotionName.word_backward: // fall through
                 case MotionName.WORD_backward: {
-                    if (state.col === 0 && state.row === 0) return undefined;
+                    if (state.cursor.col === 0 && state.cursor.row === 0) return undefined;
                     // b/B motionは複数行にまたがることがある
                     const sep = motion.name === MotionName.word_backward ? "word" : "WORD";
                     const { destRow, destCol } = moveBackward(state, sep);
                     begin.row = destRow;
                     begin.col = destCol;
-                    if (state.col === 0) {
+                    if (state.cursor.col === 0) {
                         end.row = Math.max(0, end.row - 1);
                         const prevLn = state.lines[end.row];
                         if (prevLn) {
