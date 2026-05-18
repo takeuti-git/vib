@@ -53,7 +53,7 @@ function revertPatch(lines: Line[], hunks: Hunk[]): void {
     }
 }
 
-export function saveDiff(state: EditorState, oldText: string, newText: string): void {
+export function saveDiff(state: Pick<EditorState, "cursor" | "diff">, oldText: string, newText: string): void {
     if (state.diff.disableSave) {
         state.diff.disableSave = false;
         return;
@@ -74,12 +74,13 @@ export function saveDiff(state: EditorState, oldText: string, newText: string): 
     state.diff.stack.length = state.diff.stackPtr; // ptr以降の要素を切り捨て, undo後に編集すると以降の履歴を削除する
 }
 
-export function undo(state: EditorState): Position | undefined {
+export function undo(state: Pick<EditorState, "lines" | "diff">): Position | undefined {
     if (state.diff.stackPtr === 0) return;
 
     state.diff.stackPtr--;
 
-    const element = state.diff.stack[state.diff.stackPtr]!;
+    const element = state.diff.stack[state.diff.stackPtr];
+    if (!element) throw new Error("diff.stack element is undefined");
     revertPatch(state.lines, element.hunks);
 
     state.diff.lastSnapshot = joinLines(state.lines);
@@ -92,10 +93,11 @@ export function undo(state: EditorState): Position | undefined {
     return element.position;
 }
 
-export function redo(state: EditorState): Position | undefined {
+export function redo(state: Pick<EditorState, "lines" | "diff">): Position | undefined {
     if (state.diff.stackPtr === state.diff.stack.length) return;
 
-    const element = state.diff.stack[state.diff.stackPtr]!;
+    const element = state.diff.stack[state.diff.stackPtr];
+    if (!element) throw new Error("diff.stack element is undefined");
     applyPatch(state.lines, element.hunks);
 
     state.diff.lastSnapshot = joinLines(state.lines);

@@ -168,7 +168,10 @@ function WORDHelper(ctx: ForwardMovingCtx): void {
     }
 }
 
-export function moveForward(state: EditorState, separator: "word" | "WORD"): HorizontalMotion {
+export function moveForward(
+    state: Pick<EditorState, "lines" | "cursor">,
+    separator: "word" | "WORD"
+): HorizontalMotion {
     const currLine = state.lines[state.cursor.row];
     if (!currLine) {
         throw new Error("currLine is undefined");
@@ -227,7 +230,10 @@ type BackwardMovingCtx = MovingCtx & {
     stopAt: "unknown" | "any" | "normal" | "symbol";
 };
 
-export function moveBackward(state: EditorState, separator: "word" | "WORD"): HorizontalMotion {
+export function moveBackward(
+    state: Pick<EditorState, "lines" | "cursor">,
+    separator: "word" | "WORD"
+): HorizontalMotion {
     const currLine = state.lines[state.cursor.row];
     if (!currLine) throw new Error("currLine is undefined");
 
@@ -330,7 +336,10 @@ type TailMovingCtx = MovingCtx & {
 };
 
 /** 単語の末尾まで移動する */
-export function moveTail(state: EditorState, separator: "word" | "WORD"): HorizontalMotion {
+export function moveTail(
+    state: Pick<EditorState, "lines" | "cursor">,
+    separator: "word" | "WORD"
+): HorizontalMotion {
     const currLine = state.lines[state.cursor.row];
     if (!currLine) throw new Error("currLine is undefined");
 
@@ -417,8 +426,8 @@ export function moveTail(state: EditorState, separator: "word" | "WORD"): Horizo
  * - linewiseならend.row+1, そうでないならend.col+1
  **/
 export function getMotionRange(
-    state: Readonly<EditorState>,
-    motion: Readonly<MotionContext>,
+    state: Pick<EditorState, "lines" | "cursor">,
+    motion: MotionContext,
     count: number,
 ): MotionRange | undefined {
     const { lines } = state;

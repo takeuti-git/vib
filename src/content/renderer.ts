@@ -67,7 +67,7 @@ export class Renderer {
     }
 
     private drawLines(state: EditorState): void {
-        const px = this.lineNumberMargin(state.lines.length);
+        const px = this.lineNumberPadding(state.lines.length);
 
         const isLineNumberOn = this.config.lineNumbers !== "off";
         const isRelative = this.config.lineNumbers === "relative";
@@ -105,7 +105,7 @@ export class Renderer {
             const text = currLine.text;
             const lineheight = this.lineHeight;
             const x =
-                (state.cursor.visualCol - state.scroll.visualColoff) * this.halfFontSize + this.lineNumberMargin(state.lines.length);
+                (state.cursor.visualCol - state.scroll.visualColoff) * this.halfFontSize + this.lineNumberPadding(state.lines.length);
             const y = (state.cursor.row - state.scroll.rowoff) * lineheight;
             const ch = text[state.cursor.col];
 
@@ -217,7 +217,7 @@ export class Renderer {
         text: string
     ): void {
         this.ctx.textAlign = "start";
-        const lineTextWidth = this.getLineTextWidth(state);
+        const lineTextWidth = this.getLineTextWidth(state.lines);
 
         const startCol = stringWidthToCol(state.scroll.visualColoff, text);
         const startOffsetText = text.slice(startCol);
@@ -225,18 +225,18 @@ export class Renderer {
         /** 前後の溢れた全角文字を含む. 末尾の1文字は半角でも含まれてしまうが影響がないため許容する */
         const sliced = startOffsetText.slice(0, endCol);
 
-        const isLeftOverflow = (
+        const leftOverflow = (
             sliced !== "" &&
             this.calcWidth(text.slice(0, startCol)) !== (state.scroll.visualColoff * this.halfFontSize)
         );
 
         /** 文字列の左側を"<"に置き換える */
-        const leftAlignedText = (isLeftOverflow) ? "<" + sliced.slice(1) : sliced;
+        const leftAlignedText = (leftOverflow) ? "<" + sliced.slice(1) : sliced;
         /** endColに文字が存在する=文字があふれている可能性 */
-        const isRightOverflow = (startOffsetText[endCol] && this.calcWidth(leftAlignedText) > lineTextWidth * this.halfFontSize);
+        const rightOverflow = (startOffsetText[endCol] && this.calcWidth(leftAlignedText) > lineTextWidth * this.halfFontSize);
         /** 文字列の右側を">"に置き換える */
         const offsetText =
-            (isRightOverflow) ? leftAlignedText.slice(0, -1) + ">"
+            (rightOverflow) ? leftAlignedText.slice(0, -1) + ">"
             : leftAlignedText;
 
         /** 描画するx座標 */
@@ -263,7 +263,7 @@ export class Renderer {
         if (state.vi.state.mode === "visual") {
             const vi_state = state.vi.state;
             if (offsetText === "" && this.inVisualRange(vi_state, lineNumber, startCol)) {
-                this.drawCursorAt(state, this.lineNumberMargin(state.lines.length), y - this.halfLineHeight);
+                this.drawCursorAt(state, this.lineNumberPadding(state.lines.length), y - this.halfLineHeight);
             } else {
                 drawLineString((ch: string, i: number) => {
                     if (this.inVisualRange(vi_state, lineNumber, i + startCol)) {
@@ -400,14 +400,14 @@ export class Renderer {
     // | calculation helpers
     // ------------------------------
 
-    private lineNumberMargin(LineLen: number): number {
+    private lineNumberPadding(lineLen: number): number {
         return this.config.lineNumbers !== "off"
-            ? Math.max(this.config.minLineNumberCols, String(LineLen).length + 2) * this.halfFontSize
+            ? Math.max(this.config.minLineNumberCols, String(lineLen).length + 2) * this.halfFontSize
             : 0;
     }
 
-    private lineNumberCols(state: EditorState): number {
-        return this.config.lineNumbers !== "off" ? String(state.lines.length).length : 0;
+    private lineNumberCols(lineLen: number): number {
+        return this.config.lineNumbers !== "off" ? String(lineLen).length : 0;
     }
 
     private get lineHeight(): number {
@@ -430,15 +430,15 @@ export class Renderer {
         return width;
     }
 
-    private getLineTextWidth(state: EditorState): number {
-        return this.config.screencols - this.lineNumberCols(state) - 2;
+    private getLineTextWidth(lines: Line[]): number {
+        return this.config.screencols - this.lineNumberCols(lines.length) - 2;
     }
 
     private inVisualRange(visualState: VisualState, row: number, col: number): boolean {
         const first = visualState.visualFirst;
         const last = visualState.visualLast;
         if (row < first.row || row > last.row) {
-            // 完全に対象外の範囲が除かれる
+            // 対象外の行範囲が除かれる
             return false;
         }
         if (
