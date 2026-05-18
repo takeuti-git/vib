@@ -793,13 +793,17 @@ export function getMotionRange(
                     begin.col++;
                     end.col--;
                     // 溢れるなら
-                    if (begin.col === lines[begin.row]!.size) {
+                    if (begin.col >= lines[begin.row]!.size) {
                         begin.row++;
                         begin.col = 0;
                     }
-                    if (end.col === -1) {
+                    const endRowText = lines[end.row]?.text ?? "";
+                    // 最終行の先頭から空白が連続し
+                    // 閉じ括弧に到達するまで他の文字が存在しない場合は、範囲を1行戻す
+                    const smartInnerCheck = endRowText.trimStart().startsWith(closingCh);
+                    if (end.col === -1 || smartInnerCheck) {
                         end.row--;
-                        end.col = lines[end.row]!.size - 1;
+                        end.col = Math.max(0, lines[end.row]!.size - 1);
                     }
                 }
             }
