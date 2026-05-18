@@ -48,6 +48,61 @@ export type EditorState = {
     vi_callbackOnSuccess: (() => void) | null;
 };
 
+export type EditorState2 = {
+    cursor: CursorState;
+    scroll: ScrollState;
+    lines: Line[];
+    diff: DiffState;
+    vi: ViEditorState;
+};
+
+type CursorState = {
+    row: number;
+    col: number;
+    visualCol: number;
+    prefVisualCol: number;
+    style: "full" | "under" | "vertical";
+};
+
+type ScrollState = {
+    rowoff: number;       // 縦スクロール時の行のずれ
+    visualColoff: number; // 横スクロール時の列のずれ
+};
+
+type DiffState = {
+    stack: DiffStackElement[];
+    stackPtr: number;
+    lastSnapshot: string; // diff検出の比較に用いる
+    disableSave: boolean; // 差分保存を割り込みで無効化するフラグ
+};
+
+type ViEditorState = {
+    state: ViState;
+    cmd: string[];
+    lastCmd: RepeatableCmd | null;
+    insertBuf: string[];
+    insertResolve: (() => void) | null;
+    yankLinewise: boolean;
+    lastFindMotion: { name: FindCommandName; arg: string } | null;
+    scrollAmount: number; // 一部のコマンド入力によるスクロールの行数
+    macro: ViMacroState;
+    callbackOnSuccess: (() => void) | null;
+
+    vi_macroRecording: MacroChar | null;
+    vi_macroTable: MacroTable;
+    vi_macroCallback: (() => void) | null; // マクロの実行は遅延評価しないと正常に動作しない
+    vi_macroLastPlayed: MacroChar | null;  // @@の繰り返し用
+
+    vi_callbackOnSuccess: (() => void) | null;
+};
+
+type ViMacroState = {
+    table: MacroTable;
+    recording: MacroChar | null;
+    lastPlayed: MacroChar | null;
+    callback: (() => void) | null;
+};
+
 type Satisfies<Constraint, Target extends Constraint> = Target;
 
 type ViState = Satisfies<
