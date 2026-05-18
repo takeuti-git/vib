@@ -54,8 +54,8 @@ function revertPatch(lines: Line[], hunks: Hunk[]): void {
 }
 
 export function saveDiff(state: EditorState, oldText: string, newText: string): void {
-    if (state.disableSaveDiff) {
-        state.disableSaveDiff = false;
+    if (state.diff.disableSave) {
+        state.diff.disableSave = false;
         return;
     }
 
@@ -64,25 +64,25 @@ export function saveDiff(state: EditorState, oldText: string, newText: string): 
     }
 
     const element: DiffStackElement = {
-        position: { row: state.row, col: state.col },
+        position: { row: state.cursor.row, col: state.cursor.col },
         hunks: createDiffHunks(oldText, newText),
     };
-    state.diffStack[state.diffStackPtr] = element;
+    state.diff.stack[state.diff.stackPtr] = element;
 
-    state.lastSnapshot = newText;
-    state.diffStackPtr++;
-    state.diffStack.length = state.diffStackPtr; // ptr以降の要素を切り捨て, undo後に編集すると以降の履歴を削除する
+    state.diff.lastSnapshot = newText;
+    state.diff.stackPtr++;
+    state.diff.stack.length = state.diff.stackPtr; // ptr以降の要素を切り捨て, undo後に編集すると以降の履歴を削除する
 }
 
 export function undo(state: EditorState): Position | undefined {
-    if (state.diffStackPtr === 0) return;
+    if (state.diff.stackPtr === 0) return;
 
-    state.diffStackPtr--;
+    state.diff.stackPtr--;
 
-    const element = state.diffStack[state.diffStackPtr]!;
+    const element = state.diff.stack[state.diff.stackPtr]!;
     revertPatch(state.lines, element.hunks);
 
-    state.lastSnapshot = joinLines(state.lines);
+    state.diff.lastSnapshot = joinLines(state.lines);
 
     if (state.lines.length === 0) {
         state.lines.push(new Line());
@@ -93,12 +93,12 @@ export function undo(state: EditorState): Position | undefined {
 }
 
 export function redo(state: EditorState): Position | undefined {
-    if (state.diffStackPtr === state.diffStack.length) return;
+    if (state.diff.stackPtr === state.diff.stack.length) return;
 
-    const element = state.diffStack[state.diffStackPtr]!;
+    const element = state.diff.stack[state.diff.stackPtr]!;
     applyPatch(state.lines, element.hunks);
 
-    state.lastSnapshot = joinLines(state.lines);
-    state.diffStackPtr++;
+    state.diff.lastSnapshot = joinLines(state.lines);
+    state.diff.stackPtr++;
     return element.position;
 }

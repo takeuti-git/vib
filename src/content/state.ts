@@ -16,39 +16,6 @@ type RepeatableCmd = { count: number } & (
 );
 
 export type EditorState = {
-    row: number;                           // カーソルの行位置
-    col: number;                           // カーソルの列位置(文字数が基準)
-    visualCol: number;                     // 全角半角を考慮したカーソル位置(半角:1,全角:2)
-    /** preferredVisualCol */
-    prefVisualCol: number;                 // 最後に左右移動した値の保持
-    rowoff: number;                        // 縦スクロール時の行のずれ
-    visualColoff: number;                  // 横スクロール時の列のずれ
-    lines: Line[];
-    lastSnapshot: string;                  // diff検出に用いる
-    diffStack: DiffStackElement[];
-    diffStackPtr: number;
-    /** 差分保存を割り込みで無効化するフラグ */
-    disableSaveDiff: boolean;
-    cursorStyle: "full" | "under" | "vertical";
-
-    vi_state: ViState;
-    vi_cmd: string[];
-    vi_lastCmd: RepeatableCmd | null;
-    vi_insertBuf: string[];
-    vi_insertResolve: (() => void) | null;
-    vi_yankLinewise: boolean;
-    vi_lastFindMotion: { name: FindCommandName; arg: string } | null;
-    vi_scrollAmount: number;
-
-    vi_macroRecording: MacroChar | null;
-    vi_macroTable: MacroTable;
-    vi_macroCallback: (() => void) | null; // マクロの実行は遅延評価しないと正常に動作しない
-    vi_macroLastPlayed: MacroChar | null;  // @@の繰り返し用
-
-    vi_callbackOnSuccess: (() => void) | null;
-};
-
-export type EditorState2 = {
     cursor: CursorState;
     scroll: ScrollState;
     lines: Line[];
@@ -58,8 +25,8 @@ export type EditorState2 = {
 
 type CursorState = {
     row: number;
-    col: number;
-    visualCol: number;
+    col: number;       // 文字数基準のカーソルの列位置
+    visualCol: number; // colまでの全角半角幅を考慮したカーソル位置(半角:1,全角:2)
     prefVisualCol: number;
     style: "full" | "under" | "vertical";
 };
@@ -85,15 +52,8 @@ type ViEditorState = {
     yankLinewise: boolean;
     lastFindMotion: { name: FindCommandName; arg: string } | null;
     scrollAmount: number; // 一部のコマンド入力によるスクロールの行数
-    macro: ViMacroState;
     callbackOnSuccess: (() => void) | null;
-
-    vi_macroRecording: MacroChar | null;
-    vi_macroTable: MacroTable;
-    vi_macroCallback: (() => void) | null; // マクロの実行は遅延評価しないと正常に動作しない
-    vi_macroLastPlayed: MacroChar | null;  // @@の繰り返し用
-
-    vi_callbackOnSuccess: (() => void) | null;
+    macro: ViMacroState;
 };
 
 type ViMacroState = {
@@ -142,58 +102,73 @@ type CommandState = {
 
 export function createEditorState(config: Readonly<EditorConfig>): EditorState {
     return {
-        row: 0,
-        col: 0,
-        visualCol: 0,
-        prefVisualCol: 0,
-        rowoff: 0,
-        visualColoff: 0,
+        cursor: {
+            row: 0,
+            col: 0,
+            visualCol: 0,
+            prefVisualCol: 0,
+            style: "full",
+        },
+        scroll: {
+            rowoff: 0,
+            visualColoff: 0,
+        },
         lines: [new Line()],
-        lastSnapshot: "",
-        diffStack: [],
-        diffStackPtr: 0,
-        disableSaveDiff: false,
-
-        vi_state: { mode: "normal" },
-        vi_cmd: [],
-        vi_lastCmd: null,
-        vi_insertBuf: [""],
-        vi_insertResolve: null,
-        vi_yankLinewise: false,
-        cursorStyle: "full",
-        vi_lastFindMotion: null,
-        vi_scrollAmount: getHalfScreenRows(config),
-
-        vi_macroRecording: null,
-        vi_macroTable: createMacroTable(),
-        vi_macroCallback: null,
-        vi_macroLastPlayed: null,
-
-        vi_callbackOnSuccess: null,
+        diff: {
+            stack: [],
+            stackPtr: 0,
+            lastSnapshot: "",
+            disableSave: false,
+        },
+        vi: {
+            state: {
+                mode: "normal",
+            },
+            cmd: [],
+            lastCmd: null,
+            insertBuf: [],
+            insertResolve: null,
+            yankLinewise: false,
+            lastFindMotion: null,
+            scrollAmount: getHalfScreenRows(config),
+            macro: {
+                table: createMacroTable(),
+                recording: null,
+                lastPlayed: null,
+                callback: null,
+            },
+            callbackOnSuccess: null,
+        },
     };
 }
 
 export function resetState(state: EditorState, config: Readonly<EditorConfig>): void {
-    state.row = 0;
-    state.col = 0;
-    state.visualCol = 0;
-    state.prefVisualCol = 0;
-    state.rowoff = 0;
-    state.visualColoff = 0;
+    state.cursor.row = 0;
+    state.cursor.col = 0;
+    state.cursor.visualCol = 0;
+    state.cursor.prefVisualCol = 0;
+    state.cursor.style = "full";
+
+    state.scroll.rowoff = 0;
+    state.scroll.visualColoff = 0;
+
     state.lines = [new Line()];
-    state.lastSnapshot = "";
-    state.diffStack = [];
-    state.diffStackPtr = 0;
-    state.vi_state = { mode: "normal" };
-    state.vi_cmd = [];
-    state.vi_lastCmd = null;
-    state.vi_insertBuf = [];
-    state.vi_insertResolve = null;
-    state.vi_yankLinewise = false;
-    state.cursorStyle = "full";
-    state.vi_lastFindMotion = null;
-    state.vi_scrollAmount = getHalfScreenRows(config);
-    state.vi_macroRecording = null;
-    // 試験的にvi_macroHashはリセットしない
-    state.vi_callbackOnSuccess = null;
+
+    state.diff.stack = [];
+    state.diff.stackPtr = 0;
+    state.diff.lastSnapshot = "";
+    state.diff.disableSave = false;
+
+    state.vi.state = { mode: "normal" };
+    state.vi.cmd = [];
+    state.vi.lastCmd = null;
+    state.vi.insertBuf = [];
+    state.vi.insertResolve = null;
+    state.vi.yankLinewise = false;
+    state.vi.lastFindMotion = null;
+    state.vi.scrollAmount = getHalfScreenRows(config);
+    state.vi.callbackOnSuccess = null;
+
+    state.vi.macro.recording = null;
+    state.vi.macro.callback = null;
 }
