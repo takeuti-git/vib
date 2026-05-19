@@ -629,7 +629,9 @@ export function getMotionRange(
                     begin.col = filtered[idx - 1] as number;
                 }
 
-                if (motion.inner) {
+                if (motion.inner && begin.row === end.row && begin.col + 1 === end.col) {
+                    return undefined;
+                } else if (motion.inner) {
                     begin.col++;
                     end.col--;
                 }
@@ -789,7 +791,11 @@ export function getMotionRange(
                     }
                 }
 
-                if (motion.inner) {
+                if (motion.inner && begin.row === end.row && begin.col + 1 === end.col) {
+                    // 最終的な選択開始地点と選択終了地点が隣り合っているとき
+                    // 選択不能と同じ扱いになる
+                    return undefined;
+                } else if (motion.inner) {
                     begin.col++;
                     end.col--;
                     // 溢れるなら
