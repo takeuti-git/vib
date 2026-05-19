@@ -13,9 +13,16 @@ function isAtLeastTwoArray<T>(array: T[]): array is AtLeastTwoArray<T> {
     return array.length >= 2;
 }
 
+const quotes = ["'", "\"", "`"] as const;
 const openingBrackets = ["[", "{", "(", "<"] as const;
+
+type Quote = (typeof quotes)[number];
 type OpeningBracket = (typeof openingBrackets)[number];
 type ClosingBracket = "]" | "}" | ")" | ">";
+
+function isQuote(ch: string): ch is Quote {
+    return quotes.some(v => v === ch);
+}
 
 function isOpeningBracket(ch: string): ch is OpeningBracket {
     return openingBrackets.some(v => v === ch);
@@ -583,7 +590,7 @@ export function getMotionRange(
                         : motion.name === ">"
                           ? "<"
                           : motion.name;
-            if (textobjType === '"' || textobjType === "'" || textobjType === "`") {
+            if (isQuote(textobjType)) {
                 const filtered: number[] = Array.from(text)
                     .map((ch, i) => {
                         return ch === textobjType ? i : -1;
