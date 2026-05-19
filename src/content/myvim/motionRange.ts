@@ -13,20 +13,38 @@ function isAtLeastTwoArray<T>(array: T[]): array is AtLeastTwoArray<T> {
     return array.length >= 2;
 }
 
-const openingBrackets = ["[", "{", "(", "<"] as const;
-type OpeningBracket = (typeof openingBrackets)[number];
-type ClosingBracket = "]" | "}" | ")" | ">";
+const quotes = ["'", "\"", "`"] as const;
+const BRACKET_PAIRS = [
+    ["[", "]"],
+    ["{", "}"],
+    ["(", ")"],
+    ["<", ">"],
+] as const;
+const openingBrackets = BRACKET_PAIRS.map(([open]) => open);
+const closingBrackets = BRACKET_PAIRS.map(([, close]) => close);
+
+const OPENING_TO_CLOSING = Object.fromEntries(
+    BRACKET_PAIRS
+) as Record<OpeningBracket, ClosingBracket>;
+const CLOSING_TO_OPENING = Object.fromEntries(
+    BRACKET_PAIRS.map(([open, close]) => [close, open])
+) as Record<ClosingBracket, OpeningBracket>;
+
+type Quote = (typeof quotes)[number];
+type OpeningBracket = (typeof BRACKET_PAIRS)[number][0];
+type ClosingBracket = (typeof BRACKET_PAIRS)[number][1];
+
+function isQuote(ch: string): ch is Quote {
+    return quotes.some(v => v === ch);
+}
 
 function isOpeningBracket(ch: string): ch is OpeningBracket {
     return openingBrackets.some(v => v === ch);
 }
 
-const OPENING_TO_CLOSING: Record<OpeningBracket, ClosingBracket> = {
-    "[": "]",
-    "{": "}",
-    "(": ")",
-    "<": ">",
-};
+function isClosingBracket(ch: string): ch is ClosingBracket {
+    return closingBrackets.some(v => v === ch);
+}
 
 /** viのf motion: 対象の文字と同じ位置までの移動量を求める */
 export function getCountToNextChar(
@@ -573,17 +591,13 @@ export function getMotionRange(
         }
         case "textobj": {
             const text = currLine.text;
-            const textobjType =
-                motion.name === ")"
-                    ? "("
-                    : motion.name === "}"
-                      ? "{"
-                      : motion.name === "]"
-                        ? "["
-                        : motion.name === ">"
-                          ? "<"
-                          : motion.name;
-            if (textobjType === '"' || textobjType === "'" || textobjType === "`") {
+            // 閉じ括弧を開き括弧に変換
+            const textobjType = (
+                isClosingBracket(motion.name)
+                ? CLOSING_TO_OPENING[motion.name]
+                : motion.name
+            );
+            if (isQuote(textobjType)) {
                 const filtered: number[] = Array.from(text)
                     .map((ch, i) => {
                         return ch === textobjType ? i : -1;
@@ -629,7 +643,9 @@ export function getMotionRange(
                     begin.col = filtered[idx - 1] as number;
                 }
 
-                if (motion.inner) {
+                if (motion.inner && begin.row === end.row && begin.col + 1 === end.col) {
+                    return undefined;
+                } else if (motion.inner) {
                     begin.col++;
                     end.col--;
                 }
@@ -789,17 +805,25 @@ export function getMotionRange(
                     }
                 }
 
-                if (motion.inner) {
+                if (motion.inner && begin.row === end.row && begin.col + 1 === end.col) {
+                    // 最終的な選択開始地点と選択終了地点が隣り合っているとき
+                    // 選択不能と同じ扱いになる
+                    return undefined;
+                } else if (motion.inner) {
                     begin.col++;
                     end.col--;
                     // 溢れるなら
-                    if (begin.col === lines[begin.row]!.size) {
+                    if (begin.col >= lines[begin.row]!.size) {
                         begin.row++;
                         begin.col = 0;
                     }
-                    if (end.col === -1) {
+                    const endRowText = lines[end.row]?.text ?? "";
+                    // 最終行の先頭から空白が連続し
+                    // 閉じ括弧に到達するまで他の文字が存在しない場合は、範囲を1行戻す
+                    const smartInnerCheck = endRowText.trimStart().startsWith(closingCh);
+                    if (end.col === -1 || smartInnerCheck) {
                         end.row--;
-                        end.col = lines[end.row]!.size - 1;
+                        end.col = Math.max(0, lines[end.row]!.size - 1);
                     }
                 }
             }
