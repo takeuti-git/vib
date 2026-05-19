@@ -14,11 +14,25 @@ function isAtLeastTwoArray<T>(array: T[]): array is AtLeastTwoArray<T> {
 }
 
 const quotes = ["'", "\"", "`"] as const;
-const openingBrackets = ["[", "{", "(", "<"] as const;
+const BRACKET_PAIRS = [
+    ["[", "]"],
+    ["{", "}"],
+    ["(", ")"],
+    ["<", ">"],
+] as const;
+const openingBrackets = BRACKET_PAIRS.map(([open]) => open);
+const closingBrackets = BRACKET_PAIRS.map(([, close]) => close);
+
+const OPENING_TO_CLOSING = Object.fromEntries(
+    BRACKET_PAIRS
+) as Record<OpeningBracket, ClosingBracket>;
+const CLOSING_TO_OPENING = Object.fromEntries(
+    BRACKET_PAIRS.map(([open, close]) => [close, open])
+) as Record<ClosingBracket, OpeningBracket>;
 
 type Quote = (typeof quotes)[number];
-type OpeningBracket = (typeof openingBrackets)[number];
-type ClosingBracket = "]" | "}" | ")" | ">";
+type OpeningBracket = (typeof BRACKET_PAIRS)[number][0];
+type ClosingBracket = (typeof BRACKET_PAIRS)[number][1];
 
 function isQuote(ch: string): ch is Quote {
     return quotes.some(v => v === ch);
@@ -28,12 +42,9 @@ function isOpeningBracket(ch: string): ch is OpeningBracket {
     return openingBrackets.some(v => v === ch);
 }
 
-const OPENING_TO_CLOSING: Record<OpeningBracket, ClosingBracket> = {
-    "[": "]",
-    "{": "}",
-    "(": ")",
-    "<": ">",
-};
+function isClosingBracket(ch: string): ch is ClosingBracket {
+    return closingBrackets.some(v => v === ch);
+}
 
 /** viのf motion: 対象の文字と同じ位置までの移動量を求める */
 export function getCountToNextChar(
@@ -580,16 +591,12 @@ export function getMotionRange(
         }
         case "textobj": {
             const text = currLine.text;
-            const textobjType =
-                motion.name === ")"
-                    ? "("
-                    : motion.name === "}"
-                      ? "{"
-                      : motion.name === "]"
-                        ? "["
-                        : motion.name === ">"
-                          ? "<"
-                          : motion.name;
+            // 閉じ括弧を開き括弧に変換
+            const textobjType = (
+                isClosingBracket(motion.name)
+                ? CLOSING_TO_OPENING[motion.name]
+                : motion.name
+            );
             if (isQuote(textobjType)) {
                 const filtered: number[] = Array.from(text)
                     .map((ch, i) => {
