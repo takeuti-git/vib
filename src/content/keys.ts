@@ -17,7 +17,7 @@ export function toInputToken(key: string, ctrlKey: boolean): string {
         return "Escape";
     }
     if (ctrlKey) {
-        return `<C-${key}>`;
+        return `<C-${key.toLowerCase()}>`;
     }
     return key;
 }

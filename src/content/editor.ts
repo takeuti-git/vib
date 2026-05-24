@@ -2029,17 +2029,23 @@ export class Editor {
         const currLine = this.currentLine;
         const textBefore = currLine.text.slice(0, this.state.cursor.col);
         const textAfter = currLine.text.slice(this.state.cursor.col);
-
         currLine.text = textBefore;
-        this.insertRow(this.state.cursor.row + 1, textAfter, this.state.cursor.row);
+
+        const referenceLine = this.currentLine;
+        const indent = this.insertRowWithIndent(this.state.cursor.row + 1, textAfter, referenceLine);
+        this.moveCursorToPos(this.state.cursor.row + 1, indent);
     }
 
     private insertNewLineNext(): void {
-        this.insertRow(this.state.cursor.row + 1, "", this.state.cursor.row);
+        const referenceLine = this.currentLine;
+        const indent = this.insertRowWithIndent(this.state.cursor.row + 1, "", referenceLine);
+        this.moveCursorToPos(this.state.cursor.row + 1, indent);
     }
 
     private insertNewLineCurrent(): void {
-        this.insertRow(this.state.cursor.row, "", this.state.cursor.row);
+        const referenceLine = this.currentLine;
+        const indent = this.insertRowWithIndent(this.state.cursor.row, "", referenceLine);
+        this.moveCursorToPos(this.state.cursor.row, indent);
     }
 
     private insertText(text: string, { replace = false } = {}): void {
@@ -2106,28 +2112,25 @@ export class Editor {
         return this.state.lines[this.state.cursor.row - 1];
     }
 
-    /** appendedRow: インデント調整の参照元となる行数 */
-    private insertRow(row: number, text: string, appendedRow?: number): void {
-        if (row < 0 || row > this.state.lines.length) return;
-
-        const newLine = new Line();
-        if (this.config.autoIndent && appendedRow) {
-            const appendedLine = this.state.lines[appendedRow];
-            if (!appendedLine) throw new Error(`appendingLine is undefined. lines[${appendedRow}]`);
-            const whitespaceCount = getCountUntilNonWhitespace(appendedLine.text);
-            newLine.text = " ".repeat(whitespaceCount) + text;
-            this.state.cursor.row = row;
-            this.state.cursor.col = whitespaceCount;
-            this.state.cursor.visualCol = whitespaceCount;
-            this.state.cursor.prefVisualCol = this.state.cursor.visualCol;
-        } else {
-            newLine.text = text;
-            this.state.cursor.row = row;
-            this.state.cursor.col = 0;
-            this.state.cursor.visualCol = 0;
-            this.state.cursor.prefVisualCol = this.state.cursor.visualCol;
-        }
+    private insertRow(row: number, text: string): Line {
+        // row === this.state.lines.length は末尾への追加になる
+        if (row < 0 || row > this.state.lines.length) throw new Error("insertRow out of range");
+        const newLine = new Line(text);
         this.state.lines.splice(row, 0, newLine);
+        return newLine;
+    }
+
+    private applyAutoIndent(line: Line, referenceLine: Line): { indent: number } {
+        const whitespaceCount = getCountUntilNonWhitespace(referenceLine.text);
+        line.text = " ".repeat(whitespaceCount) + line.text;
+        return { indent: whitespaceCount };
+    }
+
+    private insertRowWithIndent(row: number, text: string, referenceLine: Line): number {
+        const newLine = this.insertRow(row, text);
+        if (!this.config.autoIndent) return 0;
+        const { indent } = this.applyAutoIndent(newLine, referenceLine);
+        return indent;
     }
 
     private deleteRow(row: number): void {
@@ -2137,7 +2140,6 @@ export class Editor {
         if (len === 0) {
             this.insertRow(0, "");
             this.moveCursorToFirst();
-            return;
         }
     }
 
