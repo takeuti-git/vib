@@ -303,11 +303,15 @@ export class Editor {
         const targetLine = this.state.lines[targetRow] ?? this.state.lines[this.state.lines.length - 1] as Line;
         const startCol = stringWidthToCol(this.state.scroll.visualColoff, targetLine.text);
         const hiddenTextWidth = calcStringWidth(targetLine.text.slice(0, startCol));
-        const visualCol = (
+        const assumedVisualCol = (
             Math.floor(clickX / charWidth) + hiddenTextWidth
             + (this.state.scroll.visualColoff !== hiddenTextWidth ? 1 : 0) // 全角文字が画面間にある状態のずれを解決する
         );
-        const targetCol = stringWidthToCol(visualCol, targetLine.text);
+        const targetCol = stringWidthToCol(assumedVisualCol, targetLine.text);
+        // 全角文字の右側をクリックした際のずれを解消する
+        const visualCol = (
+            calcStringWidth(targetLine.text.slice(0, targetCol)) !== assumedVisualCol ? assumedVisualCol - 1 : assumedVisualCol
+        );
 
         this.state.cursor.row = targetRow;
         this.state.cursor.col = targetCol;
