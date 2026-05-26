@@ -2239,7 +2239,7 @@ export class Editor {
 
     private recalcColAndVisualCol(destLine: Line): void {
         const visualCol = Math.min(this.state.cursor.prefVisualCol, calcStringWidth(destLine.text));
-        const col = stringWidthToCol(visualCol, destLine.text);
+        const col = Math.max(0, Math.min(stringWidthToCol(visualCol, destLine.text), destLine.size - 1));
         this.state.cursor.col = col;
         this.state.cursor.visualCol = calcStringWidth(destLine.text.slice(0, col));
     }
