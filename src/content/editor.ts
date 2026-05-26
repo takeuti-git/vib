@@ -297,27 +297,32 @@ export class Editor {
 
         const clickX = Math.max(0, e.offsetX - lineNumberWidth);
         const clickY = e.offsetY;
+        const clickCol = Math.floor(clickX / charWidth);
 
         const targetRow = Math.floor(clickY / lineHeight) + this.state.scroll.rowoff;
 
         const targetLine = this.state.lines[targetRow] ?? this.state.lines[this.state.lines.length - 1] as Line;
         const startCol = stringWidthToCol(this.state.scroll.visualColoff, targetLine.text);
         const hiddenTextWidth = calcStringWidth(targetLine.text.slice(0, startCol));
-        const assumedVisualCol = (
-            Math.floor(clickX / charWidth) + hiddenTextWidth
-            + (this.state.scroll.visualColoff !== hiddenTextWidth ? 1 : 0) // 全角文字が画面間にある状態のずれを解決する
+        const assumedVisualCol = Math.min(
+            hiddenTextWidth + clickCol +
+            (this.state.scroll.visualColoff !== hiddenTextWidth ? 1 : 0), // 全角文字が画面間にある状態のずれを解決する
+            Math.max(0, calcStringWidth(targetLine.text))
         );
         const targetCol = stringWidthToCol(assumedVisualCol, targetLine.text);
         // 全角文字の右側をクリックした際のずれを解消する
         const visualCol = (
-            calcStringWidth(targetLine.text.slice(0, targetCol)) !== assumedVisualCol ? assumedVisualCol - 1 : assumedVisualCol
+            calcStringWidth(targetLine.text.slice(0, targetCol)) !== assumedVisualCol ?
+            assumedVisualCol - 1 :
+            assumedVisualCol
         );
 
         this.state.cursor.row = targetRow;
         this.state.cursor.col = targetCol;
         this.state.cursor.visualCol = visualCol;
         this.state.cursor.prefVisualCol = visualCol;
-        this.clampCursor(); // 存在する行を超えたクリックに対応
+        this.clampCursorRow();
+        if (this.state.vi.state.mode === "normal") this.clampCursorCol();
         this.scrollWindow();
         this.render();
     };
