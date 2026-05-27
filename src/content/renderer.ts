@@ -199,11 +199,12 @@ export class Renderer {
     /** draw row/col in the status bar */
     private drawStatusBarRC(row: number, col: number, width: number): void {
         this.ctx.fillStyle = this.config.colors.statusBar.text;
-        this.ctx.textAlign = "right";
-        const x = this.config.screencols * this.halfFontSize;
         const rc = `${row + 1},${col + 1}(${width})`;
-        this.ctx.fillText(rc, x, this.bottomTextY);
-        this.ctx.textAlign = "start"; // 元に戻す
+        let x = this.config.screencols * this.halfFontSize - this.calcWidth(rc);
+        for (const ch of rc) {
+            this.drawChar(x, this.bottomTextY, ch, this.config.colors.statusBar.text);
+            x += this.calcWidth(ch);
+        }
     }
 
     private drawLineNumber(
