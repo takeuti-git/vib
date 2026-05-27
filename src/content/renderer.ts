@@ -67,13 +67,18 @@ export class Renderer {
     }
 
     private drawLines(state: EditorState): void {
-        const px = this.lineNumberPadding(state.lines.length);
+        const textPx = this.lineNumberPadding(state.lines.length);
 
+        const halfFontSize = this.halfFontSize;
+        const lineHeight = this.lineHeight;
+        const halfLineHeight = this.halfLineHeight;
         const isLineNumberOn = this.config.lineNumbers !== "off";
         const isRelative = this.config.lineNumbers === "relative";
+        const lineNumberCols = this.lineNumberCols(state.lines.length);
+
         for (let y = 0; y < this.config.screenrows - this.config.statusBarHeight; y++) {
             const targetRow = y + state.scroll.rowoff;
-            const py = y * this.lineHeight + this.halfLineHeight;
+            const py = y * lineHeight + halfLineHeight;
 
             const line = state.lines[targetRow];
             if (!line) {
@@ -81,19 +86,25 @@ export class Renderer {
                 continue;
             }
 
-            this.drawLineText(state, targetRow, px, py, line.text);
+            this.drawLineText(state, targetRow, textPx, py, line.text);
 
             if (!isLineNumberOn) continue;
 
             const isCurrentRow = state.cursor.row === targetRow;
             const absoluteRowNumber = targetRow + 1;
 
-            const rowDisplayNumber = isRelative
-                ? isCurrentRow
+            const rowDisplayNumber = (
+                isRelative
+                ? (
+                    isCurrentRow
                     ? absoluteRowNumber
                     : Math.abs(state.cursor.row - targetRow)
-                : absoluteRowNumber;
-            this.drawLineNumber(state, px, py, targetRow, rowDisplayNumber);
+                )
+                : absoluteRowNumber
+            );
+            const offset = (lineNumberCols - rowDisplayNumber.toString().length) * halfFontSize;
+            const px = (isRelative && targetRow === state.cursor.row) ? 0 : offset;
+            this.drawLineNumber(state, px + halfFontSize, py, targetRow, rowDisplayNumber);
         }
     }
 
@@ -196,17 +207,18 @@ export class Renderer {
         state: EditorState,
         x: number,
         y: number,
-        row: number,
-        lineNum: number,
+        absRow: number,
+        dispNum: number,
     ): void {
-        this.ctx.fillStyle =
-            row === state.cursor.row
-                ? this.config.colors.lineNumber.current
-                : this.config.colors.lineNumber.normal;
-        this.ctx.textAlign = "right";
-        // 行番号の右側に空白1つ分開ける: x - halfFontsize
-        this.ctx.fillText(lineNum.toString(), x - this.halfFontSize, y);
-        this.ctx.textAlign = "start"; // 元に戻す
+        const color = (
+            absRow === state.cursor.row
+            ? this.config.colors.lineNumber.current
+            : this.config.colors.lineNumber.normal
+        );
+        for (const ch of dispNum.toString()) {
+            this.drawChar(x, y, ch, color);
+            x += this.halfFontSize;
+        }
     }
 
     private drawLineText(

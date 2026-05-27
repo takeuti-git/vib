@@ -2343,7 +2343,7 @@ export class Editor {
     }
 
     private get lineNumberCols(): number {
-        return Math.max(this.config.minLineNumberCols, String(this.state.lines.length).length + 2);
+        return this.config.lineNumbers === "off" ? 0 : Math.max(this.config.minLineNumberCols, String(this.state.lines.length).length + 2);
     }
 
     // ------------------------------
