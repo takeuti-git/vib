@@ -190,21 +190,15 @@ export class Renderer {
     private drawStatusBarText(x: number, text: string): void {
         this.ctx.fillStyle = this.config.colors.statusBar.text;
         this.ctx.textAlign = "start";
-        for (const ch of text) {
-            this.drawChar(x, this.bottomTextY, ch, this.config.colors.statusBar.text);
-            x += this.calcWidth(ch);
-        }
+        this.drawString(x, this.bottomTextY, text, this.config.colors.statusBar.text);
     }
 
     /** draw row/col in the status bar */
     private drawStatusBarRC(row: number, col: number, width: number): void {
         this.ctx.fillStyle = this.config.colors.statusBar.text;
         const rc = `${row + 1},${col + 1}(${width})`;
-        let x = this.config.screencols * this.halfFontSize - this.calcWidth(rc);
-        for (const ch of rc) {
-            this.drawChar(x, this.bottomTextY, ch, this.config.colors.statusBar.text);
-            x += this.calcWidth(ch);
-        }
+        const x = this.config.screencols * this.halfFontSize - this.calcWidth(rc);
+        this.drawString(x, this.bottomTextY, rc, this.config.colors.statusBar.text);
     }
 
     private drawLineNumber(
@@ -219,10 +213,7 @@ export class Renderer {
             ? this.config.colors.lineNumber.current
             : this.config.colors.lineNumber.normal
         );
-        for (const ch of dispNum.toString()) {
-            this.drawChar(x, y, ch, color);
-            x += this.halfFontSize;
-        }
+        this.drawString(x, y, dispNum.toString(), color)
     }
 
     private drawLineText(
@@ -314,6 +305,13 @@ export class Renderer {
         // }
         this.ctx.fillStyle = color;
         this.ctx.fillText(ch, x, y);
+    }
+
+    private drawString(x: number, y: number, text: string, color: string): void {
+        for (const ch of text) {
+            this.drawChar(x, y, ch, color);
+            x += this.calcWidth(ch);
+        }
     }
 
     private drawEmptyHalfWidth(x: number, y: number): void {
