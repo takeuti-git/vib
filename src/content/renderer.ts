@@ -252,7 +252,8 @@ export class Renderer {
         /** 文字を描画する共通処理 */
         const drawLineString = (callback?: (ch: string, i: number) => void) => {
             for (const [ch, i] of enumerate(offsetText)) {
-                this.drawChar(cursorX, y, ch, this.config.colors.text.normal);
+                this.ctx.fillStyle = this.config.colors.text.normal;
+                this.drawChar(cursorX, y, ch);
 
                 if (this.config.renderWhitespace === "all") {
                     if (ch === " " /* half width whitespace */) {
@@ -288,7 +289,7 @@ export class Renderer {
         this.ctx.fillText("~", 0, y);
     }
 
-    private drawChar(x: number, y: number, ch: string, color: string): void {
+    private drawChar(x: number, y: number, ch: string): void {
         // if (ch === "\r") {
         //     this.ctx.fillStyle = "red";
         //     this.ctx.fillRect(x, y - this.halfLineHeight, this.halfFontSize, this.lineHeight);
@@ -303,13 +304,13 @@ export class Renderer {
         //     this.ctx.fillText("N", x, y);
         //     return;
         // }
-        this.ctx.fillStyle = color;
         this.ctx.fillText(ch, x, y);
     }
 
     private drawString(x: number, y: number, text: string, color: string): void {
+        this.ctx.fillStyle = color;
         for (const ch of text) {
-            this.drawChar(x, y, ch, color);
+            this.drawChar(x, y, ch);
             x += this.calcWidth(ch);
         }
     }
