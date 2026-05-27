@@ -112,6 +112,9 @@ export class Renderer {
         if (state.vi.state.mode === "command") {
             this.drawCursorAtStatusBar(state);
         } else {
+            if (state.cursor.row >= state.scroll.rowoff + this.config.screenrows - 1) {
+                return;
+            }
             const currLine = state.lines[state.cursor.row] as Line;
             const text = currLine.text;
             const lineheight = this.lineHeight;
