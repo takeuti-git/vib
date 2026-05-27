@@ -189,7 +189,6 @@ export class Renderer {
 
     private drawStatusBarText(x: number, text: string): void {
         this.ctx.fillStyle = this.config.colors.statusBar.text;
-        this.ctx.textAlign = "start";
         this.drawString(x, this.bottomTextY, text, this.config.colors.statusBar.text);
     }
 
@@ -223,7 +222,6 @@ export class Renderer {
         y: number,
         text: string
     ): void {
-        this.ctx.textAlign = "start";
         const lineTextWidth = this.getLineTextWidth(state.lines);
 
         const startCol = stringWidthToCol(state.scroll.visualColoff, text);
