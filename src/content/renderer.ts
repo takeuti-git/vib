@@ -244,41 +244,23 @@ export class Renderer {
             (rightOverflow) ? leftAlignedText.slice(0, -1) + ">"
             : leftAlignedText;
 
-        /** 描画するx座標 */
-        let cursorX = x;
-
-        /** 文字を描画する共通処理 */
-        const drawLineString = (callback?: (ch: string, i: number) => void) => {
-            for (const [ch, i] of enumerate(offsetText)) {
-                this.ctx.fillStyle = this.config.colors.text.normal;
-                this.drawChar(cursorX, y, ch);
-
-                if (this.config.renderWhitespace === "all") {
-                    if (ch === " " /* half width whitespace */) {
-                        this.drawEmptyHalfWidth(cursorX, y);
-                    } else if (ch === "　" /* full width whitespace */) {
-                        this.drawEmptyFullWidth(cursorX, y, offsetText, i);
-                    }
-                }
-
-                callback?.(ch, i);
-                cursorX += this.calcWidth(ch);
-            }
-        };
-
         if (state.vi.state.mode === "visual") {
             const vi_state = state.vi.state;
+            this.drawString(x, y, offsetText, this.config.colors.text.normal);
+
             if (offsetText === "" && this.inVisualRange(vi_state, lineNumber, startCol)) {
                 this.drawCursorAt(state, this.lineNumberPadding(state.lines.length), y - this.halfLineHeight);
             } else {
-                drawLineString((ch: string, i: number) => {
+                let cursorX = x;
+                for (const [ch, i] of enumerate(offsetText)) {
                     if (this.inVisualRange(vi_state, lineNumber, i + startCol)) {
                         this.drawCursorAt(state, cursorX, y - this.halfLineHeight, ch);
                     }
-                });
+                    cursorX += this.calcWidth(ch);
+                }
             }
         } else {
-            drawLineString();
+            this.drawString(x, y, offsetText, this.config.colors.text.normal);
         }
     }
 
@@ -306,9 +288,19 @@ export class Renderer {
     }
 
     private drawString(x: number, y: number, text: string, color: string): void {
-        this.ctx.fillStyle = color;
-        for (const ch of text) {
+        for (const [ch, i] of enumerate(text)) {
+            this.ctx.fillStyle = color;
             this.drawChar(x, y, ch);
+
+            if (this.config.renderWhitespace === "all") {
+                if (ch === " " /* half width whitespace */) {
+                    this.drawEmptyHalfWidth(x, y);
+                } else if (ch === "　" /* full width whitespace */) {
+                    this.drawEmptyFullWidth(x, y, text, i);
+                    throw "";
+                }
+            }
+
             x += this.calcWidth(ch);
         }
     }
