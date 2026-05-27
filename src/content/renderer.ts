@@ -82,7 +82,7 @@ export class Renderer {
 
             const line = state.lines[targetRow];
             if (!line) {
-                this.drawNonLine(py);
+                this.drawString(0, py, "~", this.config.colors.lineNumber.normal);
                 continue;
             }
 
@@ -157,7 +157,7 @@ export class Renderer {
         this.drawStatusBarBg();
 
         if (state.vi.state.mode === "command") {
-            this.drawStatusBarText(0, text);
+            this.drawString(0, this.bottomTextY, text, this.config.colors.statusBar.text);
         } else {
             const modeLabel = (state.vi.state.mode === "visual" && state.vi.state.linewise)
                 ? "VISUAL LINE"
@@ -166,7 +166,7 @@ export class Renderer {
                 ? ` recording @${state.vi.macro.recording}`
                 : "";
             const statusText = `-- ${modeLabel} --${macroSuffix}   ${text}`;
-            this.drawStatusBarText(0, statusText);
+            this.drawString(0, this.bottomTextY, statusText, this.config.colors.statusBar.text);
         }
 
         this.drawStatusBarRC(state.cursor.row, state.cursor.col, state.cursor.visualCol);
@@ -185,11 +185,6 @@ export class Renderer {
         this.ctx.fillStyle = this.config.colors.statusBar.bg;
         // 背景の矩形を描く
         this.ctx.fillRect(0, y, w, h);
-    }
-
-    private drawStatusBarText(x: number, text: string): void {
-        this.ctx.fillStyle = this.config.colors.statusBar.text;
-        this.drawString(x, this.bottomTextY, text, this.config.colors.statusBar.text);
     }
 
     /** draw row/col in the status bar */
@@ -262,11 +257,6 @@ export class Renderer {
         } else {
             this.drawString(x, y, offsetText, this.config.colors.text.normal);
         }
-    }
-
-    private drawNonLine(y: number) {
-        this.ctx.fillStyle = this.config.colors.lineNumber.normal;
-        this.ctx.fillText("~", 0, y);
     }
 
     private drawChar(x: number, y: number, ch: string): void {
