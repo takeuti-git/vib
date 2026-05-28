@@ -241,7 +241,7 @@ export class Renderer {
 
         if (state.vi.state.mode === "visual") {
             const vi_state = state.vi.state;
-            this.drawString(x, y, offsetText, this.config.colors.text.normal);
+            this.drawString(x, y, offsetText, this.config.colors.text.normal, true);
 
             if (offsetText === "" && this.inVisualRange(vi_state, lineNumber, startCol)) {
                 this.drawCursorAt(state, this.lineNumberPadding(state.lines.length), y - this.halfLineHeight);
@@ -255,7 +255,7 @@ export class Renderer {
                 }
             }
         } else {
-            this.drawString(x, y, offsetText, this.config.colors.text.normal);
+            this.drawString(x, y, offsetText, this.config.colors.text.normal, true);
         }
     }
 
@@ -277,20 +277,23 @@ export class Renderer {
         this.ctx.fillText(ch, x, y);
     }
 
-    private drawString(x: number, y: number, text: string, color: string): void {
+    private drawString(
+        x: number,
+        y: number,
+        text: string,
+        color: string,
+        renderWhitespace = false,
+    ): void {
         for (const [ch, i] of enumerate(text)) {
             this.ctx.fillStyle = color;
             this.drawChar(x, y, ch);
-
-            if (this.config.renderWhitespace === "all") {
+            if (renderWhitespace && this.config.renderWhitespace === "all") {
                 if (ch === " " /* half width whitespace */) {
                     this.drawEmptyHalfWidth(x, y);
                 } else if (ch === "　" /* full width whitespace */) {
                     this.drawEmptyFullWidth(x, y, text, i);
-                    throw "";
                 }
             }
-
             x += this.calcWidth(ch);
         }
     }
