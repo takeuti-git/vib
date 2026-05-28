@@ -3,21 +3,21 @@ type LineNumberMode = "off" | "absolute" | "relative";
 type HexColor = `#${string}`;
 
 type EditorColors = {
+    background: {
+        main: HexColor;
+        statusBar: HexColor;
+    },
     text: {
         normal: HexColor;
         whitespace: HexColor;
+        statusBar: HexColor;
     };
     cursor: {
         body: HexColor;
-        outline: HexColor;
     };
     lineNumber: {
         normal: HexColor;
         current: HexColor;
-    };
-    statusBar: {
-        bg: HexColor;
-        text: HexColor;
     };
 };
 
@@ -63,21 +63,21 @@ export function createEditorConfig(): EditorConfig {
         lineHeightPadding: 2,
 
         colors: {
+            background: {
+                main: "#eee",
+                statusBar: "#555",
+            },
             text: {
                 normal: "#008000",
                 whitespace: "#ccc",
+                statusBar: "#fff",
             },
             cursor: {
                 body: "#00f8",
-                outline: "#00f",
             },
             lineNumber: {
                 normal: "#777",
                 current: "#ff8c00",
-            },
-            statusBar: {
-                bg: "#555",
-                text: "#fff",
             },
         },
     };

@@ -63,7 +63,8 @@ export class Renderer {
     // ------------------------------
 
     private clear(): void {
-        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        this.ctx.fillStyle = this.config.colors.background.main;
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
     }
 
     private drawLines(state: EditorState): void {
@@ -157,7 +158,7 @@ export class Renderer {
         this.drawStatusBarBg();
 
         if (state.vi.state.mode === "command") {
-            this.drawString(0, this.bottomTextY, text, this.config.colors.statusBar.text);
+            this.drawString(0, this.bottomTextY, text, this.config.colors.text.statusBar);
         } else {
             const modeLabel = (state.vi.state.mode === "visual" && state.vi.state.linewise)
                 ? "VISUAL LINE"
@@ -166,7 +167,7 @@ export class Renderer {
                 ? ` recording @${state.vi.macro.recording}`
                 : "";
             const statusText = `-- ${modeLabel} --${macroSuffix}   ${text}`;
-            this.drawString(0, this.bottomTextY, statusText, this.config.colors.statusBar.text);
+            this.drawString(0, this.bottomTextY, statusText, this.config.colors.text.statusBar);
         }
 
         this.drawStatusBarRC(state.cursor.row, state.cursor.col, state.cursor.visualCol);
@@ -182,17 +183,16 @@ export class Renderer {
         const y = (this.config.screenrows - statusBarHeight) * lineHeight;
         const w = this.config.screencols * this.halfFontSize;
         const h = statusBarHeight * this.lineHeight;
-        this.ctx.fillStyle = this.config.colors.statusBar.bg;
+        this.ctx.fillStyle = this.config.colors.background.statusBar;
         // 背景の矩形を描く
         this.ctx.fillRect(0, y, w, h);
     }
 
     /** draw row/col in the status bar */
     private drawStatusBarRC(row: number, col: number, width: number): void {
-        this.ctx.fillStyle = this.config.colors.statusBar.text;
         const rc = `${row + 1},${col + 1}(${width})`;
         const x = this.config.screencols * this.halfFontSize - this.calcWidth(rc);
-        this.drawString(x, this.bottomTextY, rc, this.config.colors.statusBar.text);
+        this.drawString(x, this.bottomTextY, rc, this.config.colors.text.statusBar);
     }
 
     private drawLineNumber(
