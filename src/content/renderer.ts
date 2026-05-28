@@ -82,7 +82,7 @@ export class Renderer {
 
             const line = state.lines[targetRow];
             if (!line) {
-                this.drawNonLine(py);
+                this.drawString(0, py, "~", this.config.colors.lineNumber.normal);
                 continue;
             }
 
@@ -157,7 +157,7 @@ export class Renderer {
         this.drawStatusBarBg();
 
         if (state.vi.state.mode === "command") {
-            this.drawStatusBarText(0, text);
+            this.drawString(0, this.bottomTextY, text, this.config.colors.statusBar.text);
         } else {
             const modeLabel = (state.vi.state.mode === "visual" && state.vi.state.linewise)
                 ? "VISUAL LINE"
@@ -166,7 +166,7 @@ export class Renderer {
                 ? ` recording @${state.vi.macro.recording}`
                 : "";
             const statusText = `-- ${modeLabel} --${macroSuffix}   ${text}`;
-            this.drawStatusBarText(0, statusText);
+            this.drawString(0, this.bottomTextY, statusText, this.config.colors.statusBar.text);
         }
 
         this.drawStatusBarRC(state.cursor.row, state.cursor.col, state.cursor.visualCol);
@@ -185,11 +185,6 @@ export class Renderer {
         this.ctx.fillStyle = this.config.colors.statusBar.bg;
         // 背景の矩形を描く
         this.ctx.fillRect(0, y, w, h);
-    }
-
-    private drawStatusBarText(x: number, text: string): void {
-        this.ctx.fillStyle = this.config.colors.statusBar.text;
-        this.drawString(x, this.bottomTextY, text, this.config.colors.statusBar.text);
     }
 
     /** draw row/col in the status bar */
@@ -244,47 +239,24 @@ export class Renderer {
             (rightOverflow) ? leftAlignedText.slice(0, -1) + ">"
             : leftAlignedText;
 
-        /** 描画するx座標 */
-        let cursorX = x;
-
-        /** 文字を描画する共通処理 */
-        const drawLineString = (callback?: (ch: string, i: number) => void) => {
-            for (const [ch, i] of enumerate(offsetText)) {
-                this.ctx.fillStyle = this.config.colors.text.normal;
-                this.drawChar(cursorX, y, ch);
-
-                if (this.config.renderWhitespace === "all") {
-                    if (ch === " " /* half width whitespace */) {
-                        this.drawEmptyHalfWidth(cursorX, y);
-                    } else if (ch === "　" /* full width whitespace */) {
-                        this.drawEmptyFullWidth(cursorX, y, offsetText, i);
-                    }
-                }
-
-                callback?.(ch, i);
-                cursorX += this.calcWidth(ch);
-            }
-        };
-
         if (state.vi.state.mode === "visual") {
             const vi_state = state.vi.state;
+            this.drawString(x, y, offsetText, this.config.colors.text.normal, true);
+
             if (offsetText === "" && this.inVisualRange(vi_state, lineNumber, startCol)) {
                 this.drawCursorAt(state, this.lineNumberPadding(state.lines.length), y - this.halfLineHeight);
             } else {
-                drawLineString((ch: string, i: number) => {
+                let cursorX = x;
+                for (const [ch, i] of enumerate(offsetText)) {
                     if (this.inVisualRange(vi_state, lineNumber, i + startCol)) {
                         this.drawCursorAt(state, cursorX, y - this.halfLineHeight, ch);
                     }
-                });
+                    cursorX += this.calcWidth(ch);
+                }
             }
         } else {
-            drawLineString();
+            this.drawString(x, y, offsetText, this.config.colors.text.normal, true);
         }
-    }
-
-    private drawNonLine(y: number) {
-        this.ctx.fillStyle = this.config.colors.lineNumber.normal;
-        this.ctx.fillText("~", 0, y);
     }
 
     private drawChar(x: number, y: number, ch: string): void {
@@ -305,10 +277,23 @@ export class Renderer {
         this.ctx.fillText(ch, x, y);
     }
 
-    private drawString(x: number, y: number, text: string, color: string): void {
-        this.ctx.fillStyle = color;
-        for (const ch of text) {
+    private drawString(
+        x: number,
+        y: number,
+        text: string,
+        color: string,
+        renderWhitespace = false,
+    ): void {
+        for (const [ch, i] of enumerate(text)) {
+            this.ctx.fillStyle = color;
             this.drawChar(x, y, ch);
+            if (renderWhitespace && this.config.renderWhitespace === "all") {
+                if (ch === " " /* half width whitespace */) {
+                    this.drawEmptyHalfWidth(x, y);
+                } else if (ch === "　" /* full width whitespace */) {
+                    this.drawEmptyFullWidth(x, y, text, i);
+                }
+            }
             x += this.calcWidth(ch);
         }
     }
