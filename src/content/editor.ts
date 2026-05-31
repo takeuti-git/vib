@@ -29,6 +29,7 @@ import { OperatorName } from "./myvim/operator";
 import { NormalCmdType } from "./myvim/normal";
 import { VisualCmdType } from "./myvim/visual";
 import { isValidMacroChar, type MacroChar } from "./myvim/macro";
+import { searchKeyword } from "./myvim/search";
 
 function toExclusiveTextRange(start: InclusivePos, end: InclusivePos, linewise: boolean): TextRange {
     if (linewise) {
@@ -356,6 +357,10 @@ export class Editor {
             }
         }
 
+        if (e.key === "Enter") {
+            searchKeyword(this.state.cursor.row, this.state.cursor.col, this.state.lines, "word")
+            return;
+        }
         if (e.altKey && e.code === "KeyV") {
             this.tryFocusDestElement();
             return;
