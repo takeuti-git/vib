@@ -110,7 +110,7 @@ export class Renderer {
     }
 
     private drawCursor(state: EditorState): void {
-        if (state.vi.state.mode === "command") {
+        if (state.vi.state.mode === "command" || state.vi.state.mode === "search") {
             this.drawCursorAtStatusBar(state);
         } else {
             if (state.cursor.row >= state.scroll.rowoff + this.config.screenrows - 1) {
@@ -129,7 +129,8 @@ export class Renderer {
     }
 
     private drawCursorAtStatusBar(state: EditorState): void {
-        if (state.vi.state.mode !== "command") throw new Error("mode is not command");
+        if (state.vi.state.mode !== "command" && state.vi.state.mode !== "search")
+            throw new Error(`unexpected mode: ${state.vi.state.mode}`);
 
         const x = state.vi.state.sBarVisualCol * this.halfFontSize;
         const y = (this.config.screenrows - 1) * this.lineHeight;
@@ -157,7 +158,7 @@ export class Renderer {
     private drawStatusBar(state: EditorState, text: string): void {
         this.drawStatusBarBg();
 
-        if (state.vi.state.mode === "command") {
+        if (state.vi.state.mode === "command" || state.vi.state.mode === "search") {
             this.drawString(0, this.bottomTextY, text, this.config.colors.text.statusBar);
         } else {
             const modeLabel = (state.vi.state.mode === "visual" && state.vi.state.linewise)

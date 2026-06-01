@@ -7,7 +7,7 @@ import { enumerate } from "../utils";
 export function searchKeyword(
     startRow: number,
     startCol: number,
-    lines: Line[],
+    lines: Readonly<Line[]>,
     keyword: string
 ): { row: number, col: number }[] {
     const withIndex = [...enumerate(lines)];

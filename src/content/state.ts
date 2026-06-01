@@ -67,7 +67,7 @@ type Satisfies<Constraint, Target extends Constraint> = Target;
 
 type ViState = Satisfies<
     { mode: string },
-    NormalState | InsertState | ReplaceState | VisualState | CommandState
+    NormalState | InsertState | ReplaceState | VisualState | CommandState | SearchState
 >;
 
 type NormalState = {
@@ -98,6 +98,15 @@ type CommandState = {
     sBarCol: number;
     /** statusBarVisualCol */
     sBarVisualCol: number;
+};
+
+type SearchState = {
+    mode: "search";
+    /** statusBarCol */
+    sBarCol: number;
+    /** statusBarVisualCol */
+    sBarVisualCol: number;
+    // direction: "forward" | "backward";
 };
 
 export function createEditorState(config: Readonly<EditorConfig>): EditorState {

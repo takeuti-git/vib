@@ -35,6 +35,7 @@ export type GoInsertCommand = "i" | "a" | "I" | "A" | "o" | "O";
 export type GoReplaceCommand = "R";
 export type GoVisualCommand = "v" | "V";
 export type GoCommandCommand = ":";
+export type GoSearchCommand = "/" | "?";
 export type FindCommand = (typeof findCommands)[number];
 export type Operator = (typeof operators)[number];
 export type Motion = (typeof motions)[number];

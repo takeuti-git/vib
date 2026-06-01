@@ -11,6 +11,7 @@ type NoArgsCommands = (
     | cmd.GoReplaceCommand
     | cmd.GoVisualCommand
     | cmd.GoCommandCommand
+    | cmd.GoSearchCommand
     | cmd.SugarCommand
     | cmd.JoinCommand
     | cmd.PutCommand
@@ -235,6 +236,18 @@ export const NO_ARG_CMD_MAP: Record<NoArgsCommands, (count: Count) => NormalCmdC
     ":": (count) => ({
         type: NormalCmdType.GO_COMMAND,
         count,
+    }),
+
+    // GO_SEARCH
+    "/": (count) => ({
+        type: NormalCmdType.GO_SEARCH,
+        count,
+        dir: "fw",
+    }),
+    "?": (count) => ({
+        type: NormalCmdType.GO_SEARCH,
+        count,
+        dir: "bw",
     }),
 };
 

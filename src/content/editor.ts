@@ -357,7 +357,7 @@ export class Editor {
             }
         }
 
-        if (e.key === "Enter") {
+        if (e.key === "Enter" && e.ctrlKey) {
             searchKeyword(this.state.cursor.row, this.state.cursor.col, this.state.lines, "word")
             return;
         }
@@ -447,6 +447,13 @@ export class Editor {
                 }
             } break;
 
+            case "search": {
+                const freeInput = this.executeFreeInput(input);
+                if (freeInput !== undefined) {
+                    console.log("free input is:", freeInput);
+                }
+            } break;
+
             default: {
                 throw new Error(`unexpected mode: ${mode satisfies never}`);
             }
@@ -488,8 +495,8 @@ export class Editor {
     }
 
     private executeFreeInput(input: string): string[] | undefined {
-        if (this.state.vi.state.mode !== "command") {
-            throw new Error("state.vi_state.mode is not command");
+        if (this.state.vi.state.mode !== "command" && this.state.vi.state.mode !== "search") {
+            throw new Error(`unexpected mode: ${this.state.vi.state.mode}`);
         }
         if (input.length === 1) {
             this.state.vi.cmd.splice(this.state.vi.state.sBarCol, 0, input);
@@ -1311,6 +1318,10 @@ export class Editor {
                 this.vi_goCommand();
             } break;
 
+            case NormalCmdType.GO_SEARCH: {
+                this.vi_goSearch(data.dir);
+            } break;
+
             default: {
                 const unreachable: never = datatype;
                 throw new Error(`unreachable: ${unreachable}`);
@@ -1872,6 +1883,18 @@ export class Editor {
         };
         this.state.vi.callbackOnSuccess = () => {
             this.state.vi.cmd = [":"];
+            this.render();
+        };
+    }
+
+    private vi_goSearch(dir: "fw" | "bw"): void {
+        this.state.vi.state = {
+            mode: "search",
+            sBarCol: 1,
+            sBarVisualCol: 1,
+        };
+        this.state.vi.callbackOnSuccess = () => {
+            this.state.vi.cmd = dir === "fw" ? ["/"] : ["?"];
             this.render();
         };
     }
