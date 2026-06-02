@@ -29,7 +29,7 @@ import { OperatorName } from "./myvim/operator";
 import { NormalCmdType } from "./myvim/normal";
 import { VisualCmdType } from "./myvim/visual";
 import { isValidMacroChar, type MacroChar } from "./myvim/macro";
-import { searchKeyword } from "./myvim/search";
+import { getNextKeywordPos, searchKeyword } from "./myvim/search";
 
 function toExclusiveTextRange(start: InclusivePos, end: InclusivePos, linewise: boolean): TextRange {
     if (linewise) {
@@ -451,6 +451,20 @@ export class Editor {
                 const freeInput = this.executeFreeInput(input);
                 if (freeInput !== undefined) {
                     console.log("free input is:", freeInput);
+                    const input = freeInput.slice(1).join("");
+                    const result = getNextKeywordPos(
+                        this.state.cursor.row,
+                        this.state.cursor.col,
+                        this.state.lines,
+                        input
+                    );
+                    if (!result) {
+                        this.setStatusMsg(`Pattern not found: ${input}`);
+                        break;
+                    }
+                    this.moveCursorToPos(result.row, result.col);
+                    this.scrollWindow();
+                    this.render();
                 }
             } break;
 

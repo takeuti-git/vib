@@ -24,3 +24,13 @@ export function searchKeyword(
     console.log(result);
     return result;
 }
+
+export function getNextKeywordPos(
+    row: number,
+    col: number,
+    lines: Readonly<Line[]>,
+    keyword: string,
+): { row: number, col: number } | undefined {
+    const results = searchKeyword(row, col, lines, keyword);
+    return results[0];
+}
