@@ -443,28 +443,20 @@ export class Editor {
             case "command": {
                 const freeInput = this.executeFreeInput(input);
                 if (freeInput !== undefined) {
-                    console.log("free input is:", freeInput);
+                    console.log("free input:", freeInput);
                 }
             } break;
 
             case "search": {
                 const freeInput = this.executeFreeInput(input);
                 if (freeInput !== undefined) {
-                    console.log("free input is:", freeInput);
                     const input = freeInput.slice(1).join("");
-                    const result = getNextKeywordPos(
-                        this.state.cursor.row,
-                        this.state.cursor.col,
-                        this.state.lines,
-                        input
-                    );
-                    if (!result) {
-                        this.setStatusMsg(`Pattern not found: ${input}`);
-                        break;
-                    }
-                    this.moveCursorToPos(result.row, result.col);
+                    const result = this.vi_executeSearch(input);
                     this.scrollWindow();
                     this.render();
+                    if (result !== 0) {
+                        this.setStatusMsg(`Pattern not found: ${input}`);
+                    }
                 }
             } break;
 
@@ -1336,6 +1328,21 @@ export class Editor {
                 this.vi_goSearch(data.dir);
             } break;
 
+            case NormalCmdType.SEARCH_NEXT: {
+                if (!this.state.vi.lastSearchBuf) break;
+                const result = this.vi_executeSearch(this.state.vi.lastSearchBuf);
+                if (result !== 0) {
+                    this.state.vi.callbackOnSuccess = () => {
+                        this.setStatusMsg(`Pattern not found: ${this.state.vi.lastSearchBuf}`);
+                    };
+                    break;
+                }
+            } break;
+
+            case NormalCmdType.SEARCH_PREV: {
+
+            } break;
+
             default: {
                 const unreachable: never = datatype;
                 throw new Error(`unreachable: ${unreachable}`);
@@ -1617,6 +1624,30 @@ export class Editor {
                 throw new Error(`unreachable: ${unreachable}`);
             }
         }
+        return 0;
+    }
+
+    private vi_executeSearch(keyword: string): 0 | 1 {
+        if (keyword === "") {
+            if (!this.state.vi.lastSearchBuf) {
+                return 0;
+            } else {
+                // lastSearchBufをそのままつかう
+            }
+        } else {
+            this.state.vi.lastSearchBuf = keyword;
+        }
+        const result = getNextKeywordPos(
+            this.state.cursor.row,
+            this.state.cursor.col,
+            this.state.lines,
+            this.state.vi.lastSearchBuf,
+        );
+        if (!result) {
+            // 0以外が返る際は呼び出し側でエラーメッセージを表示する
+            return 1;
+        }
+        this.moveCursorToPos(result.row, result.col);
         return 0;
     }
 
