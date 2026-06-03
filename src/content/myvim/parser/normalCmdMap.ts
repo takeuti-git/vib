@@ -23,6 +23,8 @@ type NoArgsCommands = (
     | cmd.RepeatMotionCommand
     | cmd.IncrementCommand
     | cmd.DecrementCommand
+    | cmd.SearchNextCommand
+    | cmd.SearchPrevCommand
 );
 
 export function isNoArgCmd(key: string): key is keyof typeof NO_ARG_CMD_MAP {
@@ -248,6 +250,16 @@ export const NO_ARG_CMD_MAP: Record<NoArgsCommands, (count: Count) => NormalCmdC
         type: NormalCmdType.GO_SEARCH,
         count,
         dir: "bw",
+    }),
+
+    // SEARCH_NEXT
+    "n": (count) => ({
+        type: NormalCmdType.SEARCH_NEXT,
+        count,
+    }),
+    "N": (count) => ({
+        type: NormalCmdType.SEARCH_NEXT,
+        count,
     }),
 };
 

@@ -54,6 +54,7 @@ type ViEditorState = {
     scrollAmount: number; // 一部のコマンド入力によるスクロールの行数
     callbackOnSuccess: (() => void) | null;
     macro: ViMacroState;
+    lastSearchBuf: string | null;
 };
 
 type ViMacroState = {
@@ -147,6 +148,7 @@ export function createEditorState(config: Readonly<EditorConfig>): EditorState {
                 callback: null,
             },
             callbackOnSuccess: null,
+            lastSearchBuf: null,
         },
     };
 }

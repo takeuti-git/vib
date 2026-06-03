@@ -30,6 +30,8 @@ export const NormalCmdType = {
     MACRO_REPEAT: "MACRO_REPEAT",
     INCREMENT:   "INCREMENT",
     DECREMENT:   "DECREMENT",
+    SEARCH_NEXT: "SEARCH_NEXT",
+    SEARCH_PREV: "SEARCH_PREV",
 } as const;
 
 type NormalCmdType = (typeof NormalCmdType)[keyof typeof NormalCmdType];
@@ -60,6 +62,8 @@ export type NormalCmdContext = { count: Count } & (
     | { type: typeof NormalCmdType.MACRO_REPEAT; }
     | { type: typeof NormalCmdType.INCREMENT; }
     | { type: typeof NormalCmdType.DECREMENT; }
+    | { type: typeof NormalCmdType.SEARCH_NEXT; }
+    | { type: typeof NormalCmdType.SEARCH_PREV; }
 );
 
 type PutPosition = "before" | "after";

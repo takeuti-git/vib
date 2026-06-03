@@ -55,6 +55,8 @@ export type MacroRecordCommand = typeof macroRecordCommand;
 export type MacroPlayCommand = "@";
 export type IncrementCommand = "<C-a>";
 export type DecrementCommand = "<C-x>";
+export type SearchNextCommand = "n";
+export type SearchPrevCommand = "N";
 
 // ------------------------------
 // | Validations
