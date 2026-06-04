@@ -258,7 +258,7 @@ export const NO_ARG_CMD_MAP: Record<NoArgsCommands, (count: Count) => NormalCmdC
         count,
     }),
     "N": (count) => ({
-        type: NormalCmdType.SEARCH_NEXT,
+        type: NormalCmdType.SEARCH_PREV,
         count,
     }),
 };

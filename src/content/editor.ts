@@ -29,7 +29,7 @@ import { OperatorName } from "./myvim/operator";
 import { NormalCmdType } from "./myvim/normal";
 import { VisualCmdType } from "./myvim/visual";
 import { isValidMacroChar, type MacroChar } from "./myvim/macro";
-import { getNextKeywordPos, searchKeyword } from "./myvim/search";
+import { getNextKeywordPos, getPrevKeywordPos } from "./myvim/search";
 
 function toExclusiveTextRange(start: InclusivePos, end: InclusivePos, linewise: boolean): TextRange {
     if (linewise) {
@@ -357,10 +357,6 @@ export class Editor {
             }
         }
 
-        if (e.key === "Enter" && e.ctrlKey) {
-            searchKeyword(this.state.cursor.row, this.state.cursor.col, this.state.lines, "word")
-            return;
-        }
         if (e.altKey && e.code === "KeyV") {
             this.tryFocusDestElement();
             return;
@@ -451,7 +447,8 @@ export class Editor {
                 const freeInput = this.executeFreeInput(input);
                 if (freeInput !== undefined) {
                     const input = freeInput.slice(1).join("");
-                    const result = this.vi_executeSearch(input);
+                    this.state.vi.searchDir = (freeInput[0] === "/") ? "fw" : "bw";
+                    const result = this.vi_executeSearch(input, this.state.vi.searchDir);
                     this.scrollWindow();
                     this.render();
                     if (result !== 0) {
@@ -1328,19 +1325,27 @@ export class Editor {
                 this.vi_goSearch(data.dir);
             } break;
 
-            case NormalCmdType.SEARCH_NEXT: {
+            case NormalCmdType.SEARCH_NEXT:
+            case NormalCmdType.SEARCH_PREV: {
+                // SEARCH_NEXTは記憶した方向に対してそのまま
+                // SEARCH_PREVは記憶した方向の逆
                 if (!this.state.vi.lastSearchBuf) break;
-                const result = this.vi_executeSearch(this.state.vi.lastSearchBuf);
+                const dir = (
+                    (datatype === NormalCmdType.SEARCH_NEXT) ?
+                    this.state.vi.searchDir :
+                    (
+                        (this.state.vi.searchDir === "fw") ?
+                        "bw" :
+                        "fw"
+                    )
+                );
+                const result = this.vi_executeSearch(this.state.vi.lastSearchBuf, dir);
                 if (result !== 0) {
                     this.state.vi.callbackOnSuccess = () => {
                         this.setStatusMsg(`Pattern not found: ${this.state.vi.lastSearchBuf}`);
                     };
                     break;
                 }
-            } break;
-
-            case NormalCmdType.SEARCH_PREV: {
-
             } break;
 
             default: {
@@ -1627,7 +1632,7 @@ export class Editor {
         return 0;
     }
 
-    private vi_executeSearch(keyword: string): 0 | 1 {
+    private vi_executeSearch(keyword: string, dir: "fw" | "bw"): 0 | 1 {
         if (keyword === "") {
             if (!this.state.vi.lastSearchBuf) {
                 return 0;
@@ -1637,12 +1642,23 @@ export class Editor {
         } else {
             this.state.vi.lastSearchBuf = keyword;
         }
-        const result = getNextKeywordPos(
-            this.state.cursor.row,
-            this.state.cursor.col,
-            this.state.lines,
-            this.state.vi.lastSearchBuf,
+
+        const result = (
+            dir === "fw" ?
+            getNextKeywordPos(
+                this.state.cursor.row,
+                this.state.cursor.col,
+                this.state.lines,
+                this.state.vi.lastSearchBuf,
+            ) :
+            getPrevKeywordPos(
+                this.state.cursor.row,
+                this.state.cursor.col,
+                this.state.lines,
+                this.state.vi.lastSearchBuf,
+            )
         );
+
         if (!result) {
             // 0以外が返る際は呼び出し側でエラーメッセージを表示する
             return 1;

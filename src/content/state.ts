@@ -55,6 +55,7 @@ type ViEditorState = {
     callbackOnSuccess: (() => void) | null;
     macro: ViMacroState;
     lastSearchBuf: string | null;
+    searchDir: "fw" | "bw";
 };
 
 type ViMacroState = {
@@ -149,6 +150,7 @@ export function createEditorState(config: Readonly<EditorConfig>): EditorState {
             },
             callbackOnSuccess: null,
             lastSearchBuf: null,
+            searchDir: "fw",
         },
     };
 }
