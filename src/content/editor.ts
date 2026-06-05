@@ -1650,12 +1650,14 @@ export class Editor {
                 this.state.cursor.col,
                 this.state.lines,
                 this.state.vi.lastSearchBuf,
+                { ignorecase: this.config.ignorecase },
             ) :
             getPrevKeywordPos(
                 this.state.cursor.row,
                 this.state.cursor.col,
                 this.state.lines,
                 this.state.vi.lastSearchBuf,
+                { ignorecase: this.config.ignorecase },
             )
         );
 

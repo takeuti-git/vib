@@ -40,6 +40,8 @@ export type EditorConfig = {
     baseFontSize: number;
     lineHeightPadding: number;
 
+    ignorecase: boolean;
+
     colors: EditorColors;
 };
 
@@ -61,6 +63,8 @@ export function createEditorConfig(): EditorConfig {
         fontFamily: "Consolas",
         baseFontSize: 16,
         lineHeightPadding: 2,
+
+        ignorecase: true,
 
         colors: {
             background: {

@@ -2,10 +2,17 @@ import type { Line } from "../line";
 import type { Position } from "../types/motion";
 import { enumerate } from "../utils";
 
-// TODO: 大文字小文字の区別のオプション化(smartcase)
+type SearchOptions = {
+    ignorecase: boolean;
+};
 
-function searchKeyword(lines: Readonly<Line[]>, keyword: string): Position[] {
-    const regex = new RegExp(keyword, "g");
+function searchKeyword(
+    lines: Readonly<Line[]>,
+    keyword: string,
+    { ignorecase = false }: Partial<SearchOptions>,
+): Position[] {
+    const opts = (ignorecase) ? "gi" : "g";
+    const regex = new RegExp(keyword, opts);
     const result: Position[] = [];
 
     for (const [line, i] of enumerate(lines)) {
@@ -22,8 +29,9 @@ export function getNextKeywordPos(
     col: number,
     lines: Readonly<Line[]>,
     keyword: string,
+    opts: Partial<SearchOptions> = {},
 ): Position | undefined {
-    const results = searchKeyword(lines, keyword);
+    const results = searchKeyword(lines, keyword, opts);
     if (results.length === 0) return undefined;
 
     for (const p of results) {
@@ -39,8 +47,9 @@ export function getPrevKeywordPos(
     col: number,
     lines: Readonly<Line[]>,
     keyword: string,
+    opts: Partial<SearchOptions> = {},
 ): Position | undefined {
-    const results = searchKeyword(lines, keyword);
+    const results = searchKeyword(lines, keyword, opts);
     if (results.length === 0) return undefined;
 
     for (let i = results.length - 1; i >= 0; i--) {
