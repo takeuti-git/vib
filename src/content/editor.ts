@@ -29,7 +29,7 @@ import { OperatorName } from "./myvim/operator";
 import { NormalCmdType } from "./myvim/normal";
 import { VisualCmdType } from "./myvim/visual";
 import { isValidMacroChar, type MacroChar } from "./myvim/macro";
-import { getNextKeywordPos, getPrevKeywordPos } from "./myvim/search";
+import { getKeywordPos } from "./myvim/search";
 
 function toExclusiveTextRange(start: InclusivePos, end: InclusivePos, linewise: boolean): TextRange {
     if (linewise) {
@@ -1643,22 +1643,13 @@ export class Editor {
             this.state.vi.lastSearchBuf = keyword;
         }
 
-        const result = (
-            dir === "fw" ?
-            getNextKeywordPos(
-                this.state.cursor.row,
-                this.state.cursor.col,
-                this.state.lines,
-                this.state.vi.lastSearchBuf,
-                { ignorecase: this.config.ignorecase },
-            ) :
-            getPrevKeywordPos(
-                this.state.cursor.row,
-                this.state.cursor.col,
-                this.state.lines,
-                this.state.vi.lastSearchBuf,
-                { ignorecase: this.config.ignorecase },
-            )
+        const result = getKeywordPos(
+            this.state.cursor.row,
+            this.state.cursor.col,
+            this.state.lines,
+            this.state.vi.lastSearchBuf,
+            dir === "fw" ? 0 : 1,
+            { ignorecase: this.config.ignorecase },
         );
 
         if (!result) {

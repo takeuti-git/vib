@@ -24,39 +24,32 @@ function searchKeyword(
     return result;
 }
 
-export function getNextKeywordPos(
+export function getKeywordPos(
     row: number,
     col: number,
     lines: Readonly<Line[]>,
     keyword: string,
+    dir: 0 | 1,
     opts: Partial<SearchOptions> = {},
 ): Position | undefined {
     const results = searchKeyword(lines, keyword, opts);
     if (results.length === 0) return undefined;
 
-    for (const p of results) {
-        if ((p.row > row) || (p.row === row && p.col > col)) {
-            return p;
+    if (dir === 0) {
+        for (let i = 0; i < results.length; i++) {
+            const p = results[i]!;
+            if ((p.row > row) || (p.row === row && p.col > col)) {
+                return p;
+            }
         }
-    }
-    return results[0]; // 最後の要素から折り返したとき、最初の要素にもどって来る
-}
-
-export function getPrevKeywordPos(
-    row: number,
-    col: number,
-    lines: Readonly<Line[]>,
-    keyword: string,
-    opts: Partial<SearchOptions> = {},
-): Position | undefined {
-    const results = searchKeyword(lines, keyword, opts);
-    if (results.length === 0) return undefined;
-
-    for (let i = results.length - 1; i >= 0; i--) {
-        const p = results[i]!;
-        if ((p.row < row) || (p.row === row && p.col < col)) {
-            return p;
+        return results[0]; // 最後の要素から折り返したとき、最初の要素にもどって来る
+    } else {
+        for (let i = results.length - 1; i >= 0; i--) {
+            const p = results[i]!;
+            if ((p.row < row) || (p.row === row && p.col < col)) {
+                return p;
+            }
         }
+        return results[results.length - 1]; // 最後の要素から折り返したとき、最後の要素が結果になる
     }
-    return results[results.length - 1]; // 最後の要素から折り返したとき、最後の要素が結果になる
 }
