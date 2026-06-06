@@ -6,13 +6,23 @@ type SearchOptions = {
     ignorecase: boolean;
 };
 
+/** `(!`のような値を受け取るとSyntax Errorになる */
+function buildRegex(pattern: string, flags: string): RegExp {
+    try {
+        return new RegExp(pattern, flags);
+    } catch (e) {
+        console.error(e);
+        throw e;
+    }
+}
+
 function searchKeyword(
     lines: Readonly<Line[]>,
     keyword: string,
     { ignorecase = false }: Partial<SearchOptions>,
 ): Position[] {
     const opts = (ignorecase) ? "gi" : "g";
-    const regex = new RegExp(keyword, opts);
+    const regex = buildRegex(keyword, opts);
     const result: Position[] = [];
 
     for (const [line, i] of enumerate(lines)) {

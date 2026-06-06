@@ -1643,21 +1643,28 @@ export class Editor {
             this.state.vi.lastSearchBuf = keyword;
         }
 
-        const result = getKeywordPos(
-            this.state.cursor.row,
-            this.state.cursor.col,
-            this.state.lines,
-            this.state.vi.lastSearchBuf,
-            dir === "fw" ? 0 : 1,
-            { ignorecase: this.config.ignorecase },
-        );
-
-        if (!result) {
-            // 0以外が返る際は呼び出し側でエラーメッセージを表示する
-            return 1;
+        try {
+            const result = getKeywordPos(
+                this.state.cursor.row,
+                this.state.cursor.col,
+                this.state.lines,
+                this.state.vi.lastSearchBuf,
+                dir === "fw" ? 0 : 1,
+                { ignorecase: this.config.ignorecase },
+            );
+            if (!result) {
+                // 0以外が返る際は呼び出し側でエラーメッセージを表示する
+                return 1;
+            }
+            this.moveCursorToPos(result.row, result.col);
+            return 0;
+        } catch (e) {
+            if (e instanceof SyntaxError) {
+                this.setStatusMsg("Invalid RegExp (try escape with backslashes)")
+                return 0;
+            }
+            throw e;
         }
-        this.moveCursorToPos(result.row, result.col);
-        return 0;
     }
 
     private vi_startMacro(macroChar: MacroChar): void {
