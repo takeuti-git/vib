@@ -554,6 +554,7 @@ export class Editor {
                         for (const ch of firstEle) {
                             this.executeFreeInput(ch);
                         }
+                        this.render();
                     });
                 } break;
             }
@@ -1927,6 +1928,7 @@ export class Editor {
         };
         this.state.vi.callbackAfterProcess = () => {
             this.state.vi.cmd = [":"];
+            this.render();
         };
     }
 
@@ -1938,6 +1940,7 @@ export class Editor {
         };
         this.state.vi.callbackAfterProcess = () => {
             this.state.vi.cmd = dir === "fw" ? ["/"] : ["?"];
+            this.render();
         };
     }
 
