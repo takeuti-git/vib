@@ -418,22 +418,31 @@ export class Editor {
                 }
                 const result = (
                     this.state.vi.state.mode === "normal"
-                        ? this.vi_executeNormal(this.state.vi.cmd)
-                        : this.vi_executeVisual(this.state.vi.cmd)
+                    ? this.vi_executeNormal(this.state.vi.cmd)
+                    : this.vi_executeVisual(this.state.vi.cmd)
                 );
-                this.executeResult(result);
+                switch (result) {
+                    case 1: {
+                        this.setStatusMsg("unknown cmd");
+                        this.resetCmd();
+                    } break;
+                    case 2: {
+                        // wait for next input
+                    } break;
+                    case 0: {
+                        this.resetCmd();
+                        const newText = joinLines(this.state.lines);
+                        this.saveDiff(this.state.diff.lastSnapshot, newText);
+                    } break;
+                }
             } break;
 
             case "insert": {
                 this.processKeypress(input);
-                this.scrollWindow();
-                this.render();
             } break;
 
             case "replace": {
                 this.processKeypress(input, { replace: true });
-                this.scrollWindow();
-                this.render();
             } break;
 
             case "command": {
@@ -449,8 +458,6 @@ export class Editor {
                     const input = freeInput.slice(1).join("");
                     this.state.vi.searchDir = (freeInput[0] === "/") ? "fw" : "bw";
                     const result = this.vi_executeSearch(input, this.state.vi.searchDir);
-                    this.scrollWindow();
-                    this.render();
                     if (result !== 0) {
                         this.setStatusMsg(`Pattern not found: ${input}`);
                     }
@@ -473,28 +480,9 @@ export class Editor {
 
         this.state.vi.callbackAfterProcess?.();
         this.state.vi.callbackAfterProcess = null;
-    }
 
-    private executeResult(result: 0 | 1 | 2): void {
-        if (result === 1) {
-            this.setStatusMsg("unknown cmd");
-            this.resetCmd();
-            return;
-        }
-
-        if (result === 2) {
-            this.render();
-            return;
-        }
-
-        if (result === 0) {
-            this.scrollWindow();
-            this.render();
-            this.resetCmd(); // render後にcmdを初期化
-
-            const newText = joinLines(this.state.lines);
-            this.saveDiff(this.state.diff.lastSnapshot, newText);
-        }
+        this.scrollWindow();
+        this.render();
     }
 
     private executeFreeInput(input: string): string[] | undefined {
@@ -511,7 +499,6 @@ export class Editor {
                     console.log("TODO: Enter to send input");
                     const input = [...this.state.vi.cmd];
                     this.vi_goNormal();
-                    this.render();
                     return input;
                 }
 
@@ -574,7 +561,6 @@ export class Editor {
         if (this.state.vi.cmd.length === 0) {
             this.vi_goNormal();
         }
-        this.render();
     }
 
     private resizeMap: Record<string, () => void> = {
@@ -749,8 +735,6 @@ export class Editor {
             }
         }
         this.vi_moveCursor(MOVE_KEYS.LEFT);
-        this.scrollWindow();
-        this.render();
         this.syncElementValue();
     }
 
@@ -1946,7 +1930,6 @@ export class Editor {
         };
         this.state.vi.callbackAfterProcess = () => {
             this.state.vi.cmd = [":"];
-            this.render();
         };
     }
 
@@ -1958,7 +1941,6 @@ export class Editor {
         };
         this.state.vi.callbackAfterProcess = () => {
             this.state.vi.cmd = dir === "fw" ? ["/"] : ["?"];
-            this.render();
         };
     }
 
