@@ -457,10 +457,7 @@ export class Editor {
                 if (freeInput !== undefined) {
                     const input = freeInput.slice(1).join("");
                     this.state.vi.searchDir = (freeInput[0] === "/") ? "fw" : "bw";
-                    const result = this.vi_executeSearch(input, this.state.vi.searchDir);
-                    if (result !== 0) {
-                        this.setStatusMsg(`Pattern not found: ${input}`);
-                    }
+                    this.vi_executeSearch(input, this.state.vi.searchDir);
                 }
             } break;
 
@@ -478,11 +475,11 @@ export class Editor {
             this.saveDiff(this.state.diff.lastSnapshot, newText);
         }
 
-        this.state.vi.callbackAfterProcess?.();
-        this.state.vi.callbackAfterProcess = null;
-
         this.scrollWindow();
         this.render();
+
+        this.state.vi.callbackAfterProcess?.();
+        this.state.vi.callbackAfterProcess = null;
     }
 
     private executeFreeInput(input: string): string[] | undefined {
@@ -1323,13 +1320,7 @@ export class Editor {
                         "fw"
                     )
                 );
-                const result = this.vi_executeSearch(this.state.vi.lastSearchBuf, dir);
-                if (result !== 0) {
-                    this.state.vi.callbackAfterProcess = () => {
-                        this.setStatusMsg(`Pattern not found: ${this.state.vi.lastSearchBuf}`);
-                    };
-                    break;
-                }
+                this.vi_executeSearch(this.state.vi.lastSearchBuf, dir);
             } break;
 
             default: {
@@ -1616,10 +1607,10 @@ export class Editor {
         return 0;
     }
 
-    private vi_executeSearch(keyword: string, dir: "fw" | "bw"): 0 | 1 {
+    private vi_executeSearch(keyword: string, dir: "fw" | "bw"): void {
         if (keyword === "") {
             if (!this.state.vi.lastSearchBuf) {
-                return 0;
+                return;
             } else {
                 // lastSearchBufをそのままつかう
             }
@@ -1637,17 +1628,19 @@ export class Editor {
                 { ignorecase: this.config.ignorecase },
             );
             if (!result) {
-                // 0以外が返る際は呼び出し側でエラーメッセージを表示する
-                return 1;
+                this.state.vi.callbackAfterProcess = () => {
+                    this.setStatusMsg(`Pattern not found: ${keyword}`);
+                };
+                return;
             }
             this.moveCursorToPos(result.row, result.col);
-            return 0;
+            return;
         } catch (e) {
             if (e instanceof SyntaxError) {
                 this.state.vi.callbackAfterProcess = () => {
                     this.setStatusMsg("Invalid RegExp (use backslashes to escape)")
                 };
-                return 0;
+                return;
             }
             throw e;
         }
