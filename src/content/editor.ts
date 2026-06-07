@@ -492,6 +492,10 @@ export class Editor {
             this.state.vi.state.sBarVisualCol += calcStringWidth(input);
         } else {
             switch (input) {
+                case "<C-c>": {
+                    this.vi_goNormal();
+                } break;
+
                 case "Enter": {
                     console.log("TODO: Enter to send input");
                     const input = [...this.state.vi.cmd];
