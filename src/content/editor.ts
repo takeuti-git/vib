@@ -470,6 +470,9 @@ export class Editor {
             const newText = joinLines(this.state.lines);
             this.saveDiff(this.state.diff.lastSnapshot, newText);
         }
+
+        this.state.vi.callbackAfterProcess?.();
+        this.state.vi.callbackAfterProcess = null;
     }
 
     private executeResult(result: 0 | 1 | 2): void {
@@ -491,9 +494,6 @@ export class Editor {
 
             const newText = joinLines(this.state.lines);
             this.saveDiff(this.state.diff.lastSnapshot, newText);
-
-            this.state.vi.callbackOnSuccess?.();
-            this.state.vi.callbackOnSuccess = null;
         }
     }
 
@@ -1341,7 +1341,7 @@ export class Editor {
                 );
                 const result = this.vi_executeSearch(this.state.vi.lastSearchBuf, dir);
                 if (result !== 0) {
-                    this.state.vi.callbackOnSuccess = () => {
+                    this.state.vi.callbackAfterProcess = () => {
                         this.setStatusMsg(`Pattern not found: ${this.state.vi.lastSearchBuf}`);
                     };
                     break;
@@ -1660,7 +1660,9 @@ export class Editor {
             return 0;
         } catch (e) {
             if (e instanceof SyntaxError) {
-                this.setStatusMsg("Invalid RegExp (try escape with backslashes)")
+                this.state.vi.callbackAfterProcess = () => {
+                    this.setStatusMsg("Invalid RegExp (use backslashes to escape)")
+                };
                 return 0;
             }
             throw e;
@@ -1942,7 +1944,7 @@ export class Editor {
             sBarCol: 1, // 初期文字分(:)を加算
             sBarVisualCol: 1, // 初期文字分(:)を加算
         };
-        this.state.vi.callbackOnSuccess = () => {
+        this.state.vi.callbackAfterProcess = () => {
             this.state.vi.cmd = [":"];
             this.render();
         };
@@ -1954,7 +1956,7 @@ export class Editor {
             sBarCol: 1,
             sBarVisualCol: 1,
         };
-        this.state.vi.callbackOnSuccess = () => {
+        this.state.vi.callbackAfterProcess = () => {
             this.state.vi.cmd = dir === "fw" ? ["/"] : ["?"];
             this.render();
         };

@@ -52,7 +52,7 @@ type ViEditorState = {
     yankLinewise: boolean;
     lastFindMotion: { name: FindCommandName; arg: string } | null;
     scrollAmount: number; // 一部のコマンド入力によるスクロールの行数
-    callbackOnSuccess: (() => void) | null;
+    callbackAfterProcess: (() => void) | null;
     macro: ViMacroState;
     lastSearchBuf: string | null;
     searchDir: "fw" | "bw";
@@ -148,7 +148,7 @@ export function createEditorState(config: Readonly<EditorConfig>): EditorState {
                 lastPlayed: null,
                 callback: null,
             },
-            callbackOnSuccess: null,
+            callbackAfterProcess: null,
             lastSearchBuf: null,
             searchDir: "fw",
         },
@@ -180,7 +180,7 @@ export function resetState(state: EditorState, config: Readonly<EditorConfig>): 
     state.vi.yankLinewise = false;
     state.vi.lastFindMotion = null;
     state.vi.scrollAmount = getHalfScreenRows(config);
-    state.vi.callbackOnSuccess = null;
+    state.vi.callbackAfterProcess = null;
 
     state.vi.macro.recording = null;
     state.vi.macro.callback = null;
