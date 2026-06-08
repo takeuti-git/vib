@@ -1325,7 +1325,9 @@ export class Editor {
                         "fw"
                     )
                 );
-                this.vi_executeSearch(this.state.vi.lastSearchBuf, dir);
+                for (let i = 0; i < count; i++) {
+                    this.vi_executeSearch(this.state.vi.lastSearchBuf, dir);
+                }
             } break;
 
             default: {
@@ -1634,12 +1636,11 @@ export class Editor {
             );
             if (!result) {
                 this.state.vi.callbackAfterProcess = () => {
-                    this.setStatusMsg(`Pattern not found: ${keyword}`);
+                    this.setStatusMsg(`Pattern not found: ${this.state.vi.lastSearchBuf}`);
                 };
                 return;
             }
             this.moveCursorToPos(result.row, result.col);
-            return;
         } catch (e) {
             if (e instanceof SyntaxError) {
                 this.state.vi.callbackAfterProcess = () => {
