@@ -16,7 +16,7 @@ function buildRegex(pattern: string, flags: string): RegExp {
     }
 }
 
-function searchKeyword(
+export function searchKeyword(
     lines: Readonly<Line[]>,
     keyword: string,
     { ignorecase = false }: Partial<SearchOptions>,
@@ -34,32 +34,28 @@ function searchKeyword(
     return result;
 }
 
-export function getKeywordPos(
+export function getClosestPos(
+    positions: Position[],
     row: number,
     col: number,
-    lines: Readonly<Line[]>,
-    keyword: string,
     dir: 0 | 1,
-    opts: Partial<SearchOptions> = {},
-): Position | undefined {
-    const results = searchKeyword(lines, keyword, opts);
-    if (results.length === 0) return undefined;
-
+): { position: Position; index: number; } {
     if (dir === 0) {
-        for (let i = 0; i < results.length; i++) {
-            const p = results[i]!;
+        for (let i = 0; i < positions.length; i++) {
+            const p = positions[i]!;
             if ((p.row > row) || (p.row === row && p.col > col)) {
-                return p;
+                return { position: p, index: i };
             }
         }
-        return results[0]; // 最後の要素から折り返したとき、最初の要素にもどって来る
+        return { position: positions[0]!, index: 0 }; // 最後の要素から折り返したとき、最初の要素にもどって来る
     } else {
-        for (let i = results.length - 1; i >= 0; i--) {
-            const p = results[i]!;
+        for (let i = positions.length - 1; i >= 0; i--) {
+            const p = positions[i]!;
             if ((p.row < row) || (p.row === row && p.col < col)) {
-                return p;
+                return { position: p, index: i };
             }
         }
-        return results[results.length - 1]; // 最後の要素から折り返したとき、最後の要素が結果になる
+        const lastIndex = positions.length - 1;
+        return { position: positions[lastIndex]!, index: lastIndex }; // 最後の要素から折り返したとき、最後の要素が結果になる
     }
 }

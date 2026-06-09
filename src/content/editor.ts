@@ -29,7 +29,7 @@ import { OperatorName } from "./myvim/operator";
 import { NormalCmdType } from "./myvim/normal";
 import { VisualCmdType } from "./myvim/visual";
 import { isValidMacroChar, type MacroChar } from "./myvim/macro";
-import { getKeywordPos } from "./myvim/search";
+import { searchKeyword, getClosestPos } from "./myvim/search";
 
 function toExclusiveTextRange(start: InclusivePos, end: InclusivePos, linewise: boolean): TextRange {
     if (linewise) {
@@ -1626,21 +1626,24 @@ export class Editor {
         }
 
         try {
-            const result = getKeywordPos(
-                this.state.cursor.row,
-                this.state.cursor.col,
+            const positions = searchKeyword(
                 this.state.lines,
                 this.state.vi.lastSearchBuf,
-                dir === "fw" ? 0 : 1,
-                { ignorecase: this.config.ignorecase },
+                { ignorecase: this.config.ignorecase }
             );
-            if (!result) {
+            if (positions.length === 0) {
                 this.state.vi.callbackAfterProcess = () => {
                     this.setStatusMsg(`Pattern not found: ${this.state.vi.lastSearchBuf}`);
                 };
                 return;
             }
-            this.moveCursorToPos(result.row, result.col);
+            const dest = getClosestPos(
+                positions,
+                this.state.cursor.row,
+                this.state.cursor.col,
+                dir === "fw" ? 0 : 1,
+            );
+            this.moveCursorToPos(dest.position.row, dest.position.col);
         } catch (e) {
             if (e instanceof SyntaxError) {
                 this.state.vi.callbackAfterProcess = () => {
