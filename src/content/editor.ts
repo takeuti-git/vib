@@ -1643,6 +1643,9 @@ export class Editor {
                 this.state.cursor.col,
                 dir === "fw" ? 0 : 1,
             );
+            this.state.vi.callbackAfterProcess = () => {
+                this.setStatusMsg(`[${dest.index + 1}/${positions.length}]`);
+            };
             this.moveCursorToPos(dest.position.row, dest.position.col);
         } catch (e) {
             if (e instanceof SyntaxError) {
