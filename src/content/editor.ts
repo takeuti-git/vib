@@ -1629,7 +1629,7 @@ export class Editor {
             const positions = searchKeyword(
                 this.state.lines,
                 this.state.vi.lastSearchBuf,
-                { ignorecase: this.config.ignorecase }
+                { ignorecase: this.config.ignorecase, smartcase: this.config.smartcase }
             );
             if (positions.length === 0) {
                 this.state.vi.callbackAfterProcess = () => {

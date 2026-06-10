@@ -41,6 +41,7 @@ export type EditorConfig = {
     lineHeightPadding: number;
 
     ignorecase: boolean;
+    smartcase: boolean;
 
     colors: EditorColors;
 };
@@ -65,6 +66,7 @@ export function createEditorConfig(): EditorConfig {
         lineHeightPadding: 2,
 
         ignorecase: true,
+        smartcase: true,
 
         colors: {
             background: {

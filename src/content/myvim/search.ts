@@ -4,6 +4,7 @@ import { enumerate } from "../utils";
 
 type SearchOptions = {
     ignorecase: boolean;
+    smartcase: boolean;
 };
 
 /** `(!`のような値を受け取るとSyntax Errorになる */
@@ -19,10 +20,14 @@ function buildRegex(pattern: string, flags: string): RegExp {
 export function searchKeyword(
     lines: Readonly<Line[]>,
     keyword: string,
-    { ignorecase = false }: Partial<SearchOptions>,
+    { ignorecase = false, smartcase = false }: Partial<SearchOptions>,
 ): Position[] {
-    const opts = (ignorecase) ? "gi" : "g";
-    const regex = buildRegex(keyword, opts);
+    const flags = (
+        (smartcase && ignorecase) ? (
+            (keyword.toLowerCase() === keyword) ? "gi" : "g"
+        ) : (ignorecase) ? "gi" : "g"
+    );
+    const regex = buildRegex(keyword, flags);
     const result: Position[] = [];
 
     for (const [line, i] of enumerate(lines)) {
