@@ -9,12 +9,7 @@ type SearchOptions = {
 
 /** `(!`のような値を受け取るとSyntax Errorになる */
 function buildRegex(pattern: string, flags: string): RegExp {
-    try {
-        return new RegExp(pattern, flags);
-    } catch (e) {
-        console.error(e);
-        throw e;
-    }
+    return new RegExp(pattern, flags);
 }
 
 export function searchKeyword(

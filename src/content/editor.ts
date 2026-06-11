@@ -1625,37 +1625,43 @@ export class Editor {
             this.state.vi.lastSearchBuf = keyword;
         }
 
-        try {
-            const positions = searchKeyword(
-                this.state.lines,
-                this.state.vi.lastSearchBuf,
-                { ignorecase: this.config.ignorecase, smartcase: this.config.smartcase }
-            );
-            if (positions.length === 0) {
-                this.state.vi.callbackAfterProcess = () => {
-                    this.setStatusMsg(`Pattern not found: ${this.state.vi.lastSearchBuf}`);
-                };
-                return;
+        const positions = (() => {
+            try {
+                return searchKeyword(
+                    this.state.lines,
+                    this.state.vi.lastSearchBuf,
+                    { ignorecase: this.config.ignorecase, smartcase: this.config.smartcase },
+                );
+            } catch (e) {
+                if (e instanceof SyntaxError) return null;
+                throw e;
             }
-            const dest = getClosestPos(
-                positions,
-                this.state.cursor.row,
-                this.state.cursor.col,
-                dir === "fw" ? 0 : 1,
-            );
+        })();
+
+        if (positions === null) {
             this.state.vi.callbackAfterProcess = () => {
-                this.setStatusMsg(`[${dest.index + 1}/${positions.length}]`);
+                this.setStatusMsg("Invalid RegExp (use backslashes to escape)")
             };
-            this.moveCursorToPos(dest.position.row, dest.position.col);
-        } catch (e) {
-            if (e instanceof SyntaxError) {
-                this.state.vi.callbackAfterProcess = () => {
-                    this.setStatusMsg("Invalid RegExp (use backslashes to escape)")
-                };
-                return;
-            }
-            throw e;
+            return;
         }
+
+        if (positions.length === 0) {
+            this.state.vi.callbackAfterProcess = () => {
+                this.setStatusMsg(`Pattern not found: ${this.state.vi.lastSearchBuf}`);
+            };
+            return;
+        }
+
+        const dest = getClosestPos(
+            positions,
+            this.state.cursor.row,
+            this.state.cursor.col,
+            dir === "fw" ? 0 : 1,
+        );
+        this.moveCursorToPos(dest.position.row, dest.position.col);
+        this.state.vi.callbackAfterProcess = () => {
+            this.setStatusMsg(`[${dest.index + 1}/${positions.length}]`);
+        };
     }
 
     private vi_startMacro(macroChar: MacroChar): void {
