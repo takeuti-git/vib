@@ -1315,7 +1315,7 @@ export class Editor {
             case NormalCmdType.SEARCH_PREV: {
                 // SEARCH_NEXTは記憶した方向に対してそのまま
                 // SEARCH_PREVは記憶した方向の逆
-                if (!this.state.vi.lastSearchBuf) break;
+                if (!this.state.vi.lastSearchKeyword) break;
                 const dir = (
                     (datatype === NormalCmdType.SEARCH_NEXT) ?
                     this.state.vi.searchDir :
@@ -1326,7 +1326,7 @@ export class Editor {
                     )
                 );
                 for (let i = 0; i < count; i++) {
-                    this.vi_executeSearch(this.state.vi.lastSearchBuf, dir);
+                    this.vi_executeSearch(this.state.vi.lastSearchKeyword, dir);
                 }
             } break;
 
@@ -1616,25 +1616,32 @@ export class Editor {
 
     private vi_executeSearch(keyword: string, dir: "fw" | "bw"): void {
         if (keyword === "") {
-            if (!this.state.vi.lastSearchBuf) {
-                return;
-            } else {
-                // lastSearchBufをそのままつかう
-            }
-        } else {
-            this.state.vi.lastSearchBuf = keyword;
+            return;
         }
+        if (keyword !== this.state.vi.lastSearchKeyword) {
+            this.state.vi.searchDirty = true;
+        }
+        this.state.vi.lastSearchKeyword = keyword;
 
         const positions = (() => {
-            try {
-                return searchKeyword(
-                    this.state.lines,
-                    this.state.vi.lastSearchBuf,
-                    { ignorecase: this.config.ignorecase, smartcase: this.config.smartcase },
-                );
-            } catch (e) {
-                if (e instanceof SyntaxError) return null;
-                throw e;
+            if (!this.state.vi.searchDirty) {
+                return this.state.vi.lastSearchBuf;
+            } else {
+                this.state.vi.searchDirty = false;
+                try {
+                    this.state.vi.lastSearchBuf = searchKeyword(
+                        this.state.lines,
+                        this.state.vi.lastSearchKeyword,
+                        { ignorecase: this.config.ignorecase, smartcase: this.config.smartcase },
+                    );
+                    return this.state.vi.lastSearchBuf;
+                } catch (e) {
+                    if (e instanceof SyntaxError) {
+                        this.state.vi.lastSearchBuf = [];
+                        return null;
+                    }
+                    throw e;
+                }
             }
         })();
 
@@ -1647,7 +1654,7 @@ export class Editor {
 
         if (positions.length === 0) {
             this.state.vi.callbackAfterProcess = () => {
-                this.setStatusMsg(`Pattern not found: ${this.state.vi.lastSearchBuf}`);
+                this.setStatusMsg(`Pattern not found: ${this.state.vi.lastSearchKeyword}`);
             };
             return;
         }
@@ -2449,7 +2456,9 @@ export class Editor {
     // ------------------------------
 
     private saveDiff(oldText: string, newText: string): void {
-        saveDiff(this.state, oldText, newText);
+        if (saveDiff(this.state, oldText, newText)) {
+            this.state.vi.searchDirty = true;
+        }
     }
 
     private undo(): string | void {
@@ -2462,6 +2471,7 @@ export class Editor {
         this.state.cursor.col = cursor.col;
         this.clampCursor();
         this.state.cursor.prefVisualCol = this.state.cursor.visualCol;
+        this.state.vi.searchDirty = true;
     }
 
     private redo(): string | void {
@@ -2471,5 +2481,6 @@ export class Editor {
             return;
         }
         this.moveCursorToPos(cursor.row, cursor.col);
+        this.state.vi.searchDirty = true;
     }
 }

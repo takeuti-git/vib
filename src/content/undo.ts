@@ -53,14 +53,18 @@ function revertPatch(lines: Line[], hunks: Hunk[]): void {
     }
 }
 
-export function saveDiff(state: Pick<EditorState, "cursor" | "diff">, oldText: string, newText: string): void {
+export function saveDiff(
+    state: Pick<EditorState, "cursor" | "diff">,
+    oldText: string,
+    newText: string
+): boolean {
     if (state.diff.disableSave) {
         state.diff.disableSave = false;
-        return;
+        return false;
     }
 
     if (oldText === newText) {
-        return;
+        return false;
     }
 
     const element: DiffStackElement = {
@@ -72,6 +76,7 @@ export function saveDiff(state: Pick<EditorState, "cursor" | "diff">, oldText: s
     state.diff.lastSnapshot = newText;
     state.diff.stackPtr++;
     state.diff.stack.length = state.diff.stackPtr; // ptr以降の要素を切り捨て, undo後に編集すると以降の履歴を削除する
+    return true;
 }
 
 export function undo(state: Pick<EditorState, "lines" | "diff">): Position | undefined {

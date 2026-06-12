@@ -5,7 +5,7 @@ import type { InsertCommand } from "./myvim/insert";
 import { createMacroTable, type MacroChar, type MacroTable } from "./myvim/macro";
 import type { MotionContext } from "./myvim/motion";
 import type { OperatorName } from "./myvim/operator";
-import type { InclusivePos } from "./types/motion";
+import type { InclusivePos, Position } from "./types/motion";
 import type { DiffStackElement } from "./types/patch";
 
 type RepeatableCmd = { count: number } & (
@@ -54,8 +54,10 @@ type ViEditorState = {
     scrollAmount: number; // 一部のコマンド入力によるスクロールの行数
     callbackAfterProcess: (() => void) | null;
     macro: ViMacroState;
-    lastSearchBuf: string | null;
+    lastSearchBuf: Position[];
+    lastSearchKeyword: string | null;
     searchDir: "fw" | "bw";
+    searchDirty: boolean;
 };
 
 type ViMacroState = {
@@ -149,8 +151,10 @@ export function createEditorState(config: Readonly<EditorConfig>): EditorState {
                 callback: null,
             },
             callbackAfterProcess: null,
-            lastSearchBuf: null,
+            lastSearchBuf: [],
+            lastSearchKeyword: null,
             searchDir: "fw",
+            searchDirty: true,
         },
     };
 }
