@@ -54,10 +54,7 @@ type ViEditorState = {
     scrollAmount: number; // 一部のコマンド入力によるスクロールの行数
     callbackAfterProcess: (() => void) | null;
     macro: ViMacroState;
-    lastSearchBuf: Position[];
-    lastSearchKeyword: string | null;
-    searchDir: "fw" | "bw";
-    searchDirty: boolean;
+    search: ViSearchState;
 };
 
 type ViMacroState = {
@@ -65,6 +62,13 @@ type ViMacroState = {
     recording: MacroChar | null;
     lastPlayed: MacroChar | null;
     callback: (() => void) | null;
+};
+
+type ViSearchState = {
+    lastKeyword: string | null;
+    lastResults: Position[];
+    direction: "fw" | "bw";
+    dirty: boolean; // 検索系操作の際に、正規表現検索を新しく行うかどうか
 };
 
 type Satisfies<Constraint, Target extends Constraint> = Target;
@@ -151,10 +155,12 @@ export function createEditorState(config: Readonly<EditorConfig>): EditorState {
                 callback: null,
             },
             callbackAfterProcess: null,
-            lastSearchBuf: [],
-            lastSearchKeyword: null,
-            searchDir: "fw",
-            searchDirty: true,
+            search: {
+                lastKeyword: null,
+                lastResults: [],
+                direction: "fw",
+                dirty: true,
+            },
         },
     };
 }
@@ -188,4 +194,8 @@ export function resetState(state: EditorState, config: Readonly<EditorConfig>): 
 
     state.vi.macro.recording = null;
     state.vi.macro.callback = null;
+
+    state.vi.search.lastResults = [];
+    state.vi.search.direction = "fw";
+    state.vi.search.dirty = true;
 }

@@ -456,8 +456,8 @@ export class Editor {
                 const freeInput = this.executeFreeInput(input);
                 if (freeInput !== undefined) {
                     const input = freeInput.slice(1).join("");
-                    this.state.vi.searchDir = (freeInput[0] === "/") ? "fw" : "bw";
-                    this.vi_executeSearch(input, this.state.vi.searchDir);
+                    this.state.vi.search.direction = (freeInput[0] === "/") ? "fw" : "bw";
+                    this.vi_executeSearch(input, this.state.vi.search.direction);
                 }
             } break;
 
@@ -1315,18 +1315,18 @@ export class Editor {
             case NormalCmdType.SEARCH_PREV: {
                 // SEARCH_NEXTは記憶した方向に対してそのまま
                 // SEARCH_PREVは記憶した方向の逆
-                if (!this.state.vi.lastSearchKeyword) break;
+                if (!this.state.vi.search.lastKeyword) break;
                 const dir = (
                     (datatype === NormalCmdType.SEARCH_NEXT) ?
-                    this.state.vi.searchDir :
+                    this.state.vi.search.direction :
                     (
-                        (this.state.vi.searchDir === "fw") ?
+                        (this.state.vi.search.direction === "fw") ?
                         "bw" :
                         "fw"
                     )
                 );
                 for (let i = 0; i < count; i++) {
-                    this.vi_executeSearch(this.state.vi.lastSearchKeyword, dir);
+                    this.vi_executeSearch(this.state.vi.search.lastKeyword, dir);
                 }
             } break;
 
@@ -1618,26 +1618,26 @@ export class Editor {
         if (keyword === "") {
             return;
         }
-        if (keyword !== this.state.vi.lastSearchKeyword) {
-            this.state.vi.searchDirty = true;
+        if (keyword !== this.state.vi.search.lastKeyword) {
+            this.state.vi.search.dirty = true;
         }
-        this.state.vi.lastSearchKeyword = keyword;
+        this.state.vi.search.lastKeyword = keyword;
 
         const positions = (() => {
-            if (!this.state.vi.searchDirty) {
-                return this.state.vi.lastSearchBuf;
+            if (!this.state.vi.search.dirty) {
+                return this.state.vi.search.lastResults;
             } else {
-                this.state.vi.searchDirty = false;
+                this.state.vi.search.dirty = false;
                 try {
-                    this.state.vi.lastSearchBuf = searchKeyword(
+                    this.state.vi.search.lastResults = searchKeyword(
                         this.state.lines,
-                        this.state.vi.lastSearchKeyword,
+                        this.state.vi.search.lastKeyword,
                         { ignorecase: this.config.ignorecase, smartcase: this.config.smartcase },
                     );
-                    return this.state.vi.lastSearchBuf;
+                    return this.state.vi.search.lastResults;
                 } catch (e) {
                     if (e instanceof SyntaxError) {
-                        this.state.vi.lastSearchBuf = [];
+                        this.state.vi.search.lastResults = [];
                         return null;
                     }
                     throw e;
@@ -1654,7 +1654,7 @@ export class Editor {
 
         if (positions.length === 0) {
             this.state.vi.callbackAfterProcess = () => {
-                this.setStatusMsg(`Pattern not found: ${this.state.vi.lastSearchKeyword}`);
+                this.setStatusMsg(`Pattern not found: ${this.state.vi.search.lastKeyword}`);
             };
             return;
         }
@@ -2457,7 +2457,7 @@ export class Editor {
 
     private saveDiff(oldText: string, newText: string): void {
         if (saveDiff(this.state, oldText, newText)) {
-            this.state.vi.searchDirty = true;
+            this.state.vi.search.dirty = true;
         }
     }
 
@@ -2471,7 +2471,7 @@ export class Editor {
         this.state.cursor.col = cursor.col;
         this.clampCursor();
         this.state.cursor.prefVisualCol = this.state.cursor.visualCol;
-        this.state.vi.searchDirty = true;
+        this.state.vi.search.dirty = true;
     }
 
     private redo(): string | void {
@@ -2481,6 +2481,6 @@ export class Editor {
             return;
         }
         this.moveCursorToPos(cursor.row, cursor.col);
-        this.state.vi.searchDirty = true;
+        this.state.vi.search.dirty = true;
     }
 }
