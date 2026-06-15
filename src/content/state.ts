@@ -67,6 +67,7 @@ type ViMacroState = {
 type ViSearchState = {
     lastKeyword: string | null;
     lastResults: Position[];
+    lastResultsMap: Record<number, number[]>;
     direction: "fw" | "bw";
     dirty: boolean; // 検索系操作の際に、正規表現検索を新しく行うかどうか
 };
@@ -158,6 +159,7 @@ export function createEditorState(config: Readonly<EditorConfig>): EditorState {
             search: {
                 lastKeyword: null,
                 lastResults: [],
+                lastResultsMap: {},
                 direction: "fw",
                 dirty: true,
             },

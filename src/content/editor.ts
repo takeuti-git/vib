@@ -1629,11 +1629,22 @@ export class Editor {
             } else {
                 this.state.vi.search.dirty = false;
                 try {
-                    this.state.vi.search.lastResults = searchKeyword(
+                    const results = searchKeyword(
                         this.state.lines,
                         this.state.vi.search.lastKeyword,
                         { ignorecase: this.config.ignorecase, smartcase: this.config.smartcase },
                     );
+                    this.state.vi.search.lastResults = results;
+
+                    const grouped: Record<number, number[]> = {};
+                    for (const p of results) {
+                        if (!grouped[p.row]) grouped[p.row] = [];
+                        grouped[p.row]!.push(p.col);
+                        // (grouped[p.row] ??= []).push(p.col);
+                    }
+
+                    this.state.vi.search.lastResultsMap = grouped;
+                    console.log(grouped)
                     return this.state.vi.search.lastResults;
                 } catch (e) {
                     if (e instanceof SyntaxError) {
