@@ -1636,15 +1636,14 @@ export class Editor {
                     );
                     this.state.vi.search.lastResults = results;
 
-                    const grouped: Record<number, number[]> = {};
+                    const grouped: typeof this.state.vi.search.lastResultsMap = {};
                     for (const p of results) {
                         if (!grouped[p.row]) grouped[p.row] = [];
-                        grouped[p.row]!.push(p.col);
+                        grouped[p.row]!.push({ col: p.col, length: p.length });
                         // (grouped[p.row] ??= []).push(p.col);
                     }
 
                     this.state.vi.search.lastResultsMap = grouped;
-                    console.log(grouped)
                     return this.state.vi.search.lastResults;
                 } catch (e) {
                     if (e instanceof SyntaxError) {

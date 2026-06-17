@@ -12,23 +12,25 @@ function buildRegex(pattern: string, flags: string): RegExp {
     return new RegExp(pattern, flags);
 }
 
+type PositionWithLength = Position & { length: number; };
+
 export function searchKeyword(
     lines: Readonly<Line[]>,
     keyword: string,
     { ignorecase = false, smartcase = false }: Partial<SearchOptions>,
-): Position[] {
+): PositionWithLength[] {
     const flags = (
         (smartcase && ignorecase) ? (
             (keyword.toLowerCase() === keyword) ? "gi" : "g"
         ) : (ignorecase) ? "gi" : "g"
     );
     const regex = buildRegex(keyword, flags);
-    const result: Position[] = [];
+    const result: PositionWithLength[] = [];
 
     for (const [line, i] of enumerate(lines)) {
         const matches = [...line.text.matchAll(regex)];
         for (const m of matches) {
-            result.push({ row: i, col: m.index });
+            result.push({ row: i, col: m.index, length: m[0].length });
         }
     }
     return result;
