@@ -1,7 +1,7 @@
 import type { EditorConfig } from "./config";
 import type { EditorState, VisualState } from "./state";
 import type { Line } from "./line";
-import { enumerate, isFullWidth, stringWidthToCol } from "./utils";
+import { calcStringWidth, enumerate, isFullWidth, stringWidthToCol } from "./utils";
 
 type DrawingOptions = {
     stroke: boolean;
@@ -257,6 +257,30 @@ export class Renderer {
             }
         } else {
             this.drawString(x, y, offsetText, this.config.colors.text.normal, true);
+        }
+
+        if (state.vi.search.lastKeyword) {
+            const matchesInRow = state.vi.search.lastResultsMap[lineNumber];
+            if (!matchesInRow) return;
+            const halfFontSize = this.halfFontSize;
+
+            for (const { col, length } of matchesInRow) {
+                const textUntilCol = text.slice(0, col);
+                const widthUntilCol = calcStringWidth(textUntilCol);
+
+                const x_ = Math.max(x, x + widthUntilCol * halfFontSize - (state.scroll.visualColoff * halfFontSize));
+                const y_ = y - this.halfLineHeight;
+                const w = (
+                    this.calcWidth(text.slice(col, col + length)) -
+                    this.calcWidth(text.slice(col, startCol)) -
+                    (leftOverflow ? halfFontSize : 0)
+                );
+                const h = this.lineHeight;
+
+                if (w <= 0) continue;
+                this.ctx.strokeStyle = this.config.colors.cursor.body;
+                this.ctx.strokeRect(x_, y_, w, h);
+            }
         }
     }
 
