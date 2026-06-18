@@ -352,6 +352,7 @@ export class Editor {
             const resize = this.resizeMap[e.key];
             if (resize) {
                 resize();
+                this.scrollWindow();
                 this.updateCanvas();
                 return;
             }
