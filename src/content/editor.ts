@@ -395,10 +395,15 @@ export class Editor {
     private vi_executeKeypress(input: string): void {
         if (input === "Escape") {
             this.vi_goNormal();
-            this.render();
 
             const newText = joinLines(this.state.lines);
             this.saveDiff(this.state.diff.lastSnapshot, newText);
+
+            if (this.state.vi.search.lastKeyword) {
+                this.vi_tryUpdateSearchResults(this.state.vi.search.lastKeyword);
+            }
+
+            this.render();
             return;
         }
 
@@ -439,10 +444,12 @@ export class Editor {
 
             case "insert": {
                 this.processKeypress(input);
+                this.state.vi.search.dirty = true;
             } break;
 
             case "replace": {
                 this.processKeypress(input, { replace: true });
+                this.state.vi.search.dirty = true;
             } break;
 
             case "command": {
@@ -473,6 +480,10 @@ export class Editor {
             macroCallbackTemp();
             const newText = joinLines(this.state.lines);
             this.saveDiff(this.state.diff.lastSnapshot, newText);
+        }
+
+        if (this.state.vi.search.lastKeyword) {
+            this.vi_tryUpdateSearchResults(this.state.vi.search.lastKeyword);
         }
 
         this.scrollWindow();
@@ -1614,6 +1625,38 @@ export class Editor {
         return 0;
     }
 
+    private vi_tryUpdateSearchResults(keyword: string) {
+        if (!this.state.vi.search.dirty) {
+            return this.state.vi.search.lastResults;
+        }
+        this.state.vi.search.dirty = false;
+        try {
+            const results = searchKeyword(
+                this.state.lines,
+                keyword,
+                { ignorecase: this.config.ignorecase, smartcase: this.config.smartcase },
+            );
+            this.state.vi.search.lastResults = results;
+
+            const grouped: typeof this.state.vi.search.lastResultsMap = {};
+            for (const p of results) {
+                if (!grouped[p.row]) grouped[p.row] = [];
+                grouped[p.row]!.push({ col: p.col, length: p.length });
+                // (grouped[p.row] ??= []).push(p.col);
+            }
+
+            this.state.vi.search.lastResultsMap = grouped;
+            return this.state.vi.search.lastResults;
+        } catch (e) {
+            if (e instanceof SyntaxError) {
+                this.state.vi.search.lastResults = [];
+                this.state.vi.search.lastResultsMap = {};
+                return null;
+            }
+            throw e;
+        }
+    }
+
     private vi_executeSearch(keyword: string, dir: "fw" | "bw"): void {
         if (keyword === "") {
             return;
@@ -1623,37 +1666,7 @@ export class Editor {
         }
         this.state.vi.search.lastKeyword = keyword;
 
-        const positions = (() => {
-            if (!this.state.vi.search.dirty) {
-                return this.state.vi.search.lastResults;
-            } else {
-                this.state.vi.search.dirty = false;
-                try {
-                    const results = searchKeyword(
-                        this.state.lines,
-                        this.state.vi.search.lastKeyword,
-                        { ignorecase: this.config.ignorecase, smartcase: this.config.smartcase },
-                    );
-                    this.state.vi.search.lastResults = results;
-
-                    const grouped: typeof this.state.vi.search.lastResultsMap = {};
-                    for (const p of results) {
-                        if (!grouped[p.row]) grouped[p.row] = [];
-                        grouped[p.row]!.push({ col: p.col, length: p.length });
-                        // (grouped[p.row] ??= []).push(p.col);
-                    }
-
-                    this.state.vi.search.lastResultsMap = grouped;
-                    return this.state.vi.search.lastResults;
-                } catch (e) {
-                    if (e instanceof SyntaxError) {
-                        this.state.vi.search.lastResults = [];
-                        return null;
-                    }
-                    throw e;
-                }
-            }
-        })();
+        const positions = this.vi_tryUpdateSearchResults(keyword);
 
         if (positions === null) {
             this.state.vi.callbackAfterProcess = () => {
