@@ -1634,23 +1634,14 @@ export class Editor {
             return this.state.vi.search.lastResults;
         }
         this.state.vi.search.dirty = false;
+
+        let results: ReturnType<typeof searchKeyword>;
         try {
-            const results = searchKeyword(
+            results = searchKeyword(
                 this.state.lines,
                 keyword,
                 { ignorecase: this.config.ignorecase, smartcase: this.config.smartcase },
             );
-            this.state.vi.search.lastResults = results;
-
-            const grouped: typeof this.state.vi.search.lastResultsMap = {};
-            for (const p of results) {
-                if (!grouped[p.row]) grouped[p.row] = [];
-                grouped[p.row]!.push({ col: p.col, length: p.length });
-                // (grouped[p.row] ??= []).push(p.col);
-            }
-
-            this.state.vi.search.lastResultsMap = grouped;
-            return this.state.vi.search.lastResults;
         } catch (e) {
             if (e instanceof SyntaxError) {
                 this.state.vi.search.lastResults = [];
@@ -1659,6 +1650,18 @@ export class Editor {
             }
             throw e;
         }
+
+        const grouped: typeof this.state.vi.search.lastResultsMap = {};
+        for (const p of results) {
+            if (!grouped[p.row]) grouped[p.row] = [];
+            grouped[p.row]!.push({ col: p.col, length: p.length });
+            // (grouped[p.row] ??= []).push(p.col);
+        }
+
+        this.state.vi.search.lastResults = results;
+        this.state.vi.search.lastResultsMap = grouped;
+
+        return this.state.vi.search.lastResults;
     }
 
     private vi_executeSearch(keyword: string, dir: "fw" | "bw"): void {
