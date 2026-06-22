@@ -1049,6 +1049,10 @@ export class Editor {
             const newText = joinLines(this.state.lines);
             this.saveDiff(this.state.diff.lastSnapshot, newText);
 
+            if (this.state.vi.search.lastKeyword) {
+                this.vi_tryUpdateSearchResults(this.state.vi.search.lastKeyword);
+            }
+
             this.scrollWindow();
             this.render();
         });
