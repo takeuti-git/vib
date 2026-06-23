@@ -110,7 +110,7 @@ export class Renderer {
     }
 
     private drawCursor(state: EditorState): void {
-        if (state.vi.state.mode === "command") {
+        if (state.vi.state.mode === "command" || state.vi.state.mode === "search") {
             this.drawCursorAtStatusBar(state);
         } else {
             if (state.cursor.row >= state.scroll.rowoff + this.config.screenrows - 1) {
@@ -129,7 +129,8 @@ export class Renderer {
     }
 
     private drawCursorAtStatusBar(state: EditorState): void {
-        if (state.vi.state.mode !== "command") throw new Error("mode is not command");
+        if (state.vi.state.mode !== "command" && state.vi.state.mode !== "search")
+            throw new Error(`unexpected mode: ${state.vi.state.mode}`);
 
         const x = state.vi.state.sBarVisualCol * this.halfFontSize;
         const y = (this.config.screenrows - 1) * this.lineHeight;
@@ -157,7 +158,7 @@ export class Renderer {
     private drawStatusBar(state: EditorState, text: string): void {
         this.drawStatusBarBg();
 
-        if (state.vi.state.mode === "command") {
+        if (state.vi.state.mode === "command" || state.vi.state.mode === "search") {
             this.drawString(0, this.bottomTextY, text, this.config.colors.text.statusBar);
         } else {
             const modeLabel = (state.vi.state.mode === "visual" && state.vi.state.linewise)
@@ -256,6 +257,34 @@ export class Renderer {
             }
         } else {
             this.drawString(x, y, offsetText, this.config.colors.text.normal, true);
+        }
+
+        if (state.vi.search.highlight && state.vi.search.lastKeyword) {
+            const matchesInRow = state.vi.search.lastResultsMap[lineNumber];
+            if (!matchesInRow) return;
+            const halfFontSize = this.halfFontSize;
+            const lineHeight = this.lineHeight;
+
+            for (const { col, length } of matchesInRow) {
+                const textUntilCol = text.slice(0, col);
+                const widthUntilCol = this.calcWidth(textUntilCol)
+
+                const x_ = Math.max(
+                    x,
+                    x + widthUntilCol - (state.scroll.visualColoff * halfFontSize)
+                );
+                const y_ = y - this.halfLineHeight;
+                const w = (
+                    this.calcWidth(text.slice(col, col + length)) -
+                    this.calcWidth(text.slice(col, startCol)) -
+                    (leftOverflow ? halfFontSize : 0)
+                );
+                const h = lineHeight;
+
+                if (w <= 0) continue;
+                this.ctx.strokeStyle = this.config.colors.cursor.body;
+                this.ctx.strokeRect(x_, y_, w, h);
+            }
         }
     }
 

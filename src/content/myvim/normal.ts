@@ -10,6 +10,7 @@ export const NormalCmdType = {
     GO_REPLACE:  "go_replace", // モードの移行
     GO_VISUAL:   "go_visual",
     GO_COMMAND:   "go_command",
+    GO_SEARCH:   "go_search",
     OPERATOR:    "operator",
     MOTION:      "motion",
     PUT:         "put",
@@ -29,6 +30,8 @@ export const NormalCmdType = {
     MACRO_REPEAT: "MACRO_REPEAT",
     INCREMENT:   "INCREMENT",
     DECREMENT:   "DECREMENT",
+    SEARCH_NEXT: "SEARCH_NEXT",
+    SEARCH_PREV: "SEARCH_PREV",
 } as const;
 
 type NormalCmdType = (typeof NormalCmdType)[keyof typeof NormalCmdType];
@@ -39,6 +42,7 @@ export type NormalCmdContext = { count: Count } & (
     | { type: typeof NormalCmdType.GO_REPLACE; }
     | { type: typeof NormalCmdType.GO_VISUAL; linewise: boolean; }
     | { type: typeof NormalCmdType.GO_COMMAND; }
+    | { type: typeof NormalCmdType.GO_SEARCH; dir: "fw" | "bw" }
     | { type: typeof NormalCmdType.OPERATOR; operator: OperatorName; innerCount: Count; motion: MotionContext; }
     | { type: typeof NormalCmdType.MOTION; motion: MotionContext }
     | { type: typeof NormalCmdType.PUT; position: PutPosition }
@@ -58,6 +62,8 @@ export type NormalCmdContext = { count: Count } & (
     | { type: typeof NormalCmdType.MACRO_REPEAT; }
     | { type: typeof NormalCmdType.INCREMENT; }
     | { type: typeof NormalCmdType.DECREMENT; }
+    | { type: typeof NormalCmdType.SEARCH_NEXT; }
+    | { type: typeof NormalCmdType.SEARCH_PREV; }
 );
 
 type PutPosition = "before" | "after";

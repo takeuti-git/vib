@@ -5,7 +5,7 @@ import type { InsertCommand } from "./myvim/insert";
 import { createMacroTable, type MacroChar, type MacroTable } from "./myvim/macro";
 import type { MotionContext } from "./myvim/motion";
 import type { OperatorName } from "./myvim/operator";
-import type { InclusivePos } from "./types/motion";
+import type { InclusivePos, Position } from "./types/motion";
 import type { DiffStackElement } from "./types/patch";
 
 type RepeatableCmd = { count: number } & (
@@ -52,8 +52,9 @@ type ViEditorState = {
     yankLinewise: boolean;
     lastFindMotion: { name: FindCommandName; arg: string } | null;
     scrollAmount: number; // 一部のコマンド入力によるスクロールの行数
-    callbackOnSuccess: (() => void) | null;
+    callbackAfterProcess: (() => void) | null;
     macro: ViMacroState;
+    search: ViSearchState;
 };
 
 type ViMacroState = {
@@ -63,11 +64,20 @@ type ViMacroState = {
     callback: (() => void) | null;
 };
 
+type ViSearchState = {
+    lastKeyword: string | null;
+    lastResults: Position[];
+    lastResultsMap: Record<number, { col: number; length: number}[]>;
+    direction: "fw" | "bw";
+    dirty: boolean; // 検索系操作の際に、正規表現検索を新しく行うかどうか
+    highlight: boolean; // ESCでハイライトを無効化するなどに使う
+};
+
 type Satisfies<Constraint, Target extends Constraint> = Target;
 
 type ViState = Satisfies<
     { mode: string },
-    NormalState | InsertState | ReplaceState | VisualState | CommandState
+    NormalState | InsertState | ReplaceState | VisualState | CommandState | SearchState
 >;
 
 type NormalState = {
@@ -98,6 +108,15 @@ type CommandState = {
     sBarCol: number;
     /** statusBarVisualCol */
     sBarVisualCol: number;
+};
+
+type SearchState = {
+    mode: "search";
+    /** statusBarCol */
+    sBarCol: number;
+    /** statusBarVisualCol */
+    sBarVisualCol: number;
+    // direction: "forward" | "backward";
 };
 
 export function createEditorState(config: Readonly<EditorConfig>): EditorState {
@@ -137,7 +156,15 @@ export function createEditorState(config: Readonly<EditorConfig>): EditorState {
                 lastPlayed: null,
                 callback: null,
             },
-            callbackOnSuccess: null,
+            callbackAfterProcess: null,
+            search: {
+                lastKeyword: null,
+                lastResults: [],
+                lastResultsMap: {},
+                direction: "fw",
+                dirty: true,
+                highlight: false,
+            },
         },
     };
 }
@@ -167,8 +194,12 @@ export function resetState(state: EditorState, config: Readonly<EditorConfig>): 
     state.vi.yankLinewise = false;
     state.vi.lastFindMotion = null;
     state.vi.scrollAmount = getHalfScreenRows(config);
-    state.vi.callbackOnSuccess = null;
+    state.vi.callbackAfterProcess = null;
 
     state.vi.macro.recording = null;
     state.vi.macro.callback = null;
+
+    state.vi.search.lastResults = [];
+    state.vi.search.direction = "fw";
+    state.vi.search.dirty = true;
 }

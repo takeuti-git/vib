@@ -29,6 +29,7 @@ import { OperatorName } from "./myvim/operator";
 import { NormalCmdType } from "./myvim/normal";
 import { VisualCmdType } from "./myvim/visual";
 import { isValidMacroChar, type MacroChar } from "./myvim/macro";
+import { searchKeyword, getClosestPos } from "./myvim/search";
 
 function toExclusiveTextRange(start: InclusivePos, end: InclusivePos, linewise: boolean): TextRange {
     if (linewise) {
@@ -393,11 +394,19 @@ export class Editor {
 
     private vi_executeKeypress(input: string): void {
         if (input === "Escape") {
+            if (this.state.vi.state.mode === "normal") {
+                this.state.vi.search.highlight = false;
+            }
             this.vi_goNormal();
-            this.render();
 
             const newText = joinLines(this.state.lines);
             this.saveDiff(this.state.diff.lastSnapshot, newText);
+
+            if (this.state.vi.search.lastKeyword) {
+                this.vi_tryUpdateSearchResults(this.state.vi.search.lastKeyword);
+            }
+
+            this.render();
             return;
         }
 
@@ -417,28 +426,48 @@ export class Editor {
                 }
                 const result = (
                     this.state.vi.state.mode === "normal"
-                        ? this.vi_executeNormal(this.state.vi.cmd)
-                        : this.vi_executeVisual(this.state.vi.cmd)
+                    ? this.vi_executeNormal(this.state.vi.cmd)
+                    : this.vi_executeVisual(this.state.vi.cmd)
                 );
-                this.executeResult(result);
+                switch (result) {
+                    case 1: {
+                        this.setStatusMsg("unknown cmd");
+                        this.resetCmd();
+                    } break;
+                    case 2: {
+                        // wait for next input
+                    } break;
+                    case 0: {
+                        this.resetCmd();
+                        const newText = joinLines(this.state.lines);
+                        this.saveDiff(this.state.diff.lastSnapshot, newText);
+                    } break;
+                }
             } break;
 
             case "insert": {
                 this.processKeypress(input);
-                this.scrollWindow();
-                this.render();
+                this.state.vi.search.dirty = true;
             } break;
 
             case "replace": {
                 this.processKeypress(input, { replace: true });
-                this.scrollWindow();
-                this.render();
+                this.state.vi.search.dirty = true;
             } break;
 
             case "command": {
                 const freeInput = this.executeFreeInput(input);
                 if (freeInput !== undefined) {
-                    console.log("free input is:", freeInput);
+                    console.log("free input:", freeInput);
+                }
+            } break;
+
+            case "search": {
+                const freeInput = this.executeFreeInput(input);
+                if (freeInput !== undefined) {
+                    const input = freeInput.slice(1).join("");
+                    this.state.vi.search.direction = (freeInput[0] === "/") ? "fw" : "bw";
+                    this.vi_executeSearch(input, this.state.vi.search.direction);
                 }
             } break;
 
@@ -455,36 +484,23 @@ export class Editor {
             const newText = joinLines(this.state.lines);
             this.saveDiff(this.state.diff.lastSnapshot, newText);
         }
-    }
 
-    private executeResult(result: 0 | 1 | 2): void {
-        if (result === 1) {
-            this.setStatusMsg("unknown cmd");
-            this.resetCmd();
-            return;
+        if (this.state.vi.search.lastKeyword) {
+            this.vi_tryUpdateSearchResults(this.state.vi.search.lastKeyword);
         }
 
-        if (result === 2) {
-            this.render();
-            return;
-        }
+        this.scrollWindow();
+        this.render();
 
-        if (result === 0) {
-            this.scrollWindow();
-            this.render();
-            this.resetCmd(); // render後にcmdを初期化
-
-            const newText = joinLines(this.state.lines);
-            this.saveDiff(this.state.diff.lastSnapshot, newText);
-
-            this.state.vi.callbackOnSuccess?.();
-            this.state.vi.callbackOnSuccess = null;
+        if (this.state.vi.callbackAfterProcess) {
+            this.state.vi.callbackAfterProcess();
+            this.state.vi.callbackAfterProcess = null;
         }
     }
 
     private executeFreeInput(input: string): string[] | undefined {
-        if (this.state.vi.state.mode !== "command") {
-            throw new Error("state.vi_state.mode is not command");
+        if (this.state.vi.state.mode !== "command" && this.state.vi.state.mode !== "search") {
+            throw new Error(`unexpected mode: ${this.state.vi.state.mode}`);
         }
         if (input.length === 1) {
             this.state.vi.cmd.splice(this.state.vi.state.sBarCol, 0, input);
@@ -492,11 +508,14 @@ export class Editor {
             this.state.vi.state.sBarVisualCol += calcStringWidth(input);
         } else {
             switch (input) {
+                case "<C-c>": {
+                    this.vi_goNormal();
+                } break;
+
                 case "Enter": {
                     console.log("TODO: Enter to send input");
                     const input = [...this.state.vi.cmd];
                     this.vi_goNormal();
-                    this.render();
                     return input;
                 }
 
@@ -551,6 +570,7 @@ export class Editor {
                         for (const ch of firstEle) {
                             this.executeFreeInput(ch);
                         }
+                        this.render();
                     });
                 } break;
             }
@@ -559,7 +579,6 @@ export class Editor {
         if (this.state.vi.cmd.length === 0) {
             this.vi_goNormal();
         }
-        this.render();
     }
 
     private resizeMap: Record<string, () => void> = {
@@ -734,8 +753,6 @@ export class Editor {
             }
         }
         this.vi_moveCursor(MOVE_KEYS.LEFT);
-        this.scrollWindow();
-        this.render();
         this.syncElementValue();
     }
 
@@ -1037,6 +1054,10 @@ export class Editor {
             const newText = joinLines(this.state.lines);
             this.saveDiff(this.state.diff.lastSnapshot, newText);
 
+            if (this.state.vi.search.lastKeyword) {
+                this.vi_tryUpdateSearchResults(this.state.vi.search.lastKeyword);
+            }
+
             this.scrollWindow();
             this.render();
         });
@@ -1304,6 +1325,29 @@ export class Editor {
 
             case NormalCmdType.GO_COMMAND: {
                 this.vi_goCommand();
+            } break;
+
+            case NormalCmdType.GO_SEARCH: {
+                this.vi_goSearch(data.dir);
+            } break;
+
+            case NormalCmdType.SEARCH_NEXT:
+            case NormalCmdType.SEARCH_PREV: {
+                // SEARCH_NEXTは記憶した方向に対してそのまま
+                // SEARCH_PREVは記憶した方向の逆
+                if (!this.state.vi.search.lastKeyword) break;
+                const dir = (
+                    (datatype === NormalCmdType.SEARCH_NEXT) ?
+                    this.state.vi.search.direction :
+                    (
+                        (this.state.vi.search.direction === "fw") ?
+                        "bw" :
+                        "fw"
+                    )
+                );
+                for (let i = 0; i < count; i++) {
+                    this.vi_executeSearch(this.state.vi.search.lastKeyword, dir);
+                }
             } break;
 
             default: {
@@ -1590,6 +1634,79 @@ export class Editor {
         return 0;
     }
 
+    private vi_tryUpdateSearchResults(keyword: string) {
+        if (!this.state.vi.search.dirty) {
+            return this.state.vi.search.lastResults;
+        }
+        this.state.vi.search.dirty = false;
+
+        let results: ReturnType<typeof searchKeyword>;
+        try {
+            results = searchKeyword(
+                this.state.lines,
+                keyword,
+                { ignorecase: this.config.ignorecase, smartcase: this.config.smartcase },
+            );
+        } catch (e) {
+            if (e instanceof SyntaxError) {
+                this.state.vi.search.lastResults = [];
+                this.state.vi.search.lastResultsMap = {};
+                return null;
+            }
+            throw e;
+        }
+
+        const grouped: typeof this.state.vi.search.lastResultsMap = {};
+        for (const p of results) {
+            if (!grouped[p.row]) grouped[p.row] = [];
+            grouped[p.row]!.push({ col: p.col, length: p.length });
+            // (grouped[p.row] ??= []).push(p.col);
+        }
+
+        this.state.vi.search.lastResults = results;
+        this.state.vi.search.lastResultsMap = grouped;
+
+        return this.state.vi.search.lastResults;
+    }
+
+    private vi_executeSearch(keyword: string, dir: "fw" | "bw"): void {
+        if (keyword === "") {
+            return;
+        }
+        if (keyword !== this.state.vi.search.lastKeyword) {
+            this.state.vi.search.dirty = true;
+        }
+        this.state.vi.search.lastKeyword = keyword;
+        this.state.vi.search.highlight = true;
+
+        const positions = this.vi_tryUpdateSearchResults(keyword);
+
+        if (positions === null) {
+            this.state.vi.callbackAfterProcess = () => {
+                this.setStatusMsg("Invalid RegExp (use backslashes to escape)")
+            };
+            return;
+        }
+
+        if (positions.length === 0) {
+            this.state.vi.callbackAfterProcess = () => {
+                this.setStatusMsg(`Pattern not found: ${this.state.vi.search.lastKeyword}`);
+            };
+            return;
+        }
+
+        const dest = getClosestPos(
+            positions,
+            this.state.cursor.row,
+            this.state.cursor.col,
+            dir === "fw" ? 0 : 1,
+        );
+        this.moveCursorToPos(dest.position.row, dest.position.col);
+        this.state.vi.callbackAfterProcess = () => {
+            this.setStatusMsg(`[${dest.index + 1}/${positions.length}]`);
+        };
+    }
+
     private vi_startMacro(macroChar: MacroChar): void {
         this.state.vi.macro.recording = macroChar;
         this.state.vi.macro.table[macroChar] = [];
@@ -1865,8 +1982,20 @@ export class Editor {
             sBarCol: 1, // 初期文字分(:)を加算
             sBarVisualCol: 1, // 初期文字分(:)を加算
         };
-        this.state.vi.callbackOnSuccess = () => {
+        this.state.vi.callbackAfterProcess = () => {
             this.state.vi.cmd = [":"];
+            this.render();
+        };
+    }
+
+    private vi_goSearch(dir: "fw" | "bw"): void {
+        this.state.vi.state = {
+            mode: "search",
+            sBarCol: 1,
+            sBarVisualCol: 1,
+        };
+        this.state.vi.callbackAfterProcess = () => {
+            this.state.vi.cmd = dir === "fw" ? ["/"] : ["?"];
             this.render();
         };
     }
@@ -2363,7 +2492,9 @@ export class Editor {
     // ------------------------------
 
     private saveDiff(oldText: string, newText: string): void {
-        saveDiff(this.state, oldText, newText);
+        if (saveDiff(this.state, oldText, newText)) {
+            this.state.vi.search.dirty = true;
+        }
     }
 
     private undo(): string | void {
@@ -2376,6 +2507,7 @@ export class Editor {
         this.state.cursor.col = cursor.col;
         this.clampCursor();
         this.state.cursor.prefVisualCol = this.state.cursor.visualCol;
+        this.state.vi.search.dirty = true;
     }
 
     private redo(): string | void {
@@ -2385,5 +2517,6 @@ export class Editor {
             return;
         }
         this.moveCursorToPos(cursor.row, cursor.col);
+        this.state.vi.search.dirty = true;
     }
 }
