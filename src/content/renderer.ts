@@ -259,7 +259,7 @@ export class Renderer {
             this.drawString(x, y, offsetText, this.config.colors.text.normal, true);
         }
 
-        if (state.vi.search.lastKeyword) {
+        if (state.vi.search.highlight && state.vi.search.lastKeyword) {
             const matchesInRow = state.vi.search.lastResultsMap[lineNumber];
             if (!matchesInRow) return;
             const halfFontSize = this.halfFontSize;

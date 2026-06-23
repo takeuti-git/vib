@@ -394,6 +394,9 @@ export class Editor {
 
     private vi_executeKeypress(input: string): void {
         if (input === "Escape") {
+            if (this.state.vi.state.mode === "normal") {
+                this.state.vi.search.highlight = false;
+            }
             this.vi_goNormal();
 
             const newText = joinLines(this.state.lines);
@@ -1672,6 +1675,7 @@ export class Editor {
             this.state.vi.search.dirty = true;
         }
         this.state.vi.search.lastKeyword = keyword;
+        this.state.vi.search.highlight = true;
 
         const positions = this.vi_tryUpdateSearchResults(keyword);
 

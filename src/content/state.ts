@@ -70,6 +70,7 @@ type ViSearchState = {
     lastResultsMap: Record<number, { col: number; length: number}[]>;
     direction: "fw" | "bw";
     dirty: boolean; // 検索系操作の際に、正規表現検索を新しく行うかどうか
+    highlight: boolean; // ESCでハイライトを無効化するなどに使う
 };
 
 type Satisfies<Constraint, Target extends Constraint> = Target;
@@ -162,6 +163,7 @@ export function createEditorState(config: Readonly<EditorConfig>): EditorState {
                 lastResultsMap: {},
                 direction: "fw",
                 dirty: true,
+                highlight: false,
             },
         },
     };
