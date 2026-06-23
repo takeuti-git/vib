@@ -263,6 +263,7 @@ export class Renderer {
             const matchesInRow = state.vi.search.lastResultsMap[lineNumber];
             if (!matchesInRow) return;
             const halfFontSize = this.halfFontSize;
+            const lineHeight = this.lineHeight;
 
             for (const { col, length } of matchesInRow) {
                 const textUntilCol = text.slice(0, col);
@@ -275,7 +276,7 @@ export class Renderer {
                     this.calcWidth(text.slice(col, startCol)) -
                     (leftOverflow ? halfFontSize : 0)
                 );
-                const h = this.lineHeight;
+                const h = lineHeight;
 
                 if (w <= 0) continue;
                 this.ctx.strokeStyle = this.config.colors.cursor.body;
