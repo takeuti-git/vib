@@ -492,8 +492,10 @@ export class Editor {
         this.scrollWindow();
         this.render();
 
-        this.state.vi.callbackAfterProcess?.();
-        this.state.vi.callbackAfterProcess = null;
+        if (this.state.vi.callbackAfterProcess) {
+            this.state.vi.callbackAfterProcess();
+            this.state.vi.callbackAfterProcess = null;
+        }
     }
 
     private executeFreeInput(input: string): string[] | undefined {
