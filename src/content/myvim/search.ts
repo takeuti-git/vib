@@ -7,11 +7,6 @@ type SearchOptions = {
     smartcase: boolean;
 };
 
-/** `(!`のような値を受け取るとSyntax Errorになる */
-function buildRegex(pattern: string, flags: string): RegExp {
-    return new RegExp(pattern, flags);
-}
-
 type PositionWithLength = Position & { length: number; };
 
 export function searchKeyword(
@@ -24,7 +19,7 @@ export function searchKeyword(
             (keyword.toLowerCase() === keyword) ? "gi" : "g"
         ) : (ignorecase) ? "gi" : "g"
     );
-    const regex = buildRegex(keyword, flags);
+    const regex = new RegExp(keyword, flags);
     const result: PositionWithLength[] = [];
 
     for (const [line, i] of enumerate(lines)) {
