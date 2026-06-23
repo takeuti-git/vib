@@ -1,7 +1,7 @@
 import type { EditorConfig } from "./config";
 import type { EditorState, VisualState } from "./state";
 import type { Line } from "./line";
-import { calcStringWidth, enumerate, isFullWidth, stringWidthToCol } from "./utils";
+import { enumerate, isFullWidth, stringWidthToCol } from "./utils";
 
 type DrawingOptions = {
     stroke: boolean;
@@ -267,9 +267,12 @@ export class Renderer {
 
             for (const { col, length } of matchesInRow) {
                 const textUntilCol = text.slice(0, col);
-                const widthUntilCol = calcStringWidth(textUntilCol);
+                const widthUntilCol = this.calcWidth(textUntilCol)
 
-                const x_ = Math.max(x, x + widthUntilCol * halfFontSize - (state.scroll.visualColoff * halfFontSize));
+                const x_ = Math.max(
+                    x,
+                    x + widthUntilCol - (state.scroll.visualColoff * halfFontSize)
+                );
                 const y_ = y - this.halfLineHeight;
                 const w = (
                     this.calcWidth(text.slice(col, col + length)) -
